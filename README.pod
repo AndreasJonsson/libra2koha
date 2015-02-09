@@ -1,0 +1,74 @@
+=pod
+
+=head1 NAME
+
+libra2koha - Tools for migrating data from the Libra ILS to Koha. 
+
+=head1 DATA FROM LIBRA
+
+After you get your data exported from Libra, you get a bunch of .txt files. 
+Most of these follow this pattern:
+
+=over 4
+
+=item * Something.txt - data from the table Something.
+
+=item * Somethingspec.txt - specification of the columns in the Something table.
+
+=back
+
+Files that do not follow this pattern:
+
+=over 4
+
+=item * exportCatMatch.txt - don't know what this is yet
+
+=item * exportCat.txt - bibliographic records in some variataion of 
+mnemonic/line mode MARC format
+
+=back
+
+=head1 WORKFLOW
+
+The tools in this package are based on the following workflows:
+
+=head2 Bibliograpic records
+
+Currently, records are just converted from mnemonic/line format to MARCXML. 
+Much work remains TODO. 
+
+=head2 Other data
+
+All the data that is not bibliographic will go through a 3 step process:
+
+=over 4
+
+=item * Normalization and loading into a MySQL database. This is done by the
+script F<libra2db.sh>, which is almost complete. 
+
+=item * Massage the data in the database. TODO
+
+=item * Extract the data in formats suitable for importing into Koha. TODO
+
+=back
+
+=head1 AUTHOR
+
+Magnus Enger, Libriotech
+
+=head1 LICENSE
+
+This program is free software: you can redistribute it and/or modify
+it under the terms of the GNU General Public License as published by
+the Free Software Foundation, either version 3 of the License, or
+(at your option) any later version.
+
+This program is distributed in the hope that it will be useful,
+but WITHOUT ANY WARRANTY; without even the implied warranty of
+MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+GNU General Public License for more details.
+
+You should have received a copy of the GNU General Public License
+along with this program. If not, see <http://www.gnu.org/licenses/>. 
+
+=cut

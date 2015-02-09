@@ -1,0 +1,8 @@
+-- [% tablename %]
+DROP TABLE IF EXISTS `[% tablename %]`;
+CREATE TABLE `[% tablename %]` (
+[% FOREACH col IN columns -%]
+    `[% col.name %]` [% col.type %][% IF col.size %]([% col.size %])[% END %][% UNLESS loop.last %],[% END %]
+[% END -%]
+) ENGINE=InnoDB DEFAULT CHARSET=utf8;
+LOAD DATA LOCAL INFILE '[% dirs %][% tablename %].txt' INTO TABLE [% tablename %] CHARACTER SET utf8 FIELDS TERMINATED BY '!*!' [% IF tablename == 'Borrowers' %]LINES TERMINATED BY '\r\n'[% END %];
