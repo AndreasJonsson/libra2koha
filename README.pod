@@ -52,6 +52,29 @@ script F<libra2db.sh>, which is almost complete.
 
 =back
 
+=head1 DATABASE
+
+The scripts are currently hardcoded to use a database on localhost with the
+following credentials:
+
+=over 4
+
+=item * databasename = libra2koha
+
+=item * username = libra2koha
+
+=item * password = pass
+
+=back
+
+If you have MySQL installed, you should be able to create the necessary database
+and user with the following commands:
+
+  $ mysql -u root -p
+  mysql> create database libra2koha;
+  mysql> grant all privileges on libra2koha.* to 'libra2koha'@'localhost' identified by 'pass';
+  mysql> flush privileges;
+
 =head1 AUTHOR
 
 Magnus Enger, Libriotech
