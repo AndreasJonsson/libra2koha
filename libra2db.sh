@@ -15,7 +15,8 @@ if [ ! -d "$DIR/bib/" ]; then
     mkdir "$DIR/bib/"
 fi
 echo -n "Going to convert bibliographic records to MARCXML... "
-perl ~/scripts/libriotools/line2iso.pl -i $DIR/exportCat.txt -x -l 1 > "$DIR/bib/raw-records.marcxml"
+# FIXME Path to line2iso.pl should not be hardcoded
+perl ~/scripts/libriotools/line2iso.pl -i $DIR/exportCat.txt -x --rn > "$DIR/bib/raw-records.marcxml"
 echo "done"
 
 # Fix encoding of Something.txt and Somethingspec.txt files 
