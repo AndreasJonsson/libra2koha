@@ -11,9 +11,9 @@ Most of these follow this pattern:
 
 =over 4
 
-=item * Something.txt - data from the table Something.
+=item * F<Something.txt> - data from the table Something.
 
-=item * Somethingspec.txt - specification of the columns in the Something table.
+=item * F<Somethingspec.txt> - specification of the columns in the Something table.
 
 =back
 
@@ -21,10 +21,14 @@ Files that do not follow this pattern:
 
 =over 4
 
-=item * exportCatMatch.txt - don't know what this is yet
-
-=item * exportCat.txt - bibliographic records in some variataion of 
+=item * F<exportCat.txt> - bibliographic records in some variataion of 
 mnemonic/line mode MARC format
+
+=item * F<exportCatMatch.txt> - mapping between IdCat (a simple, numeric
+identifier used to connect e.g. items to records (via Items.IdCat)) and the
+concatenated contents of 001 and 003. So if you know the 001 and 003 of a record
+you can concatenate that and look it up in this file, and get the numeric
+identifier that you can use to look up items connected to the record.
 
 =back
 
