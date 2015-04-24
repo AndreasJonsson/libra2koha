@@ -1,0 +1,9 @@
+---
+
+# Main configuration file for libra2db
+
+# Database configuration
+
+db_dsn:  'dbi:mysql:database=libra2koha;host=localhost;port=3306'
+db_user: 'libra2koha'
+db_pass: 'pass'
