@@ -134,7 +134,7 @@ YYYY-MM-DD
 
 =cut
 
-        $field952->add_subfields( 'd', $item->{'RegDate'} ) if $item->{'RegDate'};
+        $field952->add_subfields( 'd', fix_date( $item->{'RegDate'} ) ) if $item->{'RegDate'};
 
 =head3 952$h Serial enumeration caption
 
@@ -262,6 +262,23 @@ sub get_options {
  
     return ( $input_file, $limit, $verbose, $debug );
  
+}
+
+## Internal subroutines.
+
+# If these are needed elswhere they should be moved to some kind of include.
+
+# Takes: YYYYMMDD
+# Returns: YYYY-MM-DD
+
+sub fix_date {
+
+    my ( $d ) = @_;
+    my $year  = substr $d, 0, 4;
+    my $month = substr $d, 4, 2;
+    my $day   = substr $d, 6, 2;
+    return "$year-$month-$day";
+
 }
  
 =head1 AUTHOR
