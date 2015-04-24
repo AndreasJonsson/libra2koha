@@ -48,6 +48,7 @@ my $ttconfig = {
 # create Template object
 my $tt2 = Template->new( $ttconfig ) || die Template->error(), "\n";
 
+# Find all the *spec.txt files and turn them into database tables
 my @files = File::Find::Rule->file()->name( '*spec.txt' )->in( $indir );
 foreach my $file ( @files ) {
 
@@ -69,6 +70,13 @@ foreach my $file ( @files ) {
     $tt2->process( 'create_tables.tt', $vars ) || die $tt2->error();
 
 }
+
+# TODO Special treatment for exportCatMatch.txt
+my @columns;
+push @columns, { 'name' => 'IdCat', 'type' => 'int', 'size' => '12' };
+push @columns, { 'name' => 'ThreeOne', 'type' => 'text', 'size' => '32' };
+my $vars = { 'dirs' => "$dir/", 'tablename' => 'exportCatMatch', 'columns' => \@columns, 'sep' => ', ' };
+$tt2->process( 'create_tables.tt', $vars ) || die $tt2->error();
 
 =head1 OPTIONS
 
