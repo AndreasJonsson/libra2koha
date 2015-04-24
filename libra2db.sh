@@ -16,7 +16,7 @@ if [ ! -d "$DIR/bib/" ]; then
 fi
 echo -n "Going to convert bibliographic records to MARCXML... "
 # FIXME Path to line2iso.pl should not be hardcoded
-perl ~/scripts/libriotools/line2iso.pl -i $DIR/exportCat.txt -x --rn > "$DIR/bib/raw-records.marcxml"
+perl ~/scripts/libriotools/line2iso.pl -i $DIR/exportCat.txt -x --rn -l 1000 > "$DIR/bib/raw-records.marcxml"
 echo "done"
 
 # Fix encoding of Something.txt and Somethingspec.txt files 
@@ -40,7 +40,7 @@ perl -pi -e '$/=undef; s/\r\n\r\n//g' "$DIR/utf8/Borrowers.txt"
 perl -pi -e '$/=undef; s/\r\n/\n/g'   "$DIR/utf8/Borrowers.txt"
 
 # Create tables and load the datafiles
-echo -n "Going to load data into MySQL... "
+echo -n "Going to create tables and load data into MySQL... "
 cd $SCRIPTDIR
 perl ./create_tables.pl --dir $DIR > ./tables.sql
 mysql --local-infile -u libra2koha -ppass libra2koha < ./tables.sql 
