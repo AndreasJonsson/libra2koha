@@ -1,0 +1,7 @@
+---
+
+# Mapping from Branches.IdBRanchCode in Libra to branchcodes in Koha
+
+'001': 'BIB'
+'002': 'MAG'
+'003': 'SKOLA'
