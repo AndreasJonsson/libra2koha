@@ -102,7 +102,7 @@ Build up new items in 952.
     }
     my $recordid = lc "$f003$f001";
     say "$f003 + $f001 = $recordid" if $verbose;
-    # FIXME Look up items by recordid in the DB and add them to our record
+    # Look up items by recordid in the DB and add them to our record
     $sth->execute( $recordid );
     my $items = $sth->fetchall_arrayref({});
     ITEM: foreach my $item ( @{ $items } ) {
