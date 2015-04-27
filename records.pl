@@ -91,6 +91,9 @@ RECORD: while (my $record = $batch->next()) {
 
 Build up new items in 952.
 
+Comments in quotes below are taken from this document:
+L<http://wiki.koha-community.org/wiki/Holdings_data_fields_%289xx%29>
+
 =cut
 
     next RECORD unless $record->field( '001' ) && $record->field( '003' );
@@ -111,7 +114,7 @@ Build up new items in 952.
 
 =head3 952$a and 952$b Homebranch and holdingbranch (mandatory)
 
-Code must be defined in System Administration > Libraries, Branches and Groups.
+"Code must be defined in System Administration > Libraries, Branches and Groups."
 
 =cut
 
@@ -122,7 +125,7 @@ Code must be defined in System Administration > Libraries, Branches and Groups.
 
 =head3 952$c Shelving location
 
-Coded value, matching the authorized value list 'LOC'.
+"Coded value, matching the authorized value list 'LOC'."
 
 =cut
 
@@ -149,11 +152,11 @@ To see which prices occur in the data:
 
 =head3 952$l Total Checkouts
 
-TODO
+"Total number of checkouts. Display only field."
 
 =cut
 
-        # $field952->add_subfields( 'l', $item->{''} ) if $item->{''};
+        $field952->add_subfields( 'l', $item->{'NoOfLoansTot'} ) if $item->{'NoOfLoansTot'};
         
 =head3 952$m Total Renewals
 
