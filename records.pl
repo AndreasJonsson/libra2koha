@@ -136,13 +136,16 @@ YYYY-MM-DD
 
         $field952->add_subfields( 'd', fix_date( $item->{'RegDate'} ) ) if $item->{'RegDate'};
 
-=head3 952$g  Purchase price
+=head3 952$g  Purchase price + 952$v Replacement price
 
-TODO
+To see which prices occur in the data:
+
+  SELECT Price, count(*) AS count FROM Items WHERE Price != 0 GROUP BY price;
 
 =cut
 
-        # $field952->add_subfields( 'g', $item->{''} ) if $item->{''};
+        $field952->add_subfields( 'g', $item->{'Price'} ) if $item->{'Price'};
+        $field952->add_subfields( 'v', $item->{'Price'} ) if $item->{'Price'};
 
 =head3 952$h Serial enumeration caption
 
@@ -215,14 +218,6 @@ TODO
 =cut
 
         # $field952->add_subfields( 't', $item->{''} ) if $item->{''};
-
-=head3 952$v Replacement price
-
-TODO
-
-=cut
-
-        # $field952->add_subfields( 'v', $item->{''} ) if $item->{''};
 
 =head3 952$x Non-public note
 
