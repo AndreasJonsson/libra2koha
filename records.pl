@@ -199,7 +199,7 @@ From BarCodes.Barcode.
 
         $field952->add_subfields( 's', fix_date( $item->{'LatestLoanDate'} ) ) if $item->{'LatestLoanDate'};
 
-=head3 952$x Non-public note
+=head3 952$x     Non-public note
 
 "Internal staff note."
 
@@ -220,21 +220,31 @@ TODO Uses the mapping in itemtypes.yaml.
         $field952->add_subfields( 'y', 'FIXME' );
         # $last_itemtype = $itemtype;
 
-=head3 952$0 Withdrawn status
-
-TODO
-
-=cut
-
-        # $field952->add_subfields( '0', $item->{''} ) if $item->{''};
-
 =head3 952$1 Lost status
 
-TODO
+"Status of the item, connect with the authorised values list 'LOST'"
+
+To see what codes are available in Libra:
+
+  SELECT IdStatusCode, StatusCode, Name FROM StatusCodes;
+
+To see what codes are used in the items:
+
+  SELECT IdStatusCode, COUNT(*) FROM Items GROUP BY IdStatusCode;
+
+How often the codes are used, with names:
+
+  SELECT Items.IdStatusCode, StatusCodes.Name, COUNT(*) AS count
+  FROM Items, StatusCodes
+  WHERE Items.IdStatusCode = StatusCodes.IdStatusCode
+  GROUP BY Items.IdStatusCode;
+
+FIXME This should be done with a mapping file!
 
 =cut
 
-        # $field952->add_subfields( '1', $item->{''} ) if $item->{''};
+        # TODO
+        # $field952->add_subfields( '1', '1' ) if $item->{'IdStatusCode'} == 2;
 
 =head3 952$2 Source of classification or shelving scheme
 
