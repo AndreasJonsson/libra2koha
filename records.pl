@@ -136,6 +136,14 @@ YYYY-MM-DD
 
         $field952->add_subfields( 'd', fix_date( $item->{'RegDate'} ) ) if $item->{'RegDate'};
 
+=head3 952$g  Purchase price
+
+TODO
+
+=cut
+
+        # $field952->add_subfields( 'g', $item->{''} ) if $item->{''};
+
 =head3 952$h Serial enumeration caption
 
 Issue, volume etc for serial items.
@@ -143,6 +151,30 @@ Issue, volume etc for serial items.
 =cut
 
         $field952->add_subfields( 'h', 'FIXME' );
+
+=head3 952$l Total Checkouts
+
+TODO
+
+=cut
+
+        # $field952->add_subfields( 'l', $item->{''} ) if $item->{''};
+        
+=head3 952$m Total Renewals
+
+TODO
+
+=cut
+
+        # $field952->add_subfields( 'm', $item->{''} ) if $item->{''};
+        
+=head3 952$n Total Holds
+
+TODO
+
+=cut
+
+        # $field952->add_subfields( 'n', $item->{''} ) if $item->{''};
 
 =head3 952$o Call number
 
@@ -160,6 +192,38 @@ From BarCodes.Barcode.
 
     $field952->add_subfields( 'p', $item->{'BarCode'} ) if $item->{'BarCode'};
 
+=head3 952$r Date last seen
+
+TODO
+
+=cut
+
+        # $field952->add_subfields( 'r', $item->{''} ) if $item->{''};
+
+=head3 952$s Date last checked out
+
+TODO
+
+=cut
+
+        # $field952->add_subfields( 's', $item->{''} ) if $item->{''};
+        
+=head3 952$t Copy number
+
+TODO
+
+=cut
+
+        # $field952->add_subfields( 't', $item->{''} ) if $item->{''};
+
+=head3 952$v Replacement price
+
+TODO
+
+=cut
+
+        # $field952->add_subfields( 'v', $item->{''} ) if $item->{''};
+
 =head3 952$x Non-public note
 
 TODO
@@ -176,6 +240,46 @@ TODO Uses the mapping in itemtypes.yaml.
 
         $field952->add_subfields( 'y', 'FIXME' );
         # $last_itemtype = $itemtype;
+
+=head3 952$0 Withdrawn status
+
+TODO
+
+=cut
+
+        # $field952->add_subfields( '0', $item->{''} ) if $item->{''};
+
+=head3 952$1 Lost status
+
+TODO
+
+=cut
+
+        # $field952->add_subfields( '1', $item->{''} ) if $item->{''};
+
+=head3 952$2 Source of classification or shelving scheme
+
+TODO
+
+=cut
+
+        # $field952->add_subfields( '2', $item->{''} ) if $item->{''};
+
+=head3 952$4 Damaged status
+
+TODO
+
+=cut
+
+        # $field952->add_subfields( '4', $item->{''} ) if $item->{''};
+
+=head3 952$7 Not for loan
+
+TODO
+
+=cut
+
+        # $field952->add_subfields( 'd', $item->{''} ) if $item->{''};
 
 =head3 952$8 Collection code
 
