@@ -160,7 +160,9 @@ To see which prices occur in the data:
         
 =head3 952$o Call number
 
-TODO
+To see what is present in the data:
+
+  SELECT Location_Marc, count(*) AS count FROM Items GROUP BY Location_Marc;
 
 =cut
 
