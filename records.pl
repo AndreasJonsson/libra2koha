@@ -158,22 +158,6 @@ To see which prices occur in the data:
 
         $field952->add_subfields( 'l', $item->{'NoOfLoansTot'} ) if $item->{'NoOfLoansTot'};
         
-=head3 952$m Total Renewals
-
-TODO
-
-=cut
-
-        # $field952->add_subfields( 'm', $item->{''} ) if $item->{''};
-        
-=head3 952$n Total Holds
-
-TODO
-
-=cut
-
-        # $field952->add_subfields( 'n', $item->{''} ) if $item->{''};
-
 =head3 952$o Call number
 
 TODO
