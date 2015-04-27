@@ -198,7 +198,19 @@ From BarCodes.Barcode.
 =cut
 
         $field952->add_subfields( 's', fix_date( $item->{'LatestLoanDate'} ) ) if $item->{'LatestLoanDate'};
-        
+
+=head3 952$x Non-public note
+
+"Internal staff note."
+
+To see what is present in the data:
+
+  SELECT Info, COUNT(*) FROM Items WHERE Info != '' GROUP BY Info;
+
+=cut
+
+        $field952->add_subfields( 'x', $item->{'Info'} ) if $item->{'Info'};
+
 =head3 952$y Itemtype (mandatory)
 
 TODO Uses the mapping in itemtypes.yaml.
