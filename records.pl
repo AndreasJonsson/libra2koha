@@ -186,9 +186,9 @@ From BarCodes.Barcode.
         if ( $item->{'LatestLoanDate'} ne '' && $item->{'LatestReturnDate'} ne '' && $item->{'LatestLoanDate'} > $item->{'LatestReturnDate'} ) {
             $field952->add_subfields( 'r', $item->{'LatestLoanDate'} ) if $item->{'LatestLoanDate'};
         } elsif ( $item->{'LatestReturnDate'} ne '' ) {
-            $field952->add_subfields( 'r', $item->{'LatestReturnDate'} ) if $item->{'LatestReturnDate'};
+            $field952->add_subfields( 'r', fix_date( $item->{'LatestReturnDate'} ) ) if $item->{'LatestReturnDate'};
         } elsif ( $item->{'LatestLoanDate'} ne '' ) {
-            $field952->add_subfields( 'r', $item->{'LatestLoanDate'} ) if $item->{'LatestLoanDate'};
+            $field952->add_subfields( 'r', fix_date( $item->{'LatestLoanDate'} ) ) if $item->{'LatestLoanDate'};
         }
 
 =head3 952$s Date last checked out
@@ -197,7 +197,7 @@ From BarCodes.Barcode.
 
 =cut
 
-        $field952->add_subfields( 's', $item->{'LatestLoanDate'} ) if $item->{'LatestLoanDate'};
+        $field952->add_subfields( 's', fix_date( $item->{'LatestLoanDate'} ) ) if $item->{'LatestLoanDate'};
         
 =head3 952$y Itemtype (mandatory)
 
