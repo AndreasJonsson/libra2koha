@@ -193,11 +193,11 @@ From BarCodes.Barcode.
 
 =head3 952$s Date last checked out
 
-TODO
+"Last checkout date of item. Display only field."
 
 =cut
 
-        # $field952->add_subfields( 's', $item->{''} ) if $item->{''};
+        $field952->add_subfields( 's', $item->{'LatestLoanDate'} ) if $item->{'LatestLoanDate'};
         
 =head3 952$t Copy number
 
