@@ -199,22 +199,6 @@ From BarCodes.Barcode.
 
         $field952->add_subfields( 's', $item->{'LatestLoanDate'} ) if $item->{'LatestLoanDate'};
         
-=head3 952$t Copy number
-
-TODO
-
-=cut
-
-        # $field952->add_subfields( 't', $item->{''} ) if $item->{''};
-
-=head3 952$x Non-public note
-
-TODO
-
-=cut
-
-        $field952->add_subfields( 'x', 'FIXME' );
-
 =head3 952$y Itemtype (mandatory)
 
 TODO Uses the mapping in itemtypes.yaml.
