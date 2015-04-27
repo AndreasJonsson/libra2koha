@@ -209,7 +209,7 @@ To see what is present in the data:
 
 =cut
 
-        $field952->add_subfields( 'x', $item->{'Info'} ) if $item->{'Info'};
+        $field952->add_subfields( 'x', $item->{'Info'} ) if $item->{'Info'} ne '';
 
 =head3 952$y Itemtype (mandatory)
 
@@ -217,7 +217,8 @@ TODO Uses the mapping in itemtypes.yaml.
 
 =cut
 
-        $field952->add_subfields( 'y', 'FIXME' );
+        # FIXME Just add a dummy value for now
+        $field952->add_subfields( 'y', 'X' );
         # $last_itemtype = $itemtype;
 
 =head3 952$1 Lost status
@@ -245,22 +246,6 @@ FIXME This should be done with a mapping file!
 
         # TODO
         # $field952->add_subfields( '1', '1' ) if $item->{'IdStatusCode'} == 2;
-
-=head3 952$2 Source of classification or shelving scheme
-
-TODO
-
-=cut
-
-        # $field952->add_subfields( '2', $item->{''} ) if $item->{''};
-
-=head3 952$4 Damaged status
-
-TODO
-
-=cut
-
-        # $field952->add_subfields( '4', $item->{''} ) if $item->{''};
 
 =head3 952$7 Not for loan
 
