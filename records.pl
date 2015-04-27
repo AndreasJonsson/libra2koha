@@ -147,14 +147,6 @@ To see which prices occur in the data:
         $field952->add_subfields( 'g', $item->{'Price'} ) if $item->{'Price'};
         $field952->add_subfields( 'v', $item->{'Price'} ) if $item->{'Price'};
 
-=head3 952$h Serial enumeration caption
-
-Issue, volume etc for serial items.
-
-=cut
-
-        $field952->add_subfields( 'h', 'FIXME' );
-
 =head3 952$l Total Checkouts
 
 TODO
