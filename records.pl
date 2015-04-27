@@ -85,6 +85,7 @@ my $batch = MARC::File::XML->in( $input_file );
 my $count = 0;
 RECORD: while (my $record = $batch->next()) {
 
+    $record->encoding( 'UTF-8' );
     say "<!-- " . $record->title()  . " -->" if $verbose;
 
 =head2 Add item level information in 952
@@ -209,7 +210,9 @@ To see what is present in the data:
 
 =cut
 
-        $field952->add_subfields( 'x', $item->{'Info'} ) if $item->{'Info'} ne '';
+        if ( length $item->{'Info'} > 1 ) {
+            $field952->add_subfields( 'x', $item->{'Info'} ) if $item->{'Info'} ne ' ';
+        }
 
 =head3 952$y Itemtype (mandatory)
 
