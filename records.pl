@@ -178,11 +178,18 @@ From BarCodes.Barcode.
 
 =head3 952$r Date last seen
 
-TODO
+"The date that the item was last seen in the library (checked in / checked out
+ / inventoried)."
 
 =cut
 
-        # $field952->add_subfields( 'r', $item->{''} ) if $item->{''};
+        if ( $item->{'LatestLoanDate'} ne '' && $item->{'LatestReturnDate'} ne '' && $item->{'LatestLoanDate'} > $item->{'LatestReturnDate'} ) {
+            $field952->add_subfields( 'r', $item->{'LatestLoanDate'} ) if $item->{'LatestLoanDate'};
+        } elsif ( $item->{'LatestReturnDate'} ne '' ) {
+            $field952->add_subfields( 'r', $item->{'LatestReturnDate'} ) if $item->{'LatestReturnDate'};
+        } elsif ( $item->{'LatestLoanDate'} ne '' ) {
+            $field952->add_subfields( 'r', $item->{'LatestLoanDate'} ) if $item->{'LatestLoanDate'};
+        }
 
 =head3 952$s Date last checked out
 
