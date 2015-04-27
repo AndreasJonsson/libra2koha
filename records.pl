@@ -208,6 +208,9 @@ To see what is present in the data:
 
   SELECT Info, COUNT(*) FROM Items WHERE Info != '' GROUP BY Info;
 
+The Info column seems to contain some weird non-printing char. We work around
+this by checking for length greater than 1.
+
 =cut
 
         if ( length $item->{'Info'} > 1 ) {
