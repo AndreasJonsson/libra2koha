@@ -16,6 +16,7 @@ use MARC::File::XML ( BinaryEncoding => 'utf8', RecordFormat => 'NORMARC' );
 use DBI;
 use Getopt::Long;
 use YAML::Syck qw( LoadFile );
+use Term::ProgressBar;
 use Data::Dumper;
 use Template;
 use DateTime;
@@ -25,7 +26,9 @@ use Data::Dumper;
 
 binmode STDOUT, ":utf8";
 $|=1; # Flush output
-    
+
+my $progress = Term::ProgressBar->new( -1 );
+
 # Get options
 my ( $input_file, $output_file, $limit, $verbose, $debug ) = get_options();
 
@@ -290,9 +293,14 @@ Just add the itemtype in 942$c.
     
     # Count and cut off at the limit if one is given
     $count++;
+    $progress->update( $count );
     last if $limit && $limit == $count;
 
 } # end foreach record
+
+$progress->update( -1 );
+
+say "$count records done";
 
 =head1 OPTIONS
 
