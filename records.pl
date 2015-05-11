@@ -104,10 +104,7 @@ L<http://wiki.koha-community.org/wiki/Holdings_data_fields_%289xx%29>
     next RECORD unless $record->field( '001' ) && $record->field( '003' );
     # Get the record ID from 001 and 003
     my $f001 = $record->field( '001' )->data();
-    my $f003 = $record->field( '003' )->data();
-    if ( $f003 eq 'S' ) {
-        $f003 = 'swlnbt';
-    }
+    my $f003 = lc $record->field( '003' )->data();
     my $recordid = lc "$f003$f001";
     say "$f003 + $f001 = $recordid" if $verbose;
     # Look up items by recordid in the DB and add them to our record
