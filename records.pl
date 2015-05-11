@@ -27,7 +27,7 @@ binmode STDOUT, ":utf8";
 $|=1; # Flush output
     
 # Get options
-my ( $input_file, $limit, $verbose, $debug ) = get_options();
+my ( $input_file, $output_file, $limit, $verbose, $debug ) = get_options();
 
 =head1 CONFIG FILES
 
@@ -72,7 +72,8 @@ my $sth = $dbh->prepare("
       AND Items.IdItem = BarCodes.IdItem
 ");
 
-say MARC::File::XML::header();
+# Create a file output object
+my $file = MARC::File::XML->out( $output_file );
 
 =head1 PROCESS RECORDS
 
@@ -284,7 +285,8 @@ Just add the itemtype in 942$c.
     # FIXME my $field942 = MARC::Field->new( 942, ' ', ' ', 'c' => $last_itemtype );
     # $record->insert_fields_ordered( $field942 );
 
-    say MARC::File::XML::record( $record );
+    $file->write( $record );
+    say MARC::File::XML::record( $record ) if $debug;
     
     # Count and cut off at the limit if one is given
     $count++;
@@ -292,17 +294,17 @@ Just add the itemtype in 942$c.
 
 } # end foreach record
 
-say MARC::File::XML::footer();
-
-# Read MARC records
- 
 =head1 OPTIONS
 
 =over 4
 
 =item B<-i, --infile>
 
-Name of input file.
+Path to MARCXML input file.
+
+=item B<-o, --outfile>
+
+Path to MARCXML output file.
 
 =item B<-l, --limit>
 
@@ -327,24 +329,27 @@ Prints this help message and exits.
 sub get_options {
  
     # Options
-    my $input_file = '';
-    my $limit      = '', 
-    my $verbose    = '';
-    my $debug      = '';
-    my $help       = '';
+    my $input_file  = '';
+    my $output_file = '';
+    my $limit       = '', 
+    my $verbose     = '';
+    my $debug       = '';
+    my $help        = '';
  
     GetOptions (
-        'i|infile=s' => \$input_file,
-        'l|limit=i'  => \$limit,
-        'v|verbose'  => \$verbose,
-        'd|debug'    => \$debug,
-        'h|?|help'   => \$help
+        'i|infile=s'  => \$input_file,
+        'o|outfile=s' => \$output_file,
+        'l|limit=i'   => \$limit,
+        'v|verbose'   => \$verbose,
+        'd|debug'     => \$debug,
+        'h|?|help'    => \$help
     );
  
     pod2usage( -exitval => 0 ) if $help;
-    pod2usage( -msg => "\nMissing Argument: -i, --infile required\n", -exitval => 1 ) if !$input_file;
+    pod2usage( -msg => "\nMissing Argument: -i, --infile required\n",  -exitval => 1 ) if !$input_file;
+    pod2usage( -msg => "\nMissing Argument: -o, --outfile required\n", -exitval => 1 ) if !$output_file;
  
-    return ( $input_file, $limit, $verbose, $debug );
+    return ( $input_file, $output_file, $limit, $verbose, $debug );
  
 }
 
