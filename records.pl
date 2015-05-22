@@ -27,10 +27,10 @@ use Data::Dumper;
 binmode STDOUT, ":utf8";
 $|=1; # Flush output
 
-my $progress = Term::ProgressBar->new( -1 );
-
 # Get options
 my ( $input_file, $output_file, $limit, $verbose, $debug ) = get_options();
+
+my $progress = Term::ProgressBar->new( $limit );
 
 =head1 CONFIG FILES
 
@@ -90,7 +90,7 @@ my $count = 0;
 RECORD: while (my $record = $batch->next()) {
 
     $record->encoding( 'UTF-8' );
-    say "<!-- " . $record->title()  . " -->" if $verbose;
+    say '* ' . $record->title() if $verbose;
 
 =head2 Add item level information in 952
 
@@ -168,7 +168,7 @@ To see what is present in the data:
 
 =cut
 
-        $field952->add_subfields( 'o', $item->{'Location_Marc'} ) if $item->{'Location_Marc'};
+        $field952->add_subfields( 'o', $item->{'Location_Marc'} ) if $item->{'Location_Marc'} && length $item->{'Location_Marc'} > 1;
 
 =head3 952$p Barcode (mandatory)
 
@@ -220,12 +220,27 @@ this by checking for length greater than 1.
 
 =head3 952$y Itemtype (mandatory)
 
-TODO Uses the mapping in itemtypes.yaml.
+Mostly based on the leader (000).
 
 =cut
 
-        # FIXME Just add a dummy value for now
-        $field952->add_subfields( 'y', 'X' );
+        my $f000p6 = get_pos( '000', 6, $record );
+        if ( $f000p6 eq 'a' ) {
+            $field952->add_subfields( 'y', 'BOK' );
+        } elsif ( $f000p6 eq 'c' ) {
+            $field952->add_subfields( 'y', 'NOTER' );
+        } elsif ( $f000p6 eq 'g' ) {
+            $field952->add_subfields( 'y', 'DVD' );
+        } elsif ( $f000p6 eq 'i' ) {
+            $field952->add_subfields( 'y', 'DAISY' );
+        } elsif ( $f000p6 eq 'j' ) {
+            $field952->add_subfields( 'y', 'CD' );
+        } elsif ( $f000p6 eq 'o' ) {
+            $field952->add_subfields( 'y', 'PAKET' );
+        } else {
+            say "$f000p6";
+            $field952->add_subfields( 'y', 'X' );
+        }
         # $last_itemtype = $itemtype;
 
 =head3 952$1 Lost status
@@ -268,7 +283,8 @@ Values must be defined in the CCODE authorized values category.
 
 =cut
 
-        $field952->add_subfields( '8', 'FIXME' );
+        # FIXME
+        # $field952->add_subfields( '8', 'FIXME' );
 
 
         # Add the field to the record
@@ -295,7 +311,7 @@ Just add the itemtype in 942$c.
 
 } # end foreach record
 
-$progress->update( -1 );
+$progress->update( $limit );
 
 say "$count records done";
 
@@ -372,6 +388,18 @@ sub fix_date {
     my $month = substr $d, 4, 2;
     my $day   = substr $d, 6, 2;
     return "$year-$month-$day";
+
+}
+
+# Takes: A string
+# Returns: the char at the given position
+
+sub get_pos {
+
+    my ( $field, $pos, $record ) = @_;
+    my $string = $record->field( $field )->data();
+    my @chars = split //, $string;
+    return $chars[ $pos ];
 
 }
  
