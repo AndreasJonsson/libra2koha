@@ -28,8 +28,9 @@ binmode STDOUT, ":utf8";
 $|=1; # Flush output
 
 # Get options
-my ( $input_file, $output_file, $limit, $verbose, $debug ) = get_options();
+my ( $input_file, $output_file, $limit, $every, $verbose, $debug ) = get_options();
 
+$limit = 130889 if $limit == 0; # FIXME This should not be hardcoded, of course
 my $progress = Term::ProgressBar->new( $limit );
 
 =head1 CONFIG FILES
@@ -88,6 +89,12 @@ say "Starting record iteration" if $verbose;
 my $batch = MARC::File::XML->in( $input_file );
 my $count = 0;
 RECORD: while (my $record = $batch->next()) {
+
+    # Only do every x record
+    if ( $every && ( $count % $every != 0 ) ) {
+        $count++;
+        next RECORD;
+    }
 
     $record->encoding( 'UTF-8' );
     say '* ' . $record->title() if $verbose;
@@ -331,6 +338,10 @@ Path to MARCXML output file.
 
 Only process the n first somethings.
 
+=item B<-e, --every>
+
+Process every x record. E.g. every 5th record.
+
 =item B<-v --verbose>
 
 More verbose output.
@@ -352,7 +363,8 @@ sub get_options {
     # Options
     my $input_file  = '';
     my $output_file = '';
-    my $limit       = '', 
+    my $limit       = '';
+    my $every       = '';
     my $verbose     = '';
     my $debug       = '';
     my $help        = '';
@@ -361,6 +373,7 @@ sub get_options {
         'i|infile=s'  => \$input_file,
         'o|outfile=s' => \$output_file,
         'l|limit=i'   => \$limit,
+        'e|every=i'   => \$every,
         'v|verbose'   => \$verbose,
         'd|debug'     => \$debug,
         'h|?|help'    => \$help
@@ -370,7 +383,7 @@ sub get_options {
     pod2usage( -msg => "\nMissing Argument: -i, --infile required\n",  -exitval => 1 ) if !$input_file;
     pod2usage( -msg => "\nMissing Argument: -o, --outfile required\n", -exitval => 1 ) if !$output_file;
  
-    return ( $input_file, $output_file, $limit, $verbose, $debug );
+    return ( $input_file, $output_file, $limit, $every, $verbose, $debug );
  
 }
 
