@@ -55,6 +55,8 @@ foreach my $file ( @files ) {
     # Get the name of the table
     my( $filename, $dirs, $suffix ) = fileparse( $file );
     my $tablename = substr( $filename, 0, -8 );
+    # Only do the tables we will actually use
+    next unless ( $tablename =~ /^(exportCatMatch|Items|BarCodes)$/);
     # Get the columns
     my @columns;
     my @lines = read_lines( $file, 'utf8', chomp => 1 );
@@ -74,7 +76,7 @@ foreach my $file ( @files ) {
 # TODO Special treatment for exportCatMatch.txt
 my @columns;
 push @columns, { 'name' => 'IdCat', 'type' => 'int', 'size' => '12' };
-push @columns, { 'name' => 'ThreeOne', 'type' => 'text', 'size' => '32' };
+push @columns, { 'name' => 'ThreeOne', 'type' => 'char', 'size' => '32' };
 my $vars = { 'dirs' => "$dir/", 'tablename' => 'exportCatMatch', 'columns' => \@columns, 'sep' => ', ' };
 $tt2->process( 'create_tables.tt', $vars ) || die $tt2->error();
 
