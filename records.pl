@@ -88,6 +88,7 @@ Record level actions
 say "Starting record iteration" if $verbose;
 my $batch = MARC::File::XML->in( $input_file );
 my $count = 0;
+my $count_items = 0;
 RECORD: while (my $record = $batch->next()) {
 
     # Only do every x record
@@ -95,6 +96,8 @@ RECORD: while (my $record = $batch->next()) {
         $count++;
         next RECORD;
     }
+
+    my $last_itemtype;
 
     $record->encoding( 'UTF-8' );
     say '* ' . $record->title() if $verbose;
@@ -248,7 +251,7 @@ Mostly based on the leader (000).
                 $itemtype = 'PAKET';
             }
         }
-        # $last_itemtype = $itemtype;
+        $last_itemtype = $itemtype;
         $field952->add_subfields( 'y', $itemtype );
 
 =head3 952$1 Lost status
@@ -298,6 +301,8 @@ Values must be defined in the CCODE authorized values category.
         # Add the field to the record
         $record->insert_fields_ordered( $field952 );
 
+        $count_items++;
+
     } # end foreach items
 
 =head2 Add 942
@@ -306,8 +311,10 @@ Just add the itemtype in 942$c.
 
 =cut
 
-    # FIXME my $field942 = MARC::Field->new( 942, ' ', ' ', 'c' => $last_itemtype );
-    # $record->insert_fields_ordered( $field942 );
+    if ( $last_itemtype ) {
+        my $field942 = MARC::Field->new( 942, ' ', ' ', 'c' => $last_itemtype );
+        $record->insert_fields_ordered( $field942 );
+    }
 
     $file->write( $record );
     say MARC::File::XML::record( $record ) if $debug;
@@ -321,7 +328,8 @@ Just add the itemtype in 942$c.
 
 $progress->update( $limit );
 
-say "$count records done";
+say "$count records, $count_items items done";
+say "Did you remember to load data into memory?" if $count_items == 0;
 
 =head1 OPTIONS
 
