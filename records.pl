@@ -372,7 +372,7 @@ sub get_options {
     # Options
     my $input_file  = '';
     my $output_file = '';
-    my $limit       = '';
+    my $limit       = 0;
     my $every       = '';
     my $verbose     = '';
     my $debug       = '';
