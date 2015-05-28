@@ -232,23 +232,24 @@ Mostly based on the leader (000).
 =cut
 
         my $f000p6 = get_pos( '000', 6, $record );
-        if ( $f000p6 eq 'a' ) {
-            $field952->add_subfields( 'y', 'BOK' );
-        } elsif ( $f000p6 eq 'c' ) {
-            $field952->add_subfields( 'y', 'NOTER' );
-        } elsif ( $f000p6 eq 'g' ) {
-            $field952->add_subfields( 'y', 'DVD' );
-        } elsif ( $f000p6 eq 'i' ) {
-            $field952->add_subfields( 'y', 'DAISY' );
-        } elsif ( $f000p6 eq 'j' ) {
-            $field952->add_subfields( 'y', 'CD' );
-        } elsif ( $f000p6 eq 'o' ) {
-            $field952->add_subfields( 'y', 'PAKET' );
-        } else {
-            say "$f000p6";
-            $field952->add_subfields( 'y', 'X' );
+        my $itemtype = 'X';
+        if ( $f000p6 ) {
+            if ( $f000p6 eq 'a' ) {
+                $itemtype = 'BOK';
+            } elsif ( $f000p6 eq 'c' ) {
+                $itemtype = 'NOTER';
+            } elsif ( $f000p6 eq 'g' ) {
+                $itemtype = 'DVD';
+            } elsif ( $f000p6 eq 'i' ) {
+                $itemtype = 'DAISY';
+            } elsif ( $f000p6 eq 'j' ) {
+                $itemtype = 'CD';
+            } elsif ( $f000p6 eq 'o' ) {
+                $itemtype = 'PAKET';
+            }
         }
         # $last_itemtype = $itemtype;
+        $field952->add_subfields( 'y', $itemtype );
 
 =head3 952$1 Lost status
 
@@ -410,9 +411,13 @@ sub fix_date {
 sub get_pos {
 
     my ( $field, $pos, $record ) = @_;
-    my $string = $record->field( $field )->data();
-    my @chars = split //, $string;
-    return $chars[ $pos ];
+    if ( $record->field( $field ) && $record->field( $field )->data() ) {
+        my $string = $record->field( $field )->data();
+        my @chars = split //, $string;
+        return $chars[ $pos ];
+    } else {
+        return undef;
+    }
 
 }
  
