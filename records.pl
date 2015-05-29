@@ -176,6 +176,8 @@ To see what is present in the data:
 
   SELECT Location_Marc, count(*) AS count FROM Items GROUP BY Location_Marc;
 
+TODO Compare this to 852c/h?
+
 =cut
 
         $field952->add_subfields( 'o', $item->{'Location_Marc'} ) if $item->{'Location_Marc'} && length $item->{'Location_Marc'} > 1;
