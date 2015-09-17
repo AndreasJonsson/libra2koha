@@ -1,0 +1,9 @@
+=pod
+
+=head1 CONFIG SAMPLE
+
+This directory contains sample config files. See the documentation in 
+F<records.pl> for further descriptions of what these files should contain and
+how to generate them from the data.
+
+=cut
