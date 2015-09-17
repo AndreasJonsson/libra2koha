@@ -56,7 +56,7 @@ foreach my $file ( @files ) {
     my( $filename, $dirs, $suffix ) = fileparse( $file );
     my $tablename = substr( $filename, 0, -8 );
     # Only do the tables we will actually use
-    next unless ( $tablename =~ /^(exportCatMatch|Items|BarCodes)$/);
+    next unless ( $tablename =~ /^(exportCatMatch|Items|BarCodes|StatusCodes)$/);
     # Get the columns
     my @columns;
     my @lines = read_lines( $file, 'utf8', chomp => 1 );
