@@ -42,7 +42,7 @@ for f in $DIR/*;  do
     if [ -f "$f" ]; then
         filename=$(basename "$f")
         if [ $filename != "exportCat.txt" ]; then
-            iconv -f utf-16 -t utf-8 $f > "$DIR/utf8/$filename"
+            iconv -f UTF-16 -t UTF-8 $f > "$DIR/utf8/$filename"
         fi
     fi
 done
@@ -62,4 +62,6 @@ echo "done"
 
 ## Get the relevant info out of the database and into a .marcxml file
 
-perl records.pl --config $CONFIG --infile $MARCXML -v
+echo -n "Going to transform records... "
+perl records.pl --config $CONFIG --limit 1000 --infile $MARCXML
+echo "done"
