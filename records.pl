@@ -23,6 +23,7 @@ use DateTime;
 use Pod::Usage;
 use Modern::Perl;
 use Data::Dumper;
+require 'lib/Itemtypes.pm';
 
 binmode STDOUT, ":utf8";
 $|=1; # Flush output
@@ -37,10 +38,10 @@ my $progress = Term::ProgressBar->new( $limit );
 
 =head2 config.yaml
 
-The main configuration file. Contains things like username and password for 
-connecting to the database. 
+The main configuration file. Contains things like username and password for
+connecting to the database.
 
-See config-sample.yaml for an example. 
+See config-sample.yaml for an example.
 
 =cut
 
@@ -51,13 +52,30 @@ if ( -f 'config.yaml' ) {
 
 =head2 branchcodes.yaml
 
-Mapping from Branches.IdBRanchCode in Libra to branchcodes in Koha. 
+Mapping from Branches.IdBRanchCode in Libra to branchcodes in Koha. Have a look
+at Branches.txt in the exported data to get an idea of what should go into this
+mapping.
+
+TODO: Create a script that can help generate the mapping from Branches.txt.
 
 =cut
 
 my $branchcodes;
 if ( -f 'branchcodes.yaml' ) {
     $branchcodes = LoadFile( 'branchcodes.yaml' );
+}
+
+=head2 loc.yaml
+
+Mapping from LocalShelfs in Libra to LOC authorized values and 952$c in Koha.
+Have a look at LocalShelfs.txt in the exported data to get an idea of what
+should go into this mapping.
+
+=cut
+
+my $loc;
+if ( -f 'loc.yaml' ) {
+    $loc = LoadFile( 'loc.yaml' );
 }
 
 # Check that the input file exists
@@ -102,6 +120,27 @@ RECORD: while (my $record = $batch->next()) {
     $record->encoding( 'UTF-8' );
     say '* ' . $record->title() if $verbose;
 
+=head2 Record level changes
+
+=head3 Move 976b to 653
+
+The records from Libra.se have subjects in 976b, we'll move them to 653
+
+=cut
+
+    if ( $record->field( '976' ) ) {
+        my @f976s = $record->field( '976' );
+        foreach my $f976 ( @f976s ) {
+            if ( $f976->subfield( 'b' ) ) {
+                my $field653 = MARC::Field->new( 653, ' ', ' ',
+                  'a' => $f976->subfield( 'b' ),
+                );
+                $record->insert_fields_ordered( $field653 );
+                $record->delete_fields( $f976 );
+            }
+        }
+    }
+
 =head2 Add item level information in 952
 
 Build up new items in 952.
@@ -131,8 +170,10 @@ L<http://wiki.koha-community.org/wiki/Holdings_data_fields_%289xx%29>
 =cut
 
         my $field952 = MARC::Field->new( 952, ' ', ' ',
-          'a' => $branchcodes->{ $item->{'IdBranchCode'} }, # Homebranch
-          'b' => $branchcodes->{ $item->{'IdBranchCode'} }, # Holdingbranch
+          # 'a' => $branchcodes->{ $item->{'IdBranchCode'} }, # Homebranch
+          # 'b' => $branchcodes->{ $item->{'IdBranchCode'} }, # Holdingbranch
+          'a' => 'SVF', # Homebranch
+          'b' => 'SVF', # Holdingbranch
         );
 
 =head3 952$c Shelving location
@@ -141,7 +182,8 @@ L<http://wiki.koha-community.org/wiki/Holdings_data_fields_%289xx%29>
 
 =cut
 
-        $field952->add_subfields( 'c', $item->{'IdDepartment'} ) if $item->{'IdDepartment'};
+        # $field952->add_subfields( 'c', $item->{'IdDepartment'} ) if $item->{'IdDepartment'};
+        $field952->add_subfields( 'c', $loc->{ $item->{'IdLocalShelf'} } ) if $item->{'IdLocalShelf'};
 
 =head3 952$d Date acquired
 
@@ -232,29 +274,24 @@ this by checking for length greater than 1.
 
 =head3 952$y Itemtype (mandatory)
 
-Mostly based on the leader (000).
+lib/Itemtype.pm is pulled in and the subroutine C<get_itemtype()> is used to
+determin the itemtype of a given record. This subroutine might need editing for
+different libraries.
+
+A separate script, called F<itemtypes.pl>, can be used to assess the results
+from C<get_itemtype()>. It will ingest the same raw MARCXML data asthe current
+script and output the number of occurences for each itemtype, with or without
+debug output. Run C<perldoc itemtypes.pl> for more documentation.
 
 =cut
 
-        my $f000p6 = get_pos( '000', 6, $record );
-        my $itemtype = 'X';
-        if ( $f000p6 ) {
-            if ( $f000p6 eq 'a' ) {
-                $itemtype = 'BOK';
-            } elsif ( $f000p6 eq 'c' ) {
-                $itemtype = 'NOTER';
-            } elsif ( $f000p6 eq 'g' ) {
-                $itemtype = 'DVD';
-            } elsif ( $f000p6 eq 'i' ) {
-                $itemtype = 'DAISY';
-            } elsif ( $f000p6 eq 'j' ) {
-                $itemtype = 'CD';
-            } elsif ( $f000p6 eq 'o' ) {
-                $itemtype = 'PAKET';
-            }
-        }
+        my $itemtype = get_itemtype( $record );
         $last_itemtype = $itemtype;
-        $field952->add_subfields( 'y', $itemtype );
+        if ( $is_lettlest == 0 ) {
+            $field952->add_subfields( 'y', $itemtype );
+        } else {
+            $field952->add_subfields( 'y', 'BOK' );
+        }
 
 =head3 952$1 Lost status
 
@@ -279,12 +316,20 @@ FIXME This should be done with a mapping file!
 
 =cut
 
-        # TODO
-        # $field952->add_subfields( '1', '1' ) if $item->{'IdStatusCode'} == 2;
+        # 2 = Försvunnen
+        if ( $item->{'IdStatusCode'} == 2 ) {
+            $field952->add_subfields( '1', '1' );
+        # 6 = Påstås återlämnad
+        } elsif ( $item->{'IdStatusCode'} == 6 ) {
+            $field952->add_subfields( '1', '5' );
+        # 7 = Räkning
+        } elsif ( $item->{'IdStatusCode'} == 7 ) {
+            $field952->add_subfields( '1', '6' );
+        }
 
 =head3 952$7 Not for loan
 
-TODO
+TODO Unused
 
 =cut
 
