@@ -79,6 +79,17 @@ and user with the following commands:
   mysql> grant all privileges on libra2koha.* to 'libra2koha'@'localhost' identified by 'pass';
   mysql> flush privileges;
 
+=head1 DEPENDENCIES
+
+The scripts in this repository rely on some resources not included in the repo
+itself:
+
+=head2 LibrioTools
+
+This is a collection of tools createed by Libriotech. It can be obtained thusly:
+
+  git clone https://github.com/Libriotech/LibrioTools.git
+
 =head1 AUTHOR
 
 Magnus Enger, Libriotech

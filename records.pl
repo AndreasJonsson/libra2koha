@@ -388,7 +388,8 @@ say "Did you remember to load data into memory?" if $count_items == 0;
 
 =item B<-c, --config>
 
-Path to MARCXML input file.
+Path to directory that contains config files. See the section on
+L</"CONFIG FILES"> above for more details.
 
 =item B<-i, --infile>
 
