@@ -53,7 +53,7 @@ my $config;
 if ( -f $config_dir . '/config.yaml' ) {
     $config = LoadFile( $config_dir . '/config.yaml' );
 }
-my $output_file = $config->{'output_file'};
+my $output_file = $config->{'output_marcxml'};
 
 =head2 branchcodes.yaml
 
@@ -175,10 +175,8 @@ L<http://wiki.koha-community.org/wiki/Holdings_data_fields_%289xx%29>
 =cut
 
         my $field952 = MARC::Field->new( 952, ' ', ' ',
-          # 'a' => $branchcodes->{ $item->{'IdBranchCode'} }, # Homebranch
-          # 'b' => $branchcodes->{ $item->{'IdBranchCode'} }, # Holdingbranch
-          'a' => 'SVF', # Homebranch
-          'b' => 'SVF', # Holdingbranch
+          'a' => $branchcodes->{ $item->{'IdBranchCode'} }, # Homebranch
+          'b' => $branchcodes->{ $item->{'IdBranchCode'} }, # Holdingbranch
         );
 
 =head3 952$c Shelving location
@@ -375,7 +373,7 @@ Just add the itemtype in 942$c.
 
 $progress->update( $limit );
 
-say "$count records, $count_items items done" if $verbose;
+say "$count records, $count_items items done";
 say "Did you remember to load data into memory?" if $count_items == 0;
 
 =head1 OPTIONS
