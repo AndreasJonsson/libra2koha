@@ -29,7 +29,7 @@ binmode STDOUT, ":utf8";
 $|=1; # Flush output
 
 # Get options
-my ( $config_dir, $input_file, $output_file, $limit, $every, $verbose, $debug ) = get_options();
+my ( $config_dir, $input_file, $limit, $every, $verbose, $debug ) = get_options();
 
 $limit = 130889 if $limit == 0; # FIXME This should not be hardcoded, of course
 my $progress = Term::ProgressBar->new( $limit );
@@ -50,9 +50,10 @@ See config-sample.yaml for an example.
 =cut
 
 my $config;
-if ( -f $config_dir . 'config.yaml' ) {
-    $config = LoadFile( $config_dir . 'config.yaml' );
+if ( -f $config_dir . '/config.yaml' ) {
+    $config = LoadFile( $config_dir . '/config.yaml' );
 }
+my $output_file = $config->{'output_file'};
 
 =head2 branchcodes.yaml
 
@@ -65,8 +66,8 @@ TODO: Create a script that can help generate the mapping from Branches.txt.
 =cut
 
 my $branchcodes;
-if ( -f $config_dir . 'branchcodes.yaml' ) {
-    $branchcodes = LoadFile( $config_dir . 'branchcodes.yaml' );
+if ( -f $config_dir . '/branchcodes.yaml' ) {
+    $branchcodes = LoadFile( $config_dir . '/branchcodes.yaml' );
 }
 
 =head2 loc.yaml
@@ -78,8 +79,8 @@ should go into this mapping.
 =cut
 
 my $loc;
-if ( -f $config_dir . 'loc.yaml' ) {
-    $loc = LoadFile( $config_dir . 'loc.yaml' );
+if ( -f $config_dir . '/loc.yaml' ) {
+    $loc = LoadFile( $config_dir . '/loc.yaml' );
 }
 
 # Check that the input file exists
@@ -395,9 +396,7 @@ L</"CONFIG FILES"> above for more details.
 
 Path to MARCXML input file.
 
-=item B<-o, --outfile>
-
-Path to MARCXML output file.
+(The path to the MARCXML output file is set in F<config.yaml>.)
 
 =item B<-l, --limit>
 
@@ -428,7 +427,6 @@ sub get_options {
     # Options
     my $config_dir  = '';
     my $input_file  = '';
-    my $output_file = '';
     my $limit       = 0;
     my $every       = '';
     my $verbose     = '';
@@ -438,7 +436,6 @@ sub get_options {
     GetOptions (
         'c|config=s'  => \$config_dir,
         'i|infile=s'  => \$input_file,
-        'o|outfile=s' => \$output_file,
         'l|limit=i'   => \$limit,
         'e|every=i'   => \$every,
         'v|verbose'   => \$verbose,
@@ -449,9 +446,8 @@ sub get_options {
     pod2usage( -exitval => 0 ) if $help;
     pod2usage( -msg => "\nMissing Argument: -c, --config required\n",  -exitval => 1 ) if !$config_dir;
     pod2usage( -msg => "\nMissing Argument: -i, --infile required\n",  -exitval => 1 ) if !$input_file;
-    pod2usage( -msg => "\nMissing Argument: -o, --outfile required\n", -exitval => 1 ) if !$output_file;
  
-    return ( $config_dir, $input_file, $output_file, $limit, $every, $verbose, $debug );
+    return ( $config_dir, $input_file, $limit, $every, $verbose, $debug );
  
 }
 

@@ -2,13 +2,14 @@
 
 # libra2db.sh
 
-if [ "$#" != 1 ]; then
-    echo "Usage: $0 /path/to/export"
+if [ "$#" != 2 ]; then
+    echo "Usage: $0 /path/to/config /path/to/export"
     exit;
 fi
 
-DIR=$1
-EXPORTCAT="$DIR/exportCat2.txt"
+CONFIG=$1
+DIR=$2
+EXPORTCAT="$DIR/exportCat.txt"
 EXPORTCAT_FIXED="$DIR/exportCat-fixed.txt"
 MARCXML="$DIR/bib/raw-records.marcxml"
 SCRIPTDIR=$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )
@@ -60,3 +61,5 @@ mysql --local-infile -u libra2koha -ppass libra2koha < ./tables.sql
 echo "done"
 
 ## Get the relevant info out of the database and into a .marcxml file
+
+perl records.pl --config $CONFIG --infile $MARCXML -v
