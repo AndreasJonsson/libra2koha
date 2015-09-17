@@ -8,15 +8,25 @@ if [ "$#" != 1 ]; then
 fi
 
 DIR=$1
+EXPORTCAT="$DIR/exportCat2.txt"
+EXPORTCAT_FIXED="$DIR/exportCat-fixed.txt"
+MARCXML="$DIR/bib/raw-records.marcxml"
 SCRIPTDIR=$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )
 
 # Convert bibliographic records to MARCXML - line2iso.pl from LibrioTools
 if [ ! -d "$DIR/bib/" ]; then
     mkdir "$DIR/bib/"
 fi
-echo -n "Going to convert bibliographic records to MARCXML... "
+echo "Going to convert bibliographic records to MARCXML... "
+cp $EXPORTCAT $EXPORTCAT_FIXED
+perl -pi -e 's/\r\n/\n/g' "$EXPORTCAT_FIXED"
+perl -pi -e '$/=undef; s/\^\n\*000/RECORD_SEPARATOR\n*000/g' "$EXPORTCAT_FIXED"
+perl -pi -e 's/\^\n//g' "$EXPORTCAT_FIXED"
+perl -pi -e 's/RECORD_SEPARATOR/^/g' "$EXPORTCAT_FIXED"
+
 # FIXME Path to line2iso.pl should not be hardcoded
-perl ~/scripts/libriotools/line2iso.pl -i $DIR/exportCat.txt -x --rn -l 1000 > "$DIR/bib/raw-records.marcxml"
+perl ~/scripts/libriotools/line2iso.pl -i "$EXPORTCAT_FIXED" -x > "$MARCXML"
+echo $MARCXML
 echo "done"
 
 # Fix encoding of Something.txt and Somethingspec.txt files 
