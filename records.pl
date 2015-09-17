@@ -292,11 +292,6 @@ debug output. Run C<perldoc itemtypes.pl> for more documentation.
 
         my $itemtype = get_itemtype( $record );
         $last_itemtype = $itemtype;
-        if ( $is_lettlest == 0 ) {
-            $field952->add_subfields( 'y', $itemtype );
-        } else {
-            $field952->add_subfields( 'y', 'BOK' );
-        }
 
 =head3 952$1 Lost status
 
