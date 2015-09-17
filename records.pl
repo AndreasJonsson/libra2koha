@@ -375,7 +375,7 @@ Just add the itemtype in 942$c.
 
 $progress->update( $limit );
 
-say "$count records, $count_items items done";
+say "$count records, $count_items items done" if $verbose;
 say "Did you remember to load data into memory?" if $count_items == 0;
 
 =head1 OPTIONS
