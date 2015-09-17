@@ -13,7 +13,10 @@ EXPORTCAT_FIXED="$DIR/exportCat-fixed.txt"
 MARCXML="$DIR/bib/raw-records.marcxml"
 SCRIPTDIR=$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )
 
-# Convert bibliographic records to MARCXML - line2iso.pl from LibrioTools
+### RECORDS ###
+
+## Get the relevant info into the database
+
 if [ ! -d "$DIR/bib/" ]; then
     mkdir "$DIR/bib/"
 fi
@@ -55,3 +58,5 @@ cd $SCRIPTDIR
 perl ./create_tables.pl --dir $DIR > ./tables.sql
 mysql --local-infile -u libra2koha -ppass libra2koha < ./tables.sql 
 echo "done"
+
+## Get the relevant info out of the database and into a .marcxml file
