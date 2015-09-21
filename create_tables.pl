@@ -31,7 +31,7 @@ use Modern::Perl;
 $/ = "\r\n";
 
 # Get options
-my ( $dir, $verbose, $debug ) = get_options();
+my ( $dir, $tables, $verbose, $debug ) = get_options();
 my $indir = $dir . '/utf8/';
 
 # Check that the file exists
@@ -56,7 +56,7 @@ foreach my $file ( @files ) {
     my( $filename, $dirs, $suffix ) = fileparse( $file );
     my $tablename = substr( $filename, 0, -8 );
     # Only do the tables we will actually use
-    next unless ( $tablename =~ /^(exportCatMatch|Items|BarCodes|StatusCodes)$/);
+    next unless ( $tablename =~ /^( $tables )$/);
     # Get the columns
     my @columns;
     my @lines = read_lines( $file, 'utf8', chomp => 1 );
@@ -86,7 +86,14 @@ $tt2->process( 'create_tables.tt', $vars ) || die $tt2->error();
 
 =item B<--dir>
 
-Directory that contains interesting files.
+Directory that contains files exported from Libra.
+
+=item B<-t, --tables>
+
+List of tables that should be considered in this pass. Separate table names with
+the vertical bar character. E.g.: 
+
+  perl create_tables.pl --tables exportCatMatch|Items|BarCodes|StatusCodes
 
 =item B<-v --verbose>
 
@@ -108,21 +115,24 @@ sub get_options {
 
     # Options
     my $dir     = '';
+    my $tables  = '';
     my $verbose = '';
     my $debug   = '';
     my $help    = '';
 
     GetOptions (
-        'dir=s'     => \$dir,
-        'v|verbose' => \$verbose,
-        'd|debug'   => \$debug,
-        'h|?|help'  => \$help
+        'dir=s'      => \$dir,
+        't|tables=s' => \$tables,
+        'v|verbose'  => \$verbose,
+        'd|debug'    => \$debug,
+        'h|?|help'   => \$help
     );
 
     pod2usage( -exitval => 0 ) if $help;
     pod2usage( -msg => "\nMissing Argument: --dir required\n", -exitval => 1 ) if !$dir;
+    pod2usage( -msg => "\nMissing Argument: -t, --tables required\n", -exitval => 1 ) if !$tables;
 
-    return ( $dir, $verbose, $debug );
+    return ( $dir, $tables, $verbose, $debug );
 
 }
 
