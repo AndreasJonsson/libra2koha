@@ -58,10 +58,11 @@ echo -n "Going to create tables and load data into MySQL... "
 cd $SCRIPTDIR
 perl ./create_tables.pl --dir $DIR > ./tables.sql
 mysql --local-infile -u libra2koha -ppass libra2koha < ./tables.sql 
+echo "ALTER TABLE Items ADD COLUMN done INT(1) DEFAULT 0;" | mysql --local-infile -u libra2koha -ppass libra2koha
 echo "done"
 
 ## Get the relevant info out of the database and into a .marcxml file
 
 echo -n "Going to transform records... "
-perl records.pl --config $CONFIG --limit 1000 --infile $MARCXML
+perl records.pl --config $CONFIG --limit 1000 --infile $MARCXML --flag_done
 echo "done"
