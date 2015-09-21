@@ -83,6 +83,21 @@ if ( -f $config_dir . '/loc.yaml' ) {
     $loc = LoadFile( $config_dir . '/loc.yaml' );
 }
 
+=head2 ccode.yaml
+
+Mapping from Departments in Libra to CCODE authorised values in Koha.
+
+To generate a skeleton for this file:
+
+  perl table2config.pl /path/to/Departments.txt 0 2
+
+=cut
+
+my $ccode;
+if ( -f $config_dir . '/ccode.yaml' ) {
+    $ccode = LoadFile( $config_dir . '/ccode.yaml' );
+}
+
 # Check that the input file exists
 if ( !-e $input_file ) {
     print "The file $input_file does not exist...\n";
@@ -183,6 +198,11 @@ L<http://wiki.koha-community.org/wiki/Holdings_data_fields_%289xx%29>
 
 "Coded value, matching the authorized value list 'LOC'."
 
+Stored in Items.IdLocalShelf and references the LocalShelfs table. SQL to check
+which values are actually in use:
+
+  select IdLocalShelf, count(*) from Items group by IdLocalShelf
+
 =cut
 
         # $field952->add_subfields( 'c', $item->{'IdDepartment'} ) if $item->{'IdDepartment'};
@@ -220,8 +240,6 @@ To see which prices occur in the data:
 To see what is present in the data:
 
   SELECT Location_Marc, count(*) AS count FROM Items GROUP BY Location_Marc;
-
-TODO Compare this to 852c/h?
 
 =cut
 
@@ -337,10 +355,11 @@ TODO Unused
 
 Values must be defined in the CCODE authorized values category.
 
+We base this on the Departments table and the value of Items.IdDepartment value.
+
 =cut
 
-        # FIXME
-        # $field952->add_subfields( '8', 'FIXME' );
+        $field952->add_subfields( '8', $ccode->{ $item->{'IdLocalShelf'} } ) if $item->{'IdLocalShelf'};
 
 
         # Add the field to the record
