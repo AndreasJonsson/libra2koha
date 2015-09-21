@@ -29,7 +29,7 @@ binmode STDOUT, ":utf8";
 $|=1; # Flush output
 
 # Get options
-my ( $config_dir, $input_file, $limit, $every, $verbose, $debug ) = get_options();
+my ( $config_dir, $input_file, $flag_done, $limit, $every, $verbose, $debug ) = get_options();
 
 $limit = 130889 if $limit == 0; # FIXME This should not be hardcoded, of course
 my $progress = Term::ProgressBar->new( $limit );
@@ -106,12 +106,19 @@ if ( !-e $input_file ) {
 
 # Set up the database connection
 my $dbh = DBI->connect( $config->{'db_dsn'}, $config->{'db_user'}, $config->{'db_pass'}, { RaiseError => 1, AutoCommit => 1 } );
+
+# Query for selecting items connected to a given record
 my $sth = $dbh->prepare("
     SELECT Items.*, BarCodes.BarCode 
     FROM exportCatMatch, Items, BarCodes 
     WHERE exportCatMatch.ThreeOne = ? 
       AND exportCatMatch.IdCat = Items.IdCat 
       AND Items.IdItem = BarCodes.IdItem
+");
+
+# Query for setting done = 1 if --flag_done is set
+my $sth_done = $dbh->prepare("
+    UPDATE Items SET done = 1 WHERE IdItem = ?
 ");
 
 # Create a file output object
@@ -365,6 +372,11 @@ We base this on the Departments table and the value of Items.IdDepartment value.
         # Add the field to the record
         $record->insert_fields_ordered( $field952 );
 
+        # Mark the item as done, if we are told to do so
+        if ( $flag_done ) {
+            $sth_done->execute( $item->{'IdItem'} );
+        }
+
         $count_items++;
 
     } # end foreach items
@@ -406,9 +418,27 @@ L</"CONFIG FILES"> above for more details.
 
 =item B<-i, --infile>
 
-Path to MARCXML input file.
+Path to MARCXML input file. (The path to the MARCXML output file is set in
+F<config.yaml>.)
 
-(The path to the MARCXML output file is set in F<config.yaml>.)
+=item B<-f, --flag_done>
+
+Flag items that have been done as such in the database. This requires the
+following alteration to the database (libra2koha.sh will do this for you, if you
+use it):
+
+  ALTER TABLE Items ADD COLUMN done INT(1) DEFAULT 0;
+
+If --flag_done is set, items that have been connected to records will have the
+value of _done updated to 1. After this script has run, items that have not been
+connected to records can be found like this:
+
+  SELECT * FROM Items WHERE done = 0;
+
+If this script needs to be run multiple times, the done column should be reset
+to 0 with this:
+
+  UPDATE Items SET done = 0;
 
 =item B<-l, --limit>
 
@@ -439,6 +469,7 @@ sub get_options {
     # Options
     my $config_dir  = '';
     my $input_file  = '';
+    my $flag_done   = '';
     my $limit       = 0;
     my $every       = '';
     my $verbose     = '';
@@ -448,6 +479,7 @@ sub get_options {
     GetOptions (
         'c|config=s'  => \$config_dir,
         'i|infile=s'  => \$input_file,
+        'f|flag_done' => \$flag_done,
         'l|limit=i'   => \$limit,
         'e|every=i'   => \$every,
         'v|verbose'   => \$verbose,
@@ -459,7 +491,7 @@ sub get_options {
     pod2usage( -msg => "\nMissing Argument: -c, --config required\n",  -exitval => 1 ) if !$config_dir;
     pod2usage( -msg => "\nMissing Argument: -i, --infile required\n",  -exitval => 1 ) if !$input_file;
  
-    return ( $config_dir, $input_file, $limit, $every, $verbose, $debug );
+    return ( $config_dir, $input_file, $flag_done, $limit, $every, $verbose, $debug );
  
 }
 
