@@ -55,8 +55,10 @@ foreach my $file ( @files ) {
     # Get the name of the table
     my( $filename, $dirs, $suffix ) = fileparse( $file );
     my $tablename = substr( $filename, 0, -8 );
+
     # Only do the tables we will actually use
-    next unless ( $tablename =~ /^( $tables )$/);
+    next unless ( index( $tables, $tablename ) >= 0 );
+
     # Get the columns
     my @columns;
     my @lines = read_lines( $file, 'utf8', chomp => 1 );
@@ -73,12 +75,17 @@ foreach my $file ( @files ) {
 
 }
 
-# TODO Special treatment for exportCatMatch.txt
-my @columns;
-push @columns, { 'name' => 'IdCat', 'type' => 'int', 'size' => '12' };
-push @columns, { 'name' => 'ThreeOne', 'type' => 'char', 'size' => '32' };
-my $vars = { 'dirs' => "$dir/", 'tablename' => 'exportCatMatch', 'columns' => \@columns, 'sep' => ', ' };
-$tt2->process( 'create_tables.tt', $vars ) || die $tt2->error();
+# Special treatment for exportCatMatch, which does not have a *spec.txt file
+if ( index( $tables, 'exportCatMatch' ) >= 0 ) {
+
+    # Special treatment for exportCatMatch.txt
+    my @columns;
+    push @columns, { 'name' => 'IdCat', 'type' => 'int', 'size' => '12' };
+    push @columns, { 'name' => 'ThreeOne', 'type' => 'char', 'size' => '32' };
+    my $vars = { 'dirs' => "$dir/", 'tablename' => 'exportCatMatch', 'columns' => \@columns, 'sep' => ', ' };
+    $tt2->process( 'create_tables.tt', $vars ) || die $tt2->error();
+
+}
 
 =head1 OPTIONS
 

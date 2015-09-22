@@ -58,7 +58,7 @@ perl -pi -e '$/=undef; s/\r\n/\n/g'   "$DIR/utf8/Borrowers.txt"
 ## Create tables and load the datafiles
 #echo -n "Going to create tables for records and items, and load data into MySQL... "
 #cd $SCRIPTDIR
-#perl ./create_tables.pl --dir $DIR > ./bib_tables.sql
+#perl ./create_tables.pl --dir $DIR --tables "exportCatMatch|Items|BarCodes|StatusCodes" > ./bib_tables.sql
 #mysql --local-infile -u libra2koha -ppass libra2koha < ./bib_tables.sql
 #echo "ALTER TABLE Items ADD COLUMN done INT(1) DEFAULT 0;" | mysql --local-infile -u libra2koha -ppass libra2koha
 #echo "done"
