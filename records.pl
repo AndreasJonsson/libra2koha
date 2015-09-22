@@ -183,7 +183,7 @@ L<http://wiki.koha-community.org/wiki/Holdings_data_fields_%289xx%29>
     my $f003 = lc $record->field( '003' )->data();
     my $recordid = lc "$f003$f001";
     # Remove any non alphanumerics
-    $recordid =~ s/[^a-zæøåöA-ZÆØÅÖ\d]//g
+    $recordid =~ s/[^a-zæøåöA-ZÆØÅÖ\d]//g;
     say "$f003 + $f001 = $recordid" if $verbose;
     # Look up items by recordid in the DB and add them to our record
     $sth->execute( $recordid );
