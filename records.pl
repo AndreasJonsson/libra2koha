@@ -316,6 +316,7 @@ debug output. Run C<perldoc itemtypes.pl> for more documentation.
 =cut
 
         my $itemtype = get_itemtype( $record );
+        $field952->add_subfields( 'y', $itemtype );
         $last_itemtype = $itemtype;
 
 =head3 952$1 Lost status
@@ -368,7 +369,7 @@ We base this on the Departments table and the value of Items.IdDepartment value.
 
 =cut
 
-        $field952->add_subfields( '8', $ccode->{ $item->{'IdLocalShelf'} } ) if $item->{'IdLocalShelf'};
+        $field952->add_subfields( '8', $ccode->{ $item->{'IdDepartment'} } ) if $item->{'IdDepartment'};
 
 
         # Add the field to the record
