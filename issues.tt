@@ -1,0 +1,11 @@
+INSERT INTO issues ( borrowernumber, itemnumber, date_due, branchcode, lastreneweddate, renewals, issuedate ) 
+VALUES ( 
+    ( SELECT borrowernumber FROM borrowers WHERE cardnumber = '[% loan.cardnumber %]' ),
+    ( SELECT itemnumber FROM items WHERE barcode = '[% loan.itembarcode %]' ),
+    '[% loan.date_due %]', -- date_due
+    '[% loan.branchcode %]', -- branchcode
+    '[% loan.branchcode %]', -- lastreneweddate
+    '[% loan.renewals %]', -- renewals
+    '[% loan.issuedate %]' -- issuedate
+);
+UPDATE items SET onloan = [%# checkoutdate  %] WHERE itemnumber = [%# itemnumber %];
