@@ -56,6 +56,8 @@ use DateTime;
 use File::Slurper qw( read_lines );
 use Modern::Perl;
 
+say "Usage: $0 /path/to/Sometable.txt key-index comment-index" unless $ARGV[0];
+
 my $dt = DateTime->now( time_zone => 'Europe/Oslo' );
 
 my @lines = read_lines( $ARGV[0], 'utf8', chomp => 1 );
