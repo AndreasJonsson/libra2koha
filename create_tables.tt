@@ -6,6 +6,7 @@ CREATE TABLE `[% tablename %]` (
     `[% col.name %]` [% col.type %][% IF col.size %]([% col.size %])[% END %]
     [%- IF tablename == 'Items' && col.name == 'IdItem' %] PRIMARY KEY[% END %]
     [%- IF tablename == 'exportCatMatch' && col.name == 'ThreeOne' %] PRIMARY KEY[% END %]
+    [%- IF tablename == 'Borrowers' && col.name == 'IdBorrower' %] PRIMARY KEY[% END %]
     [%- UNLESS loop.last %],[% END %]
 [% END -%]
 ) ENGINE=MEMORY DEFAULT CHARSET=utf8;
