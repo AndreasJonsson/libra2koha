@@ -75,27 +75,50 @@ echo "done"
 
 ### BORROWERS ###
 
-# Clean up the database
-echo "DROP TABLE IF EXISTS exportCatMatch;" | $MYSQL
-echo "DROP TABLE IF EXISTS Items         ;" | $MYSQL
-echo "DROP TABLE IF EXISTS BarCodes      ;" | $MYSQL
-echo "DROP TABLE IF EXISTS StatusCodes   ;" | $MYSQL
+## Clean up the database
+#echo "DROP TABLE IF EXISTS exportCatMatch;" | $MYSQL
+#echo "DROP TABLE IF EXISTS Items         ;" | $MYSQL
+#echo "DROP TABLE IF EXISTS BarCodes      ;" | $MYSQL
+#echo "DROP TABLE IF EXISTS StatusCodes   ;" | $MYSQL
 
-# The borrowers data needs some special treatment
-perl fix_borrowers.pl "$DIR/utf8/Borrowers.txt"
+## The borrowers data needs some special treatment
+#perl fix_borrowers.pl "$DIR/utf8/Borrowers.txt"
+
+## Create tables and load the datafiles
+#echo -n "Going to create tables for borrowers, and load data into MySQL... "
+#perl ./create_tables.pl --dir $DIR --tables "Borrowers|BorrowerPhoneNumbers|BarCodes" > ./borrowers_tables.sql
+#mysql --local-infile -u libra2koha -ppass libra2koha < ./borrowers_tables.sql
+#echo "DELETE FROM BarCodes WHERE IdBorrower = 0;" | $MYSQL
+#echo "done"
+
+## Get the relevant info out of the database and into a .sql file
+#echo "Going to transform borrowers... "
+#BORROWERSSQL="$OUTPUTDIR/borrowers.sql"
+#if [ -f $BORROWERSSQL ]; then
+#   rm $BORROWERSSQL
+#fi
+#perl borrowers.pl --config $CONFIG >> $BORROWERSSQL
+#echo "done"
+
+### ACTIVE ISSUES/LOANS ###
+
+# Clean up the database
+echo "DROP TABLE IF EXISTS Borrowers           ;" | $MYSQL
+echo "DROP TABLE IF EXISTS BorrowerPhoneNumbers;" | $MYSQL
+echo "DROP TABLE IF EXISTS BarCodes            ;" | $MYSQL
 
 # Create tables and load the datafiles
-echo -n "Going to create tables for borrowers, and load data into MySQL... "
-perl ./create_tables.pl --dir $DIR --tables "Borrowers|BorrowerPhoneNumbers|BarCodes" > ./borrowers_tables.sql
-mysql --local-infile -u libra2koha -ppass libra2koha < ./borrowers_tables.sql
-echo "DELETE FROM BarCodes WHERE IdBorrower = 0;" | $MYSQL
+echo -n "Going to create tables for active issues, and load data into MySQL... "
+perl ./create_tables.pl --dir $DIR --tables "Borrowers|BorrowerPhoneNumbers|BarCodes" > ./issues_tables.sql
+mysql --local-infile -u libra2koha -ppass libra2koha < ./issues_tables.sql
+# echo "DELETE FROM BarCodes WHERE IdBorrower = 0;" | $MYSQL
 echo "done"
 
-# Get the relevant info out of the database and into a .marcxml file
-echo "Going to transform borrowers... "
-BORROWERSSQL="$OUTPUTDIR/borrowers.sql"
-if [ -f $BORROWERSSQL ]; then
-   rm $BORROWERSSQL
+# Get the relevant info out of the database and into a .sql file
+echo "Going to transform issues... "
+ISSUESSQL="$OUTPUTDIR/issues.sql"
+if [ -f $ISSUESSQL ]; then
+   rm $ISSUESSQL
 fi
-perl borrowers.pl --config $CONFIG >> $BORROWERSSQL
+perl issuess.pl --config $CONFIG >> $ISSUESSQL
 echo "done"
