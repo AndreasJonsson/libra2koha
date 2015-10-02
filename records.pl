@@ -109,10 +109,10 @@ my $dbh = DBI->connect( $config->{'db_dsn'}, $config->{'db_user'}, $config->{'db
 
 # Query for selecting items connected to a given record
 my $sth = $dbh->prepare("
-    SELECT Items.*, BarCodes.BarCode 
-    FROM exportCatMatch, Items, BarCodes 
-    WHERE exportCatMatch.ThreeOne = ? 
-      AND exportCatMatch.IdCat = Items.IdCat 
+    SELECT Items.*, BarCodes.BarCode
+    FROM exportCatMatch, Items, BarCodes
+    WHERE exportCatMatch.ThreeOne = ?
+      AND exportCatMatch.IdCat = Items.IdCat
       AND Items.IdItem = BarCodes.IdItem
 ");
 
