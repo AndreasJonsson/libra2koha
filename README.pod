@@ -117,6 +117,34 @@ in the blank quotes.
 
 =back
 
+(There is no checking that the blanks in the stub files have actually been
+filled in, so make sure you do fill them in before you run F<libra2koha.sh> for
+the second time. Otherwise, who knows what might happen?)
+
+=head2 Itemtypes
+
+Itemtypes are often one of the trickiest parts of a migration, and this is 
+certainly true of a Libra to Koha migration. The main reason for this is that
+Libra stores item type information as codes in given positions of fields 000,
+006, 007 and 008. Sometimes it has also proven necessary to use information from
+500 and 852 in order to decide on the item type for a record. 
+
+Koha on the other hand stores item type information on the item level, in 952$y.
+
+libra2koha has put the logic for figuring out item types into F<lib/Itemtypes.pm>
+and more specifically, the get_itemtype() subroutine. Given a MARC record, this
+sub will spit out the item type of that record.
+
+To figure out what item types you need to define in Koha, you should run the 
+F<itemtypes.pl> helper script against the .marcxml file that is created during
+the first run:
+
+  perl itemtypes.pl -i /path/to/data/bib/raw-records.marcxml
+
+This should give you a list of item type codes and their frequencies, from which
+you should be able to create the necessary list of item types in Koha, under
+Administration > Item types.
+
 =head2 Second run
 
 When all the configs and mappings are in place, you should run F<libra2koha.sh>
@@ -138,7 +166,20 @@ perfectly happy. Your mileage WILL wary!
 
 The data needs to be loaded into Koha in the right order:
 
+records.marcxml should go first, and be processed with the bulkmarcimport.pl
+tool (unless you have just a few records, in which case you can use the 
+Stage/Manage tools in the web UI):
 
+  sudo koha-shell -c "/usr/share/koha/bin/migration_tools/bulkmarcimport.pl -b -file records.marcxml -v -commit 100 -m MARCXML -d" <instancename>
+
+.sql files can be loaded with the koha-mysql tool: 
+
+  sudo koha-mysql <instancename> < borrowers.sql
+  sudo koha-mysql <instancename> < issues.sql
+
+Make sure you finnish it all off with a full reindex: 
+
+  sudo koha-rebuild-zebra -f -v <instancename>
 
 =head1 DATABASE
 
