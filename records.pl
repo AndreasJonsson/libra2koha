@@ -61,8 +61,6 @@ Mapping from Branches.IdBRanchCode in Libra to branchcodes in Koha. Have a look
 at Branches.txt in the exported data to get an idea of what should go into this
 mapping.
 
-TODO: Create a script that can help generate the mapping from Branches.txt.
-
 =cut
 
 my $branchcodes;
