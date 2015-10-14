@@ -32,34 +32,119 @@ identifier that you can use to look up items connected to the record.
 
 =back
 
-=head1 WORKFLOW
+=head1 TYPES OF DATA
 
-The tools in this package are based on the following workflows:
-
-=head2 Bibliograpic records
-
-Currently, records are just converted from mnemonic/line format to MARCXML. 
-Much work remains TODO. 
-
-=head2 Other data
-
-All the data that is not bibliographic will go through a 3 step process:
+B<libra2koha> currently handles the following types of data:
 
 =over 4
 
-=item * Normalization and loading into a MySQL database. This is done by the
-script F<libra2db.sh>, which is almost complete. 
+=item * Bibliographic records and items
 
-=item * Massage the data in the database. TODO
+=item * Borrowers
 
-=item * Extract the data in formats suitable for importing into Koha. TODO
+=item * Active issues/loans
 
 =back
 
+=head1 WORKFLOW
+
+The main script in this repository is F<libra2koha.sh>. In theory it is the
+only script you should need to run directly. It will run all the other scripts
+and transformations required to do the migration.
+
+The main idea is that you run F<libra2koha.sh> twice. The first time it will
+complain about some missing config and mapping files, but also produce stubs
+for those same files. After you have filled in the stub files you run 
+F<libra2koha.sh> again, and the migration produces a set of output files that
+can be loaded into Koha. 
+
+=head2 First run
+
+Before you run F<libra2koha.sh> for the first time you need to have two 
+directories set up:
+
+=over 4
+
+=item * A config directory, which should be empty initially
+
+=item * The directory that contains the data dump from Libra
+
+=back
+
+When you have these set up, you can run F<libra2koha.sh> thusly: 
+
+  libra2koha.sh /path/to/config /path/to/data
+
+As mentioned earlier, this will complain about missing files, but it will also
+generate stubs for these files in /path/to/config. When this is done, you have to
+go through all the stub files and fill in the blanks. This will typically also
+involve filling Koha with corresponding settings, like values for the LOC and
+CCODE authorized values. 
+
+The format of the generated files will look something like this:
+
+  # Generated from /path/to/data/utf8/Departments.txt
+  # 2015-10-14 11:31:40
+  
+  1: '' # Something 
+  2: '' # Something else
+  3: '' # Another one
+
+On the left are actual values/IDs from Libra. These should not be changed. On
+the right are textual explanations of what the values/IDs represent. Your job is
+to fill in the empty quotes with something that makes sense to Koha. What this
+is depends on the file:
+
+=over 4
+
+=item * F<config.yaml> - This is the main config file, and does not follow the
+pattern described above. Look at the comments and names of variables to figure
+out if any changes are necessary. 
+
+=item * F<branchcodes.yaml> - All the libraries/branches. Define all the 
+libraries/branches you need in Koha, under  Administration > Libraries and 
+groups. Fill in the "Code" for each library in the blank quotes.
+
+=item * F<loc.yaml> - Authorized values of the "LOC" category. Fill in the 
+"Authorized value" of each value into the blank quotes.
+
+=item * F<ccode.yaml> - Authorized values of the "CCODE" category. Fill in the 
+"Authorized value" of each value into the blank quotes.
+
+=item * F<patroncategories.yaml> - Go to Administration > Patron categories in 
+Koha and create the categories you need. Fill in the "Code" for each category
+in the blank quotes.
+
+=back
+
+=head2 Second run
+
+When all the configs and mappings are in place, you should run F<libra2koha.sh>
+in exactly the same way as earlier: 
+
+  libra2koha.sh /path/to/config /path/to/data
+
+This should produce a bunch of output files in /path/to/data/out
+
+=head2 Caveat
+
+In thoery, your data should now be fully migrated and ready to be loaded into 
+Koha. In practice you might run into problems that mean you have to tweak the
+configs and mappings and run F<libra2koha.sh> multiple times to get the 
+desired results. You might even have to tweak the scripts before you are
+perfectly happy. Your mileage WILL wary!
+
+=head1 GETTING THE DATA INTO KOHA
+
+The data needs to be loaded into Koha in the right order:
+
+
+
 =head1 DATABASE
 
-The scripts are currently hardcoded to use a database on localhost with the
-following credentials:
+When the data dumped from Libra are going to be used, they are loaded into a
+MySQL databse, before being extracted and massaged. The scripts are currently
+hardcoded to use a database on localhost with the following credentials:
 
 =over 4
 
@@ -84,11 +169,38 @@ and user with the following commands:
 The scripts in this repository rely on some resources not included in the repo
 itself:
 
+=head2 A Linux environment
+
+The tools have all been successfully run on Ubuntu 14.04. 
+
 =head2 LibrioTools
 
 This is a collection of tools createed by Libriotech. It can be obtained thusly:
 
   git clone https://github.com/Libriotech/LibrioTools.git
+
+=head1 MORE DOCUMENTATION
+
+All the provided Perl files have embedded documentation in the form of POD. To
+read this documentation, run the files through C<perldoc>:
+
+=head2 Main scripts
+
+These are the scripts that play an active part in the migration:
+
+  perldoc records.pl
+  perldoc borrowers.pl
+  perldoc issues.pl
+
+=head2 Helper scripts
+
+These are used for minor tasks during the migration:
+  
+  perldoc analyze00x.pl
+  perldoc create_tables.pl
+  perldoc fix_borrowers.pl
+  perldoc itemtypes.pl
+  perldoc table2config.pl
 
 =head1 AUTHOR
 
