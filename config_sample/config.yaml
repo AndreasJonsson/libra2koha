@@ -7,3 +7,7 @@
 db_dsn:  'dbi:mysql:database=libra2koha;host=localhost;port=3306'
 db_user: 'libra2koha'
 db_pass: 'pass'
+
+# Where to put the output
+
+output_marcxml: "/path/to/data/out/records.marcxml"
