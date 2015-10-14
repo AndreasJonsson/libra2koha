@@ -40,11 +40,52 @@ B<libra2koha> currently handles the following types of data:
 
 =item * Bibliographic records and items
 
-=item * Borrowers
+=item * Borrowers (partially, work in progress)
 
 =item * Active issues/loans
 
 =back
+
+=head1 DEPENDENCIES
+
+=head2 Database
+
+When the data dumped from Libra are going to be used, they are loaded into a
+MySQL databse, before being extracted and massaged. The scripts are currently
+hardcoded to use a database on localhost with the following credentials:
+
+=over 4
+
+=item * databasename = libra2koha
+
+=item * username = libra2koha
+
+=item * password = pass
+
+=back
+
+If you have MySQL installed, you should be able to create the necessary database
+and user with the following commands:
+
+  $ mysql -u root -p
+  mysql> create database libra2koha;
+  mysql> grant all privileges on libra2koha.* to 'libra2koha'@'localhost' identified by 'pass';
+  mysql> flush privileges;
+
+=head2 Other stuff
+
+The scripts in this repository rely on some resources not included in the repo
+itself:
+
+=head3 A Linux environment
+
+The tools have all been successfully run on Ubuntu 14.04.
+
+=head3 LibrioTools
+
+This is a collection of tools createed by Libriotech. It can be obtained thusly:
+
+  git clone https://github.com/Libriotech/LibrioTools.git
 
 =head1 WORKFLOW
 
@@ -180,45 +221,6 @@ Stage/Manage tools in the web UI):
 Make sure you finnish it all off with a full reindex: 
 
   sudo koha-rebuild-zebra -f -v <instancename>
-
-=head1 DATABASE
-
-When the data dumped from Libra are going to be used, they are loaded into a
-MySQL databse, before being extracted and massaged. The scripts are currently
-hardcoded to use a database on localhost with the following credentials:
-
-=over 4
-
-=item * databasename = libra2koha
-
-=item * username = libra2koha
-
-=item * password = pass
-
-=back
-
-If you have MySQL installed, you should be able to create the necessary database
-and user with the following commands:
-
-  $ mysql -u root -p
-  mysql> create database libra2koha;
-  mysql> grant all privileges on libra2koha.* to 'libra2koha'@'localhost' identified by 'pass';
-  mysql> flush privileges;
-
-=head1 DEPENDENCIES
-
-The scripts in this repository rely on some resources not included in the repo
-itself:
-
-=head2 A Linux environment
-
-The tools have all been successfully run on Ubuntu 14.04. 
-
-=head2 LibrioTools
-
-This is a collection of tools createed by Libriotech. It can be obtained thusly:
-
-  git clone https://github.com/Libriotech/LibrioTools.git
 
 =head1 MORE DOCUMENTATION
 
