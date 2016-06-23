@@ -1,4 +1,12 @@
+package Itemtypes;
+
+$VERSION     = 1.00;
+@ISA         = qw(Exporter);
+@EXPORT      = qw(get_itemtype);
+@EXPORT_OK   = qw();
+
 use Modern::Perl;
+use Marc21Utils;
 
 use Data::Dumper;
 
@@ -10,22 +18,22 @@ sub get_itemtype {
     our ( $record ) = @_;
 
     # Pick out all the codes we need to make our decisions
-    our $f000p0  = _get_pos( '000', 0,  $record );
-    our $f000p1  = _get_pos( '000', 1,  $record );
-    our $f000p6  = _get_pos( '000', 6,  $record );
-    our $f000p7  = _get_pos( '000', 7,  $record );
-    our $f006p0  = _get_pos( '006', 0,  $record );
-    our $f006p4  = _get_pos( '006', 4,  $record );
-    our $f006p9  = _get_pos( '006', 9,  $record );
-    our $f007p0  = _get_pos( '007', 0,  $record );
-    our $f007p1  = _get_pos( '007', 1,  $record );
-    our $f007p4  = _get_pos( '007', 4,  $record );
-    our $f007p10 = _get_pos( '007', 10, $record );
-    our $f008p21 = _get_pos( '008', 21, $record );
-    our $f008p24 = _get_pos( '008', 24, $record );
-    our $f008p25 = _get_pos( '008', 25, $record );
-    our $f008p26 = _get_pos( '008', 26, $record );
-    our $f008p27 = _get_pos( '008', 27, $record );
+    our $f000p0  = get_pos( '000', 0,  $record );
+    our $f000p1  = get_pos( '000', 1,  $record );
+    our $f000p6  = get_pos( '000', 6,  $record );
+    our $f000p7  = get_pos( '000', 7,  $record );
+    our $f006p0  = get_pos( '006', 0,  $record );
+    our $f006p4  = get_pos( '006', 4,  $record );
+    our $f006p9  = get_pos( '006', 9,  $record );
+    our $f007p0  = get_pos( '007', 0,  $record );
+    our $f007p1  = get_pos( '007', 1,  $record );
+    our $f007p4  = get_pos( '007', 4,  $record );
+    our $f007p10 = get_pos( '007', 10, $record );
+    our $f008p21 = get_pos( '008', 21, $record );
+    our $f008p24 = get_pos( '008', 24, $record );
+    our $f008p25 = get_pos( '008', 25, $record );
+    our $f008p26 = get_pos( '008', 26, $record );
+    our $f008p27 = get_pos( '008', 27, $record );
 
     my %fieldpositions = (
        'f000p0' => $f000p0,
@@ -123,13 +131,13 @@ sub get_itemtype {
         $itemtype = 'MP3';
     } elsif ( $f000p6 eq 'i' && $f000p7 eq 'm' && $f007p0 eq 's' && $f007p1 eq 'd' ) {
             $itemtype = 'LJUDBOK';
-    } elsif ( 
-        $record->field( '852' ) && ( 
-            ( $record->subfield( '852', 'c' ) && $record->subfield( '852', 'c' ) =~ m/DAISY/gi ) || 
-            ( $record->subfield( '852', 'h' ) && $record->subfield( '852', 'h' ) =~ m/DAISY/gi ) 
+    } elsif (
+        $record->field( '852' ) && (
+            ( $record->subfield( '852', 'c' ) && $record->subfield( '852', 'c' ) =~ m/DAISY/gi ) ||
+            ( $record->subfield( '852', 'h' ) && $record->subfield( '852', 'h' ) =~ m/DAISY/gi )
         )
     ) {
-        $itemtype = 'DAISY'; 
+        $itemtype = 'DAISY';
     } elsif ( $record->subfield( '852', 'h' ) && $record->subfield( '852', 'h' ) =~ m/ljudbok/gi ) {
         $itemtype = 'LJUDBOK';
     } elsif ( $record->subfield( '852', 'h' ) && $record->subfield( '852', 'h' ) =~ m/talböcker/gi ) {
@@ -143,11 +151,11 @@ sub get_itemtype {
     } elsif ( $f000p6 eq 'a' && $f000p7 eq 'm' && $f007p0 eq 'c' && $f007p1 eq 'r' ) {
         $itemtype = 'EBOK';
 
-    # Fortlöpande resurs i form av text 
+    # Fortlöpande resurs i form av text
     # http://www.kb.se/katalogisering/Formathandboken/Bibliografiska-formatet/008/Fortlopande-resurs/
     } elsif (
         ( $f000p6 eq 'a' || $f000p6 eq 't' ) &&
-        ( $f000p7 eq 'b' || $f000p7 eq 'i' || $f000p7 eq 's' ) 
+        ( $f000p7 eq 'b' || $f000p7 eq 'i' || $f000p7 eq 's' )
     ) {
         if ( $f008p21 eq 'p' ) {
             $itemtype = 'TIDSSKRIFT';
@@ -198,25 +206,5 @@ sub get_itemtype {
 
 }
 
-sub _get_pos {
-
-    # Takes: A string
-    # Returns: the char at the given position
-
-    my ( $field, $pos, $record ) = @_;
-    my $s = '';
-    if ( $record->field( $field ) && $record->field( $field )->data() ) {
-        $s = $record->field( $field )->data();
-    } elsif ( $field eq '000' ) {
-        # Field '000' should't exist, as this code denotes the leader.  But if it does, we let it override the leader.
-        $s = $record->leader();
-    }
-
-    if ($pos < length($s)) {
-        return substr($s, $pos, 1);
-    }
-
-    return '_';
-}
 
 1;

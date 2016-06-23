@@ -1,7 +1,7 @@
-#!/usr/bin/env perl 
- 
+#!/usr/bin/env perl
+
 # Copyright 2015 Magnus Enger Libriotech
- 
+
 =head1 NAME
 
 records.pl - Read MARCXML records from a file and add items from the database.
@@ -23,7 +23,7 @@ use DateTime;
 use Pod::Usage;
 use Modern::Perl;
 use Data::Dumper;
-require 'lib/Itemtypes.pm';
+use Itemtypes;
 
 binmode STDOUT, ":utf8";
 $|=1; # Flush output
@@ -38,7 +38,7 @@ my $progress = Term::ProgressBar->new( $limit );
 
 Config files should be kept in one directory and pointed to by the -c or
 --config option. Different config files are expected to have specific names, as
-detailed below. 
+detailed below.
 
 =head2 config.yaml
 
@@ -243,7 +243,7 @@ To see which prices occur in the data:
 =cut
 
         $field952->add_subfields( 'l', $item->{'NoOfLoansTot'} ) if $item->{'NoOfLoansTot'};
-        
+
 =head3 952$o Call number
 
 To see what is present in the data:
@@ -397,7 +397,7 @@ Just add the itemtype in 942$c.
 
     $file->write( $record );
     say MARC::File::XML::record( $record ) if $debug;
-    
+
     # Count and cut off at the limit if one is given
     $count++;
     $progress->update( $count );
@@ -464,11 +464,11 @@ Even more verbose output.
 Prints this help message and exits.
 
 =back
-                                                               
+
 =cut
- 
+
 sub get_options {
- 
+
     # Options
     my $config_dir  = '';
     my $input_file  = '';
@@ -478,7 +478,7 @@ sub get_options {
     my $verbose     = '';
     my $debug       = '';
     my $help        = '';
- 
+
     GetOptions (
         'c|config=s'  => \$config_dir,
         'i|infile=s'  => \$input_file,
@@ -489,13 +489,13 @@ sub get_options {
         'd|debug'     => \$debug,
         'h|?|help'    => \$help
     );
- 
+
     pod2usage( -exitval => 0 ) if $help;
     pod2usage( -msg => "\nMissing Argument: -c, --config required\n",  -exitval => 1 ) if !$config_dir;
     pod2usage( -msg => "\nMissing Argument: -i, --infile required\n",  -exitval => 1 ) if !$input_file;
- 
+
     return ( $config_dir, $input_file, $flag_done, $limit, $every, $verbose, $debug );
- 
+
 }
 
 ## Internal subroutines.
@@ -515,22 +515,6 @@ sub fix_date {
 
 }
 
-# Takes: A string
-# Returns: the char at the given position
-
-sub get_pos {
-
-    my ( $field, $pos, $record ) = @_;
-    if ( $record->field( $field ) && $record->field( $field )->data() ) {
-        my $string = $record->field( $field )->data();
-        my @chars = split //, $string;
-        return $chars[ $pos ];
-    } else {
-        return undef;
-    }
-
-}
- 
 =head1 AUTHOR
 
 Magnus Enger, <magnus [at] libriotech.no>

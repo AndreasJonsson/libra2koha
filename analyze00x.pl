@@ -1,7 +1,7 @@
-#!/usr/bin/perl 
- 
+#!/usr/bin/env perl
+
 # Copyright 2015 Magnus Enger Libriotech
- 
+
 =head1 NAME
 
 analyze00x.pl - Read MARCXML records from a file and add items from the database.
@@ -17,6 +17,7 @@ use Getopt::Long;
 use Data::Dumper;
 use Pod::Usage;
 use Modern::Perl;
+use Marc21Utils;
 
 binmode STDOUT, ":utf8";
 $|=1; # Flush output
@@ -39,7 +40,7 @@ RECORD: while (my $record = $batch->next()) {
     my $f006p0 = get_pos( '006', 0, $record );
     my $f007p0 = get_pos( '007', 0, $record );
     $codes{ $f000p6 . $f006p0 . $f007p0 }++;
-    
+
     # Count and cut off at the limit if one is given
     $count++;
     last if $limit && $limit == $count;
@@ -57,24 +58,6 @@ foreach my $key ( sort keys %codes ) {
 };
 
 say "Sum: $sum";
-
-## Internal subroutines.
-
-# Takes: A string
-# Returns: the char at the given position
-
-sub get_pos {
-
-    my ( $field, $pos, $record ) = @_;
-    if ( $record->field( $field ) && $record->field( $field )->data() ) {
-        my $string = $record->field( $field )->data();
-        my @chars = split //, $string;
-        return $chars[ $pos ];
-    } else {
-        return '_';
-    }
-
-}
 
 =head1 OPTIONS
 
@@ -101,18 +84,18 @@ Even more verbose output.
 Prints this help message and exits.
 
 =back
-                                                               
+
 =cut
- 
+
 sub get_options {
- 
+
     # Options
     my $input_file  = '';
     my $limit       = '';
     my $verbose     = '';
     my $debug       = '';
     my $help        = '';
- 
+
     GetOptions (
         'i|infile=s'  => \$input_file,
         'l|limit=i'   => \$limit,
@@ -120,12 +103,12 @@ sub get_options {
         'd|debug'     => \$debug,
         'h|?|help'    => \$help
     );
- 
+
     pod2usage( -exitval => 0 ) if $help;
     pod2usage( -msg => "\nMissing Argument: -i, --infile required\n",  -exitval => 1 ) if !$input_file;
- 
+
     return ( $input_file, $limit, $verbose, $debug );
- 
+
 }
 
 =head1 AUTHOR
