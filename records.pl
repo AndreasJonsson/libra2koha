@@ -31,9 +31,6 @@ $|=1; # Flush output
 # Get options
 my ( $config_dir, $input_file, $flag_done, $limit, $every, $verbose, $debug ) = get_options();
 
-$limit = 130889 if $limit == 0; # FIXME This should not be hardcoded, of course
-my $progress = Term::ProgressBar->new( $limit );
-
 =head1 CONFIG FILES
 
 Config files should be kept in one directory and pointed to by the -c or
@@ -101,6 +98,9 @@ if ( !-e $input_file ) {
     print "The file $input_file does not exist...\n";
     exit;
 }
+
+$limit = num_records_($input_file) if !defined($limit);
+my $progress = Term::ProgressBar->new( $limit );
 
 # Set up the database connection
 my $dbh = DBI->connect( $config->{'db_dsn'}, $config->{'db_user'}, $config->{'db_pass'}, { RaiseError => 1, AutoCommit => 1 } );
@@ -513,6 +513,16 @@ sub fix_date {
     my $day   = substr $d, 6, 2;
     return "$year-$month-$day";
 
+}
+
+sub num_records_ {
+    $input_file = shift;
+    my $batch = MARC::File::XML->in( $input_file );
+    my $n = 0;
+    while ($batch->next()) {
+        $n++;
+    }
+    return $n;
 }
 
 =head1 AUTHOR
