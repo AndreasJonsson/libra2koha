@@ -10,7 +10,6 @@ fi
 CONFIG=$1
 DIR=$2
 EXPORTCAT="$DIR/exportCat.txt"
-EXPORTCAT_FIXED="$DIR/exportCat-fixed.txt"
 MARCXML="$DIR/bib/raw-records.marcxml"
 OUTPUTDIR="$DIR/out"
 MYSQL_CREDENTIALS="-u libra2koha -ppass libra2koha"
@@ -21,8 +20,12 @@ MYSQL_LOAD="mysql $MYSQL_CREDENTIALS --local-infile=1 --init-command='SET max_he
 if [[ -z "$SCRIPTDIR" ]]; then
    SCRIPTDIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd -P)"
 fi
-if [[ -z "$LINE2ISO_PARAMS" ]]; then
-  LINE2ISO_PARAMS=--xml
+if [[ "$LIBRA2KOHA_DELIMITED_FORMAT" == "1" ]]; then
+  LINE2ISO_PARAMS=--delimited
+  RECORDS_PARAMS=--explicit-record-id
+else
+  LINE2ISO_PARAMS=
+  RECORDS_PARAMS=
 fi
 if [[ -z "$LIBRIOTOOLS_DIR" ]]; then
    export LIBRIOTOOLS_DIR=../LibrioTools
@@ -56,7 +59,7 @@ fi
 
 if [[ ! -e "$MARCXML" ]]; then
    echo "Going to convert bibliographic records to MARCXML... "
-   line2iso.pl -i "$EXPORTCAT" $LINE2ISO_PARAMS > "$MARCXML"
+   line2iso.pl -i "$EXPORTCAT" --xml $LINE2ISO_PARAMS > "$MARCXML"
    echo $MARCXML
    echo "done"
 fi
@@ -152,12 +155,10 @@ echo "ALTER TABLE Items ADD COLUMN done INT(1) DEFAULT 0;" | eval $MYSQL_LOAD
 echo "done"
 
 
-sleep 100000
-
 ## Get the relevant info out of the database and into a .marcxml file
 echo "Going to transform records... "
 # FIXME Make records.pl write to $OUTPUTDIR
-records.pl --config $CONFIG --infile $MARCXML --flag_done --limit 25737
+records.pl --config $CONFIG --infile $MARCXML --flag_done $RECORDS_PARAMS
 echo "done"
 
 ### BORROWERS ###

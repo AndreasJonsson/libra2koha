@@ -24,12 +24,13 @@ use Pod::Usage;
 use Modern::Perl;
 use Data::Dumper;
 use Itemtypes;
+use ExplicitRecordNrField;
 
 binmode STDOUT, ":utf8";
 $|=1; # Flush output
 
 # Get options
-my ( $config_dir, $input_file, $flag_done, $limit, $every, $verbose, $debug ) = get_options();
+my ( $config_dir, $input_file, $flag_done, $limit, $every, $verbose, $debug, $explicit_record_id ) = get_options();
 
 =head1 CONFIG FILES
 
@@ -99,20 +100,31 @@ if ( !-e $input_file ) {
     exit;
 }
 
-$limit = num_records_($input_file) if !defined($limit);
+$limit = num_records_($input_file) if $limit == 0;
 my $progress = Term::ProgressBar->new( $limit );
 
 # Set up the database connection
 my $dbh = DBI->connect( $config->{'db_dsn'}, $config->{'db_user'}, $config->{'db_pass'}, { RaiseError => 1, AutoCommit => 1 } );
 
 # Query for selecting items connected to a given record
-my $sth = $dbh->prepare("
+
+my $sth;
+unless ($explicit_record_id) {
+    $sth = $dbh->prepare( <<'EOF' );
     SELECT Items.*, BarCodes.BarCode
     FROM exportCatMatch, Items, BarCodes
     WHERE exportCatMatch.ThreeOne = ?
       AND exportCatMatch.IdCat = Items.IdCat
       AND Items.IdItem = BarCodes.IdItem
-");
+EOF
+} else {
+    $sth = $dbh->prepare( <<'EOF' );
+    SELECT Items.*, BarCodes.BarCode
+    FROM Items, BarCodes
+    WHERE Items.IdCat = ?
+      AND Items.IdItem = BarCodes.IdItem
+EOF
+}
 
 # Query for setting done = 1 if --flag_done is set
 my $sth_done = $dbh->prepare("
@@ -175,17 +187,35 @@ L<http://wiki.koha-community.org/wiki/Holdings_data_fields_%289xx%29>
 
 =cut
 
-    next RECORD unless $record->field( '001' ) && $record->field( '003' );
-    # Get the record ID from 001 and 003
-    my $f001 = $record->field( '001' )->data();
-    my $f003 = lc $record->field( '003' )->data();
-    my $recordid = lc "$f003$f001";
-    # Remove any non alphanumerics
-    $recordid =~ s/[^a-zæøåöA-ZÆØÅÖ\d]//g;
-    say "$f003 + $f001 = $recordid" if $verbose;
-    # Look up items by recordid in the DB and add them to our record
-    $sth->execute( $recordid );
-    my $items = $sth->fetchall_arrayref({});
+    my $items;
+
+    unless ($explicit_record_id) {
+        next RECORD unless $record->field( '001' ) && $record->field( '003' );
+        # Get the record ID from 001 and 003
+        my $f001 = $record->field( '001' )->data();
+        my $f003 = lc $record->field( '003' )->data();
+        my $recordid = lc "$f003$f001";
+        # Remove any non alphanumerics
+        $recordid =~ s/[^a-zæøåöA-ZÆØÅÖ\d]//g;
+        say "$f003 + $f001 = $recordid" if $verbose;
+        # Look up items by recordid in the DB and add them to our record
+        $sth->execute( $recordid );
+        $items = $sth->fetchall_arrayref({});
+    } else {
+        my $f = $record->field( $ExplicitRecordNrField::RECORD_NR_FIELD );
+
+        die "Explicit record nr field is missing!" unless defined $f;
+
+        my $recordid = $f->subfield( $ExplicitRecordNrField::RECORD_NR_SUBFIELD );
+
+        die "Explicit record nr subfield is missing!" unless defined $recordid;
+
+        $sth->execute( $recordid );
+
+        $items = $sth->fetchall_arrayref({});
+
+        $record->delete_fields( $f );
+    }
     ITEM: foreach my $item ( @{ $items } ) {
 
         say Dumper $item if $debug;
@@ -470,31 +500,33 @@ Prints this help message and exits.
 sub get_options {
 
     # Options
-    my $config_dir  = '';
-    my $input_file  = '';
-    my $flag_done   = '';
-    my $limit       = 0;
-    my $every       = '';
-    my $verbose     = '';
-    my $debug       = '';
-    my $help        = '';
+    my $config_dir         = '';
+    my $input_file         = '';
+    my $flag_done          = '';
+    my $explicit_record_id = 0;
+    my $limit              = 0;
+    my $every              = '';
+    my $verbose            = '';
+    my $debug              = '';
+    my $help               = '';
 
     GetOptions (
-        'c|config=s'  => \$config_dir,
-        'i|infile=s'  => \$input_file,
-        'f|flag_done' => \$flag_done,
-        'l|limit=i'   => \$limit,
-        'e|every=i'   => \$every,
-        'v|verbose'   => \$verbose,
-        'd|debug'     => \$debug,
-        'h|?|help'    => \$help
+        'c|config=s'           => \$config_dir,
+        'i|infile=s'           => \$input_file,
+        'f|flag_done'          => \$flag_done,
+        'l|limit=i'            => \$limit,
+        'e|every=i'            => \$every,
+        'E|explicit-record-id' => \$explicit_record_id,
+        'v|verbose'            => \$verbose,
+        'd|debug'              => \$debug,
+        'h|?|help'             => \$help
     );
 
     pod2usage( -exitval => 0 ) if $help;
     pod2usage( -msg => "\nMissing Argument: -c, --config required\n",  -exitval => 1 ) if !$config_dir;
     pod2usage( -msg => "\nMissing Argument: -i, --infile required\n",  -exitval => 1 ) if !$input_file;
 
-    return ( $config_dir, $input_file, $flag_done, $limit, $every, $verbose, $debug );
+    return ( $config_dir, $input_file, $flag_done, $limit, $every, $verbose, $debug, $explicit_record_id );
 
 }
 
