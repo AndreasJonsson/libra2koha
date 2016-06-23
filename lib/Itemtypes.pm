@@ -1,38 +1,89 @@
 use Modern::Perl;
 
+use Data::Dumper;
+
 sub get_itemtype {
 
     # Takes: A MARC record
     # Returns: An appropriate itemtype for the record
 
-    my ( $record ) = @_;
+    our ( $record ) = @_;
 
     # Pick out all the codes we need to make our decisions
-    my $f000p0  = _get_pos( '000', 0,  $record );
-    my $f000p1  = _get_pos( '000', 1,  $record );
-    my $f000p6  = _get_pos( '000', 6,  $record );
-    my $f000p7  = _get_pos( '000', 7,  $record );
-    my $f006p0  = _get_pos( '006', 0,  $record );
-    my $f006p4  = _get_pos( '006', 4,  $record );
-    my $f006p9  = _get_pos( '006', 9,  $record );
-    my $f007p0  = _get_pos( '007', 0,  $record );
-    my $f007p1  = _get_pos( '007', 1,  $record );
-    my $f007p4  = _get_pos( '007', 4,  $record );
-    my $f007p10 = _get_pos( '007', 10, $record );
-    my $f008p21 = _get_pos( '008', 21, $record );
-    my $f008p24 = _get_pos( '008', 24, $record );
-    my $f008p25 = _get_pos( '008', 25, $record );
-    my $f008p26 = _get_pos( '008', 26, $record );
-    my $f008p27 = _get_pos( '008', 27, $record );
-        
+    our $f000p0  = _get_pos( '000', 0,  $record );
+    our $f000p1  = _get_pos( '000', 1,  $record );
+    our $f000p6  = _get_pos( '000', 6,  $record );
+    our $f000p7  = _get_pos( '000', 7,  $record );
+    our $f006p0  = _get_pos( '006', 0,  $record );
+    our $f006p4  = _get_pos( '006', 4,  $record );
+    our $f006p9  = _get_pos( '006', 9,  $record );
+    our $f007p0  = _get_pos( '007', 0,  $record );
+    our $f007p1  = _get_pos( '007', 1,  $record );
+    our $f007p4  = _get_pos( '007', 4,  $record );
+    our $f007p10 = _get_pos( '007', 10, $record );
+    our $f008p21 = _get_pos( '008', 21, $record );
+    our $f008p24 = _get_pos( '008', 24, $record );
+    our $f008p25 = _get_pos( '008', 25, $record );
+    our $f008p26 = _get_pos( '008', 26, $record );
+    our $f008p27 = _get_pos( '008', 27, $record );
+
+    my %fieldpositions = (
+       'f000p0' => $f000p0,
+       'f000p1' => $f000p1,
+       'f000p6' => $f000p6,
+       'f000p7' => $f000p7,
+       'f006p0' => $f006p0,
+       'f006p4' => $f006p4,
+       'f006p9' => $f006p9,
+       'f007p0' => $f007p0,
+       'f007p1' => $f007p1,
+       'f007p4' => $f007p4,
+       'f008p21' => $f008p21,
+       'f008p24' => $f008p24,
+       'f008p25' => $f008p25,
+       'f008p26' => $f008p26,
+       'f008p27' => $f008p27,
+    );
+
+    if ($main::debug) {
+        print STDERR Dumper(\%fieldpositions);
+    }
+
     my $itemtype = 'X';
+
+    sub electronic_resource {
+        if ( $record->field( '500' ) ) {
+            foreach my $f500 ( $record->field( '500' ) ) {
+                my $f500a = $f500->subfield( 'a' );
+                if ( $f500a =~ m/Nintendo DS/ ) {
+                    return 'DS';
+                }
+            }
+        }
+        if ( $f006p9 eq 'g' || $f008p26 eq 'g' ) {
+            return "TV-SPEL";
+        } elsif ( $f008p26 eq 'j' ) {
+            return "DATABAS";
+        } elsif ( $record->field( '500' ) && $record->subfield( '500', 'a' ) ) {
+            foreach my $note ( $record->subfield( '500', 'a' ) ) {
+                if ( $note =~ m/Spr.kkurs/gi ) {
+                    return "SPRAK-CD";
+                }
+            }
+        } else {
+            return "CD-ROM";
+        }
+
+        return "DATAFIL";
+    }
+
 
     # Taktila resurser
     # http://www.kb.se/katalogisering/Formathandboken/Bibliografiska-formatet/007/Taktilt-material/
     if ( $f007p0 eq 'f' ) {
         $itemtype = 'PUNKT';
 
-    # Musikalisk resurs eller ljudupptagning 
+    # Musikalisk resurs eller ljudupptagning
     # http://www.kb.se/katalogisering/Formathandboken/Bibliografiska-formatet/008/Musikalisk-resurs/
     } elsif ( $f000p6 eq 'c' || $f000p6 eq 'd' ) {
         $itemtype = 'NOTER';
@@ -109,30 +160,10 @@ sub get_itemtype {
     # Elektronisk resurs
     # http://www.kb.se/katalogisering/Formathandboken/Bibliografiska-formatet/008/Elektronisk-resurs-/
     } elsif ( $f000p6 eq 'm' || $f006p0 eq 'm' ) {
-        if ( $record->field( '500' ) ) {
-            foreach my $f500 ( $record->field( '500' ) ) {
-                my $f500a = $f500->subfield( 'a' );
-                if ( $f500a =~ m/Nintendo DS/ ) {
-                    $itemtype = 'DS';
-                }
-            }
-        } elsif ( $f006p9 eq 'g' || $f008p26 eq 'g' ) {
-            $itemtype = "TV-SPEL";
-        } elsif ( $f008p26 eq 'j' ) {
-            $itemtype = "DATABAS";
-        } elsif ( $record->field( '500' ) && $record->subfield( '500', 'a' ) ) {
-            foreach my $note ( $record->subfield( '500', 'a' ) ) {
-                if ( $note =~ m/Spr.kkurs/gi ) {
-                    $itemtype = "SPRAK-CD";
-                }
-            }
-        } else {
-            $itemtype = "CD-ROM";
-        }
-        
+        $itemtype = electronic_resource();
     } elsif ( $record->subfield( '852', 'c' ) && $record->subfield( '852', 'c' ) =~ m/TV-SPEL.*/ ) {
         $itemtype = "TV-SPEL";
-       
+
     # Kartografisk resurs
     # http://www.kb.se/katalogisering/Formathandboken/Bibliografiska-formatet/008/Kartografisk-resurs/
     } elsif ( $f000p6 eq 'e' || $f000p6 eq 'f' ) {
@@ -145,11 +176,22 @@ sub get_itemtype {
 
     # Monografisk resurs i form av mångfaldigad text
     # http://www.kb.se/katalogisering/Formathandboken/Bibliografiska-formatet/008/Monografisk-resurs/
-    } elsif ( 
-        ( $f000p6 eq 'a' || $f000p6 eq 't' ) && 
-        ( $f000p7 ne 'b' && $f000p7 ne 'i' && $f000p7 ne 's' ) 
+    } elsif (
+        ( $f000p6 eq 'a' || $f000p6 eq 't' ) &&
+        ( $f000p7 ne 'b' && $f000p7 ne 'i' && $f000p7 ne 's' )
     ) {
         $itemtype = 'BOK';
+    } elsif ( $f000p6 eq 'p' ) {
+        $itemtype = 'BLANDAT';
+    } elsif ( $f000p6 eq 'g' ) {
+        $itemtype = 'PROJEKTION';
+    } elsif ( $f000p6 eq 'k' ) {
+        $itemtype = '2DEJPROJGR';
+    }
+
+    if ($itemtype eq 'X') {
+        say STDERR "Failed to determine itemtype of this field:";
+        print STDERR Dumper(\%fieldpositions);
     }
 
     return $itemtype;
@@ -162,14 +204,19 @@ sub _get_pos {
     # Returns: the char at the given position
 
     my ( $field, $pos, $record ) = @_;
+    my $s = '';
     if ( $record->field( $field ) && $record->field( $field )->data() ) {
-        my $string = $record->field( $field )->data();
-        my @chars = split //, $string;
-        return $chars[ $pos ];
-    } else {
-        return '_';
+        $s = $record->field( $field )->data();
+    } elsif ( $field eq '000' ) {
+        # Field '000' should't exist, as this code denotes the leader.  But if it does, we let it override the leader.
+        $s = $record->leader();
     }
 
+    if ($pos < length($s)) {
+        return substr($s, $pos, 1);
+    }
+
+    return '_';
 }
 
 1;

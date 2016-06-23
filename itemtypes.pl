@@ -1,4 +1,4 @@
-#!/usr/bin/perl 
+#!/usr/bin/env perl 
  
 # Copyright 2015 Magnus Enger Libriotech
  
@@ -23,7 +23,7 @@ binmode STDOUT, ":utf8";
 $|=1; # Flush output
 
 # Get options
-my ( $input_file, $itype_limit, $limit, $verbose, $debug ) = get_options();
+our ( $input_file, $itype_limit, $limit, $verbose, $debug ) = get_options();
 
 # Check that the input file exists
 if ( !-e $input_file ) {
@@ -38,7 +38,7 @@ RECORD: while (my $record = $batch->next()) {
 
     my $itemtype = get_itemtype( $record );
 
-    say "$itemtype " . _book_info( $record ) if $verbose;
+    say "$itemtype " . _book_info( $record ) if ($verbose || $itemtype eq 'X');
     say _book_info( $record ) if $itype_limit && $itype_limit eq $itemtype;
     $itemtype_count{ $itemtype }++;
 

@@ -1,36 +1,40 @@
-#!/usr/bin/perl
+#!/usr/bin/env perl
 
-use File::Slurper qw( read_lines write_text );
 use File::Copy;
 use Modern::Perl;
-$/ = "\r\n";
 
-say "Usage: $0 /path/to/Borrowers.txt" unless $ARGV[0];
+say "Usage: $0 <path to Borrowers.txt> <path to fixed Borrowers.txt>" unless $ARGV[0] and $ARGV[1];
 my $filename = $ARGV[0];
-my $tmp_file = '/tmp/borrowers.txt';
+my $outfilename = $ARGV[1];
 
-my @lines = read_lines( $filename );
+open (my $fh, "<:encoding(utf-16):crlf", $filename);
+open (my $outfh, ">:encoding(utf-16):crlf", $outfilename);
 
 my $count = 0;
 my $current_line = '';
-my $out;
-foreach my $line ( @lines ) {
+$/ = "!*!0\n";
+
+while (my $line = <$fh> ) {
+
+    local $/ = "\n";
 
     chomp $line;
     next if $line eq '';
 
     $current_line .= $line;
+
+    my @parts = split ('!\*!', $line);
+
+    say "Parts: " . +@parts;
+
     my $last_char = substr $line, -1;
     if ( $last_char eq '0' ) {
         # say '-->' . $current_line . '<--';
-        $out .= $current_line . "\r\n";
+	print $outfh $current_line . "\x1e";
         $current_line = '';
     }
 
     $count++;
     # exit if $count == 100;
-
 }
 
-write_text( $tmp_file, $out, 'UTF-8', 'clrf' => 1 );
-move( $tmp_file, $filename );

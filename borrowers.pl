@@ -1,4 +1,4 @@
-#!/usr/bin/perl 
+#!/usr/bin/env perl 
  
 # Copyright 2015 Magnus Enger Libriotech
  
@@ -8,7 +8,7 @@ borrowers.pl - Extract information about borrowers and format for import into Ko
 
 =head1 SYNOPSIS
 
- perl records.pl -v --config /home/my/library/
+ records.pl -v --config /home/my/library/
 
 =cut
 
@@ -22,7 +22,6 @@ use Pod::Usage;
 use Modern::Perl;
 use Data::Dumper;
 
-binmode STDOUT, ":utf8";
 $|=1; # Flush output
 
 # Get options

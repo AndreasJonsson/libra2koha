@@ -1,4 +1,4 @@
-#!/usr/bin/perl 
+#!/usr/bin/env perl 
  
 # Copyright 2015 Magnus Enger Libriotech
  

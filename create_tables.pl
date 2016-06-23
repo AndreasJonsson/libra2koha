@@ -1,4 +1,4 @@
-#!/usr/bin/perl 
+#!/usr/bin/env perl 
 
 # Copyright 2014 Magnus Enger Libriotech
 
@@ -18,7 +18,6 @@ corresponding "CREATE TABLE" SQL statements, written to STDOUT.
 =cut
 
 use File::Find::Rule;
-use File::Slurper qw( read_lines );
 use File::Basename;
 use Getopt::Long;
 use Data::Dumper;
@@ -27,12 +26,9 @@ use DateTime;
 use Pod::Usage;
 use Modern::Perl;
 
-# Make chomp() behave
-$/ = "\r\n";
-
 # Get options
 my ( $dir, $tables, $verbose, $debug ) = get_options();
-my $indir = $dir . '/utf8/';
+my $indir = $dir;
 
 # Check that the file exists
 if ( !-d $indir ) {
@@ -61,15 +57,16 @@ foreach my $file ( @files ) {
 
     # Get the columns
     my @columns;
-    my @lines = read_lines( $file, 'utf8', chomp => 1 );
-    foreach my $line ( @lines ) {
+    open(my $fh, "<:encoding(UTF-8):crlf", $file) or die "Couldn't open $file: $!";
+    while(my $line = <$fh> ) {
         chomp($line);
         my ( $name, $type, $size ) = split /\t/, $line;
         if ( $type eq 'uniqueidentifier' ) {
             $type = 'CHAR(38)';
         }
-        push @columns, { 'name' => $name, 'type' => $type, 'size' => $size };
+        push @columns, { 'name' => $name, 'type' => $type, 'size' => "$size" };
     }
+    close $fh;
     my $vars = { 'dirs' => $dirs, 'tablename' => $tablename, 'columns' => \@columns };
     $tt2->process( 'create_tables.tt', $vars ) || die $tt2->error();
 
@@ -82,7 +79,7 @@ if ( index( $tables, 'exportCatMatch' ) >= 0 ) {
     my @columns;
     push @columns, { 'name' => 'IdCat', 'type' => 'int', 'size' => '12' };
     push @columns, { 'name' => 'ThreeOne', 'type' => 'char', 'size' => '32' };
-    my $vars = { 'dirs' => "$dir/", 'tablename' => 'exportCatMatch', 'columns' => \@columns, 'sep' => ', ' };
+    my $vars = { 'dirs' => "$dir/", 'tablename' => 'exportCatMatch', 'columns' => \@columns, 'sep' => ', ', 'rowsep' => '\r\n' };
     $tt2->process( 'create_tables.tt', $vars ) || die $tt2->error();
 
 }

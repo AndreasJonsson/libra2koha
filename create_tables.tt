@@ -12,7 +12,7 @@ CREATE TABLE `[% tablename %]` (
 ) ENGINE=MEMORY DEFAULT CHARSET=utf8;
 LOAD DATA LOCAL INFILE '[% dirs %][% tablename %].txt'
     INTO TABLE [% tablename %]
-    CHARACTER SET utf8
-    FIELDS TERMINATED BY '[% IF sep %][% sep %][% ELSE %]!*![% END %]'
-    LINES TERMINATED BY '\r\n';
+    CHARACTER SET utf8 
+    FIELDS TERMINATED BY '[% IF sep %][% sep %][% ELSE %]!*![% END %]' ENCLOSED BY '"' ESCAPED BY '\\'
+    LINES TERMINATED BY '[% IF rowsep %][% rowsep %][% ELSE %]!#!\r\n[% END %]';
 

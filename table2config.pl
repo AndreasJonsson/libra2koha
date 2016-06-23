@@ -1,8 +1,6 @@
-#!/usr/bin/perl
+#!/usr/bin/env perl
 
 # Copyright 2015 Magnus Enger Libriotech
-
-=encoding utf8
 
 =head1 NAME
 
@@ -35,12 +33,12 @@ So with this file as the starting point ("!*!" is the field separator):
 
 and this invocation of the script: 
 
-  perl table2config.pl /path/to/Departments.txt 0 2 > ccode.yaml
+  table2config.pl /path/to/Departments.txt 0 2 > ccode.yaml
 
 the outout will look like this: 
 
   ---
-  # Generated from /home/magnus/Nedlastinger/molndal/Koha/utf8/Departments.txt
+  # Generated from /home/magnus/Nedlastinger/molndal/Koha/Departments.txt
   # 2015-09-21 08:14:38
   1: '' # Barn
   2: '' # Vuxen
@@ -53,21 +51,21 @@ be used as a config file by F<records.pl>
 =cut
 
 use DateTime;
-use File::Slurper qw( read_lines );
 use Modern::Perl;
 
 say "Usage: $0 /path/to/Sometable.txt key-index comment-index" unless $ARGV[0];
 
-my $dt = DateTime->now( time_zone => 'Europe/Oslo' );
+open (my $fh, "<:encoding(utf-16):crlf", $ARGV[0]);
 
-my @lines = read_lines( $ARGV[0], 'utf8', chomp => 1 );
+my $dt = DateTime->now( time_zone => 'Europe/Oslo' );
 
 say "---";
 say "# Generated from $ARGV[0]";
 say "# " . $dt->ymd . ' ' . $dt->hms;
 say ''  ;
 
-foreach my $line ( @lines ) {
+while (my $line = <$fh> ) {
+    chomp($line);
 
     my @fields = split /!\*!/, $line;
     my $key     = $fields[ $ARGV[1] ];

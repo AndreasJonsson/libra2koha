@@ -1,4 +1,4 @@
-#!/usr/bin/perl 
+#!/usr/bin/env perl 
  
 # Copyright 2015 Magnus Enger Libriotech
  
@@ -201,6 +201,8 @@ L<http://wiki.koha-community.org/wiki/Holdings_data_fields_%289xx%29>
           'b' => $branchcodes->{ $item->{'IdBranchCode'} }, # Holdingbranch
         );
 
+	say Dumper $field952 if $debug;
+
 =head3 952$c Shelving location
 
 "Coded value, matching the authorized value list 'LOC'."
@@ -296,7 +298,7 @@ this by checking for length greater than 1.
 
 =cut
 
-        if ( length $item->{'Info'} > 1 ) {
+        if ( defined $item->{'Info'} && length $item->{'Info'} > 1 ) {
             $field952->add_subfields( 'x', $item->{'Info'} ) if $item->{'Info'} ne ' ';
         }
 
