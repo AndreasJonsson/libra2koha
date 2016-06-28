@@ -292,9 +292,9 @@ To see what is present in the data:
                     $s .= $sf->[1];
                 }
                 $field952->add_subfields( 'o', $s );
+            } else {
+                say STDERR "Didn't add any 952 o) to record $recordid!";
             }
-        } else {
-            say STDERR "Didn't add any 952 o) to record $recordid!";
         }
 
 =head3 952$p Barcode (mandatory)
