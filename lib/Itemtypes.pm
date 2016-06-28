@@ -158,7 +158,7 @@ sub get_itemtype {
         ( $f000p7 eq 'b' || $f000p7 eq 'i' || $f000p7 eq 's' )
     ) {
         if ( $f008p21 eq 'p' ) {
-            $itemtype = 'TIDSSKRIFT';
+            $itemtype = 'TIDSKRIFT';
         } elsif ( $f006p4 eq '_' || $f008p21 eq '_' ) {
             $itemtype = "AARSBOK";
         } elsif ( $f008p21 eq 'n' ) {
