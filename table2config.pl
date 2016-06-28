@@ -12,7 +12,7 @@ table2config.pl - Helper script for turning a table into a YAML config file.
 
 =head1 DESCRIPTION
 
-Takes three arguments: 
+Takes three arguments:
 
 =over 4
 
@@ -24,18 +24,18 @@ Takes three arguments:
 
 =back
 
-So with this file as the starting point ("!*!" is the field separator): 
+So with this file as the starting point ("!*!" is the field separator):
 
   1!*!01!*!Barn!*!^@!*!^@!*!-1!*!^@!*!20071121!*!12:53:37!*!libra!*!20091105!*!14:02:02!*!kran
   2!*!02!*!Vuxen!*!^@!*!^@!*!0!*!^@!*!20071121!*!12:53:37!*!libra!*!!*!!*!
   3!*!08!*!Referens!*!^@!*!^@!*!0!*!^@!*!20071121!*!12:53:37!*!libra!*!!*!!*!
   4!*!eHub!*!E-lån!*!E-lån!*!E-lån!*!0!*!^@!*!20140109!*!13:35:51!*!libra!*!!*!!*!
 
-and this invocation of the script: 
+and this invocation of the script:
 
   table2config.pl /path/to/Departments.txt 0 2 > ccode.yaml
 
-the outout will look like this: 
+the outout will look like this:
 
   ---
   # Generated from /home/magnus/Nedlastinger/molndal/Koha/Departments.txt

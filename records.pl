@@ -188,6 +188,7 @@ L<http://wiki.koha-community.org/wiki/Holdings_data_fields_%289xx%29>
 =cut
 
     my $items;
+    my $recordid;
 
     unless ($explicit_record_id) {
         next RECORD unless $record->field( '001' ) && $record->field( '003' );
@@ -206,7 +207,7 @@ L<http://wiki.koha-community.org/wiki/Holdings_data_fields_%289xx%29>
 
         die "Explicit record nr field is missing!" unless defined $f;
 
-        my $recordid = $f->subfield( $ExplicitRecordNrField::RECORD_NR_SUBFIELD );
+        $recordid = $f->subfield( $ExplicitRecordNrField::RECORD_NR_SUBFIELD );
 
         die "Explicit record nr subfield is missing!" unless defined $recordid;
 
@@ -281,8 +282,20 @@ To see what is present in the data:
   SELECT Location_Marc, count(*) AS count FROM Items GROUP BY Location_Marc;
 
 =cut
-
-        $field952->add_subfields( 'o', $item->{'Location_Marc'} ) if $item->{'Location_Marc'} && length $item->{'Location_Marc'} > 1;
+        if ( defined($item->{'Location_Marc'}) && length($item->{'Location_Marc'}) > 1) {
+            $field952->add_subfields( 'o', $item->{'Location_Marc'} );
+        } else {
+            my $field852 = $record->field( '852' );
+            if (defined $field852) {
+                my $s = '';
+                foreach my $sf ($field852->subfields()) {
+                    $s .= $sf->[1];
+                }
+                $field952->add_subfields( 'o', $s );
+            }
+        } else {
+            say STDERR "Didn't add any 952 o) to record $recordid!";
+        }
 
 =head3 952$p Barcode (mandatory)
 
