@@ -81,7 +81,7 @@ fi
 if [ ! -f "$CONFIG/loc.yaml" ]; then
     echo "Missing $CONFIG/loc.yaml"
     MISSING_FILE=1
-    table2config.pl "$DIR/LocalShelfs.txt" 0 2 > "$CONFIG/loc.yaml"
+    table2config.pl "$DIR/LocalShelfs.txt" 1 2 > "$CONFIG/loc.yaml"
 fi
 if [ ! -f "$CONFIG/ccode.yaml" ]; then
     echo "Missing $CONFIG/ccode.yaml"

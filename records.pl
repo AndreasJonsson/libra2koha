@@ -385,16 +385,23 @@ FIXME This should be done with a mapping file!
 
 =cut
 
-        # 2 = Försvunnen
-        if ( $item->{'IdStatusCode'} == 2 ) {
-            $field952->add_subfields( '1', '1' );
-        # 6 = Påstås återlämnad
-        } elsif ( $item->{'IdStatusCode'} == 6 ) {
-            $field952->add_subfields( '1', '5' );
-        # 7 = Räkning
-        } elsif ( $item->{'IdStatusCode'} == 7 ) {
-            $field952->add_subfields( '1', '6' );
+        # 1 = Försvunna
+        if ( $item->{'IdStatusCode'} == 1 ) {
+            $field952->add_subfields( '1', 'FORSVUNNEN' );
         }
+        # 2 = Bokvård
+        elsif ( $item->{'IdStatusCode'} == 2 ) {
+            $field952->add_subfields( '4', 'BOKVARD' );
+        }
+        # 3 = Osprättade
+        elsif ( $item->{'IdStatusCode'} == 3 ) {
+            $field952->add_subfields( 'x', 'Osprättad' );
+        }
+        # 4 = till översättning
+        elsif ( $item->{'IdStatusCode'} == 3 ) {
+            $field952->add_subfields( 'x', 'till översättning' );
+        }
+
 
 =head3 952$7 Not for loan
 
