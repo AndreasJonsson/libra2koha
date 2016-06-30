@@ -1,5 +1,5 @@
-INSERT INTO issues ( borrowernumber, itemnumber, date_due, branchcode, renewals, issuedate ) 
-VALUES ( 
+INSERT INTO issues ( borrowernumber, itemnumber, date_due, branchcode, renewals, issuedate )
+VALUES (
     ( SELECT borrowernumber FROM borrowers WHERE cardnumber = '[% BorrowerBarcode %]' ),
     ( SELECT itemnumber FROM items WHERE barcode = '[% ItemBarcode %]' ),
     '[% date_due %]', -- date_due

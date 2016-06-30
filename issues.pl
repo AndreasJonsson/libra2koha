@@ -1,7 +1,7 @@
-#!/usr/bin/env perl 
- 
+#!/usr/bin/env perl
+
 # Copyright 2015 Magnus Enger Libriotech
- 
+
 =head1 NAME
 
 issues.pl - Extract information about active issues (loans) and format for import into Koha.
@@ -82,8 +82,8 @@ my $dbh = DBI->connect( $config->{'db_dsn'}, $config->{'db_user'}, $config->{'db
 
 # Query for selecting all issues, with relevant data
 my $sth = $dbh->prepare("
-    SELECT t.*, bbc.BarCode AS BorrowerBarcode, ibc.BarCode as ItemBarcode 
-    FROM Transactions as t, BorrowerBarCodes as bbc, ItemBarCodes as ibc 
+    SELECT t.*, bbc.BarCode AS BorrowerBarcode, ibc.BarCode as ItemBarcode
+    FROM Transactions as t, BorrowerBarCodes as bbc, ItemBarCodes as ibc
     WHERE t.IdItem = ibc.IdItem
       AND t.IdBorrower = bbc.IdBorrower;
 ");
@@ -99,7 +99,7 @@ my $count = 0;
 
 # Configure Template Toolkit
 my $ttconfig = {
-    INCLUDE_PATH => '', 
+    INCLUDE_PATH => '',
     ENCODING => 'utf8'  # ensure correct encoding
 };
 # create Template object
@@ -164,11 +164,11 @@ Even more verbose output.
 Prints this help message and exits.
 
 =back
-                                                               
+
 =cut
- 
+
 sub get_options {
- 
+
     # Options
     my $config_dir  = '';
     my $limit       = 0;
@@ -176,7 +176,7 @@ sub get_options {
     my $verbose     = '';
     my $debug       = '';
     my $help        = '';
- 
+
     GetOptions (
         'c|config=s'  => \$config_dir,
         'l|limit=i'   => \$limit,
@@ -185,12 +185,12 @@ sub get_options {
         'd|debug'     => \$debug,
         'h|?|help'    => \$help
     );
- 
+
     pod2usage( -exitval => 0 ) if $help;
     pod2usage( -msg => "\nMissing Argument: -c, --config required\n",  -exitval => 1 ) if !$config_dir;
- 
+
     return ( $config_dir, $limit, $every, $verbose, $debug );
- 
+
 }
 
 ## Internal subroutines.

@@ -2,16 +2,18 @@
 
 # libra2db.sh
 
-if [ "$#" != 2 ]; then
-    echo "Usage: $0 /path/to/config /path/to/export"
+if [ "$#" != 3 ]; then
+    echo "Usage: $0 /path/to/config /path/to/export <instance name>"
     exit;
 fi
 
-CONFIG=$1
-DIR=$2
+CONFIG="$1"
+DIR="$2"
+INSTANCE="$3"
 EXPORTCAT="$DIR/exportCat.txt"
 MARCXML="$DIR/bib/raw-records.marcxml"
 OUTPUTDIR="$DIR/out"
+IDMAP="$OUTPUTDIR/IdMap.txt"
 MYSQL_CREDENTIALS="-u libra2koha -ppass libra2koha"
 MYSQL="mysql $MYSQL_CREDENTIALS"
 MYSQL_LOAD="mysql $MYSQL_CREDENTIALS --local-infile=1 --init-command='SET max_heap_table_size=4294967295;'"
@@ -34,6 +36,9 @@ if [[ -n "$PERL5LIB" ]]; then
    export PERL5LIB="$LIBRIOTOOLS_DIR"/lib:"$SCRIPTDIR"/lib:"$PERL5LIB"
 else
    export PERL5LIB="$LIBRIOTOOLS_DIR"/lib:"$SCRIPTDIR"/lib
+fi
+if [[ -z "$LIBRA2KOHA_NOCONFIRM" ]] ; then
+   export LIBRA2KOHA_NOCONFIRM=0
 fi
 export PATH="$SCRIPTDIR:$LIBRIOTOOLS_DIR:$PATH"
 
@@ -157,8 +162,7 @@ echo "done"
 
 ## Get the relevant info out of the database and into a .marcxml file
 echo "Going to transform records... "
-# FIXME Make records.pl write to $OUTPUTDIR
-records.pl --config $CONFIG --infile $MARCXML --flag_done $RECORDS_PARAMS
+records.pl --config $CONFIG --infile $MARCXML --outputdir "$OUTPUTDIR" --flag_done $RECORDS_PARAMS
 echo "done"
 
 ### BORROWERS ###
@@ -187,11 +191,14 @@ echo "DROP TABLE IF EXISTS BorrowerPhoneNumbers;" | $MYSQL
 echo "DROP TABLE IF EXISTS BarCodes            ;" | $MYSQL
 echo "DROP TABLE IF EXISTS BorrowerBarCodes    ;" | $MYSQL
 echo "DROP TABLE IF EXISTS ItemBarCodes        ;" | $MYSQL
+# Don't confuse Isses.txt, which corresponds to issues of a serial, with issues,
+# as in outstanding loans (in issues.sql).
+echo "DROP TABLE IF EXISTS Issues              ;" | $MYSQL
 
 
 # Create tables and load the datafiles
 echo -n "Going to create tables for active issues, and load data into MySQL... "
-create_tables.pl --dir "$utf8dir" --tables "Transactions|BarCodes" | eval $MYSQL_LOAD
+create_tables.pl --dir "$utf8dir" --tables "Transactions|BarCodes|Issues" | eval $MYSQL_LOAD
 # Now copy the BarCodes table so we can have one for items and one for borrowers
 echo "CREATE TABLE BorrowerBarCodes LIKE BarCodes;" | $MYSQL
 echo "INSERT BorrowerBarCodes SELECT * FROM BarCodes;" | $MYSQL
@@ -212,3 +219,26 @@ if [ -f $ISSUESSQL ]; then
 fi
 issues.pl --config $CONFIG >> $ISSUESSQL
 echo "done writing to $ISSUESSQL"
+
+if [[ $LIBRA2KOHA_NOCONFIRM != '1' ]]; then
+    confirm="no"
+    read -e -i no -p "Are you prepared to import to $INSTANCE? (This will delete existing records.)" confirm
+
+    if [[ "$confirm" != "yes" ]]; then
+        echo "Answer is not 'yes', exiting..." 1>&2
+        exit 0
+    fi
+fi
+
+sudo koha-shell -c "/usr/share/koha/bin/migration_tools/bulkmarcimport.pl -b -file '$OUTPUTDIR'/records.marcxml -v -commit 100 -m MARCXML -d -fk -idmap '$IDMAP'" "$INSTANCE"
+
+$MYSQL_LOAD <<EOF
+CREATE TABLE `IdMap` (
+  original BIGINT UNIQUE NOT NULL,
+  biblioitem BIGINT UNIQUE NOT NULL,
+  PRIMARY KEY(`original`),
+  KEY(`biblioitem`)
+) ENGINE=MEMORY;
+LOAD DATA LOCAL INFILE '$IDMAP' INTO TABLE `IdMap` CHARACTER SET utf8 FIELDS TERMINATED BY '|' LINES TERMINATED BY '\n';
+EOF
+

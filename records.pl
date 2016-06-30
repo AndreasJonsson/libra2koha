@@ -30,7 +30,7 @@ binmode STDOUT, ":utf8";
 $|=1; # Flush output
 
 # Get options
-my ( $config_dir, $input_file, $flag_done, $limit, $every, $verbose, $debug, $explicit_record_id ) = get_options();
+my ( $config_dir, $input_file, $flag_done, $limit, $every, $output_dir, $verbose, $debug, $explicit_record_id ) = get_options();
 
 =head1 CONFIG FILES
 
@@ -51,7 +51,7 @@ my $config;
 if ( -f $config_dir . '/config.yaml' ) {
     $config = LoadFile( $config_dir . '/config.yaml' );
 }
-my $output_file = $config->{'output_marcxml'};
+my $output_file = $output_dir ? "$output_dir/records.marcxml" : $config->{'output_marcxml'};
 
 =head2 branchcodes.yaml
 
@@ -215,7 +215,6 @@ L<http://wiki.koha-community.org/wiki/Holdings_data_fields_%289xx%29>
 
         $items = $sth->fetchall_arrayref({});
 
-        $record->delete_fields( $f );
     }
     ITEM: foreach my $item ( @{ $items } ) {
 
@@ -304,6 +303,8 @@ From BarCodes.Barcode.
 =cut
 
     $field952->add_subfields( 'p', $item->{'BarCode'} ) if $item->{'BarCode'};
+
+    say STDERR "Item without barcode: " . $item->{'IdItem'} unless $item->{'BarCode'};
 
 =head3 952$r Date last seen
 
@@ -526,6 +527,7 @@ sub get_options {
     my $explicit_record_id = 0;
     my $limit              = 0;
     my $every              = '';
+    my $output_dir         = '';
     my $verbose            = '';
     my $debug              = '';
     my $help               = '';
@@ -536,6 +538,7 @@ sub get_options {
         'f|flag_done'          => \$flag_done,
         'l|limit=i'            => \$limit,
         'e|every=i'            => \$every,
+        'o|outputdir=s'        => \$output_dir,
         'E|explicit-record-id' => \$explicit_record_id,
         'v|verbose'            => \$verbose,
         'd|debug'              => \$debug,
@@ -546,7 +549,7 @@ sub get_options {
     pod2usage( -msg => "\nMissing Argument: -c, --config required\n",  -exitval => 1 ) if !$config_dir;
     pod2usage( -msg => "\nMissing Argument: -i, --infile required\n",  -exitval => 1 ) if !$input_file;
 
-    return ( $config_dir, $input_file, $flag_done, $limit, $every, $verbose, $debug, $explicit_record_id );
+    return ( $config_dir, $input_file, $flag_done, $limit, $every, $output_dir, $verbose, $debug, $explicit_record_id );
 
 }
 
