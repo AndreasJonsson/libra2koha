@@ -230,15 +230,23 @@ if [[ $LIBRA2KOHA_NOCONFIRM != '1' ]]; then
     fi
 fi
 
+##
+## XXX
+##
+echo "TODO: The -idmap parameter to the bulkmarcimport.pl script doesn't work as expected.  To make this work you will need to hack the bulkmarcimport.pl script." 2>&1
+echo "      (This is only needed to generate serials.sql, though)." 2>&1
+exit 0
 sudo koha-shell -c "/usr/share/koha/bin/migration_tools/bulkmarcimport.pl -b -file '$OUTPUTDIR'/records.marcxml -v -commit 100 -m MARCXML -d -fk -idmap '$IDMAP'" "$INSTANCE"
 
-$MYSQL_LOAD <<EOF
-CREATE TABLE `IdMap` (
+eval $MYSQL_LOAD <<EOF
+DROP TABLE IF EXISTS IdMap;
+CREATE TABLE IdMap (
   original BIGINT UNIQUE NOT NULL,
   biblioitem BIGINT UNIQUE NOT NULL,
-  PRIMARY KEY(`original`),
-  KEY(`biblioitem`)
+  PRIMARY KEY(original),
+  KEY(biblioitem)
 ) ENGINE=MEMORY;
-LOAD DATA LOCAL INFILE '$IDMAP' INTO TABLE `IdMap` CHARACTER SET utf8 FIELDS TERMINATED BY '|' LINES TERMINATED BY '\n';
+LOAD DATA LOCAL INFILE '$IDMAP' INTO TABLE IdMap CHARACTER SET utf8 FIELDS TERMINATED BY '|' LINES TERMINATED BY '\\n';
 EOF
 
+serials.pl --outputdir "$OUTPUTDIR" --config "$CONFIG"

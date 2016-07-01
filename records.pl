@@ -388,11 +388,11 @@ FIXME This should be done with a mapping file!
 
         # 1 = Försvunna
         if ( $item->{'IdStatusCode'} == 1 ) {
-            $field952->add_subfields( '1', 'FORSVUNNEN' );
+            $field952->add_subfields( '1', '1' );
         }
         # 2 = Bokvård
         elsif ( $item->{'IdStatusCode'} == 2 ) {
-            $field952->add_subfields( '4', 'BOKVARD' );
+            $field952->add_subfields( '4', '1' );
         }
         # 3 = Osprättade
         elsif ( $item->{'IdStatusCode'} == 3 ) {
