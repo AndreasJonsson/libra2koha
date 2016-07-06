@@ -406,11 +406,13 @@ FIXME This should be done with a mapping file!
 
 =head3 952$7 Not for loan
 
-TODO Unused
+We assume 1 is normal and subtract 1.  Add Authorized values in Koha accordingly.
 
 =cut
 
-        # $field952->add_subfields( 'd', $item->{''} ) if $item->{''};
+        if (defined($item->{'IdLoanInfo'})) {
+            $field952->add_subfields( '7', $item->{'IdLoanInfo'} - 1 );
+        }
 
 =head3 952$8 Collection code
 
