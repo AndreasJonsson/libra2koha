@@ -68,7 +68,7 @@ foreach my $file ( @files ) {
     }
     close $fh;
     my $vars = { 'dirs' => $dirs, 'tablename' => $tablename, 'columns' => \@columns };
-    $tt2->process( 'create_tables.tt', $vars ) || die $tt2->error();
+    $tt2->process( 'create_tables.tt', $vars,  {binmode => ':utf8'} ) || die $tt2->error();
 
 }
 
@@ -80,7 +80,7 @@ if ( index( $tables, 'exportCatMatch' ) >= 0 ) {
     push @columns, { 'name' => 'IdCat', 'type' => 'int', 'size' => '12' };
     push @columns, { 'name' => 'ThreeOne', 'type' => 'char', 'size' => '32' };
     my $vars = { 'dirs' => "$dir/", 'tablename' => 'exportCatMatch', 'columns' => \@columns, 'sep' => ', ', 'rowsep' => '\r\n' };
-    $tt2->process( 'create_tables.tt', $vars ) || die $tt2->error();
+    $tt2->process( 'create_tables.tt', $vars,  {binmode => ':utf8'} ) || die $tt2->error();
 
 }
 

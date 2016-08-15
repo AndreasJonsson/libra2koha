@@ -80,16 +80,16 @@ if ( -f $config_dir . '/patroncategories.yaml' ) {
 my $dbh = DBI->connect( $config->{'db_dsn'}, $config->{'db_user'}, $config->{'db_pass'}, { RaiseError => 1, AutoCommit => 1 } );
 
 # Query for selecting all borrowers, with relevant data
-#my $sth = $dbh->prepare("
-#    SELECT Borrowers.*, BarCodes.BarCode
-#    FROM Borrowers, BarCodes
-#    WHERE Borrowers.IdBorrower = BarCodes.IdBorrower
-#");
 my $sth = $dbh->prepare("
-    SELECT Borrowers.*
-    FROM Borrowers
-    WHERE Borrowers.IdBorrower != 0
+    SELECT Borrowers.*, BarCodes.BarCode
+    FROM Borrowers, BarCodes
+    WHERE Borrowers.IdBorrower = BarCodes.IdBorrower
 ");
+#my $sth = $dbh->prepare("
+#    SELECT Borrowers.*
+#    FROM Borrowers
+#    WHERE Borrowers.IdBorrower != 0
+#");
 
 =head1 PROCESS BORROWERS
 
@@ -130,7 +130,7 @@ while ( my $borrower = $sth->fetchrow_hashref() ) {
     # Tranlsate patron categories
     $borrower->{'categorycode'} = $patroncategories->{ $borrower->{'IdBorrowerCategory'} };
 
-    $tt2->process( 'borrowers.tt', $borrower ) || die $tt2->error();
+    $tt2->process( 'borrowers.tt', $borrower,  {binmode => ':utf8'} ) || die $tt2->error();
 
     $count++;
     if ( $limit && $limit == $count ) {

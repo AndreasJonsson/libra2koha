@@ -122,7 +122,7 @@ while ( my $issue = $sth->fetchrow_hashref() ) {
     $issue->{'issuedate'} = _fix_date( $issue->{'RegDate'} );
     $issue->{'date_due'} = _fix_date( $issue->{'EstReturnDate'} );
 
-    $tt2->process( 'issues.tt', $issue ) || die $tt2->error();
+    $tt2->process( 'issues.tt', $issue,  {binmode => ':utf8'} ) || die $tt2->error();
 
     $count++;
     if ( $limit && $limit == $count ) {
