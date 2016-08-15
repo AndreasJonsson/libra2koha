@@ -130,7 +130,7 @@ while ( my $borrower = $sth->fetchrow_hashref() ) {
     # Tranlsate patron categories
     $borrower->{'categorycode'} = $patroncategories->{ $borrower->{'IdBorrowerCategory'} };
 
-    $tt2->process( 'borrowers.tt', $borrower,  {binmode => ':utf8'} ) || die $tt2->error();
+    $tt2->process( 'borrowers.tt', $borrower, \*STDOUT,  {binmode => ':utf8'} ) || die $tt2->error();
 
     $count++;
     if ( $limit && $limit == $count ) {
