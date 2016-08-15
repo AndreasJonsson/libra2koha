@@ -150,6 +150,7 @@ echo "DROP TABLE IF EXISTS exportCatMatch;" | $MYSQL
 echo "DROP TABLE IF EXISTS Items         ;" | $MYSQL
 echo "DROP TABLE IF EXISTS BarCodes      ;" | $MYSQL
 echo "DROP TABLE IF EXISTS StatusCodes   ;" | $MYSQL
+echo "DROP TABLE IF EXISTS Borrowers           ;" | $MYSQL
 
 ## Create tables and load the datafiles
 echo -n "Going to create tables for records and items, and load data into MySQL... "
@@ -185,7 +186,6 @@ echo "done"
 ### ACTIVE ISSUES/LOANS ###
 
 # Clean up the database
-echo "DROP TABLE IF EXISTS Borrowers           ;" | $MYSQL
 echo "DROP TABLE IF EXISTS Transactions        ;" | $MYSQL
 echo "DROP TABLE IF EXISTS BorrowerPhoneNumbers;" | $MYSQL
 echo "DROP TABLE IF EXISTS BarCodes            ;" | $MYSQL
