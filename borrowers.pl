@@ -81,8 +81,8 @@ my $dbh = DBI->connect( $config->{'db_dsn'}, $config->{'db_user'}, $config->{'db
 
 # Query for selecting all borrowers, with relevant data
 my $sth = $dbh->prepare("
-    SELECT Borrowers.*, BarCodes.BarCode
-    FROM Borrowers LEFT JOIN BarCodes USING (IdBorrower)
+    SELECT Borrowers.*, BarCodes.BarCode, BorrowerRegId.*
+    FROM (Borrowers LEFT JOIN BarCodes USING (IdBorrower)) LEFT JOIN BorrowerRegId USING (IdBorrower)
 ");
 
 my $addresses_sth = $dbh->prepare("SELECT * FROM BorrowerAddresses WHERE IdBorrower = ?");
@@ -137,6 +137,13 @@ while ( my $borrower = $sth->fetchrow_hashref() ) {
     $borrower->{'categorycode'} = $patroncategories->{ $borrower->{'IdBorrowerCategory'} };
 
     $tt2->process( 'borrowers.tt', $borrower, \*STDOUT,  {binmode => ':utf8'} ) || die $tt2->error();
+
+    if (defined($borrower->{RegId}) && $borrower->{RegId} ne '') {
+        $tt2->process( 'borrower_attributes.tt', { 'borrowernumber' => $borrower->{BarCode},
+                                                    'code' => 'PERSNUMMER',
+                                                    'attribute' => $borrower->{RegId}
+                       }, \*STDOUT, {binmode => ':utf8'});
+    }
 
     $count++;
     if ( $limit && $limit == $count ) {
