@@ -1,0 +1,6 @@
+INSERT INTO borrower_attributes ( borrowernumber, code, attribute )
+  VALUES (
+     [% borrowernumber %],
+    "[% code %]",
+    "[% attribute %]"
+  );
