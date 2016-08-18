@@ -10,26 +10,26 @@ VALUES (
     "", -- streettype
     "[% address %]", -- address
     "[% address2 %]", -- address2
-    "[% City %]", -- city
+    "[% city %]", -- city
     "", -- state
     "[% zipcode %]", -- zipcode
     "[% country %] ", -- country
     "[% email %]", -- email
     "[% phone %]", -- phone
-    "", -- mobile
+    "[% mobile %]", -- mobile
     "", -- fax
     "", -- emailpro
     "", -- phonepro
-    "", -- B_streetnumber
+    "[% B_streetnumber %]", -- B_streetnumber
     "", -- B_streettype
-    "", -- B_address
-    "", -- B_address2
-    "", -- B_city
+    "[% B_address %]", -- B_address
+    "[% B_address2 %]", -- B_address2
+    "[% B_city %]", -- B_city
     "", -- B_state
-    "", -- B_zipcode
-    "", -- B_country
-    "", -- B_email
-    "", -- B_phone
+    "[% B_zipcode %]", -- B_zipcode
+    "[% B_country %]", -- B_country
+    "[% B_email %]", -- B_email
+    "[% B_phone %]", -- B_phone
     "[% dateofbirth %]", -- dateofbirth - BirthDate: [% BirthDate %]
     "[% branchcode %]", -- branchcode - IdBranchCode: [% IdBranchCode %]
     "[% categorycode %]", -- categorycode - IdBorrowerCategory: [% IdBorrowerCategory %]
@@ -39,7 +39,7 @@ VALUES (
     "", -- lost
     "", -- debarred
     "", -- debarredcomment
-    "", -- contactname
+    "[% contactname %]", -- contactname
     "", -- contactfirstname
     "", -- contacttitle
     "", -- guarantorid

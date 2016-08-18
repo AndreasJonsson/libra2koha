@@ -121,8 +121,8 @@ while ( my $borrower = $sth->fetchrow_hashref() ) {
         next RECORD;
     }
 
-    if ( !defined($borrower->{'Barcode'}) ) {
-        $borrower->{'Barcode'} = "Autho$auto_count";
+    if ( !defined($borrower->{'BarCode'}) || $borrower->{'BarCode'} eq '' ) {
+        $borrower->{'BarCode'} = "AUTO$auto_count";
         $auto_count++;
     }
 
@@ -256,19 +256,19 @@ sub set_address {
     my $n_addr = 0;
     my $pre;
 
-    while (my $addr = $addresses_sth->fetchrow_hashrefs()) {
+    while (my $addr = $addresses_sth->fetchrow_hashref()) {
         if ($n_addr == 0) {
-            $pre = 'B_';
+            $pre = '';
         } elsif ($n_addr == 1) {
             $pre = 'B_';
         } else {
-            print(STDERR, "Borrower has more than 2 addresses: " . $borrower->{IdBorrower} . "\n");
+            print(STDERR ("Borrower has more than 2 addresses: " . $borrower->{IdBorrower} . "\n"));
             last;
         }
 
-        if (defined($addr->{CO}) && $addr->{CO} != '') {
+        if (defined($addr->{CO}) && $addr->{CO} ne '') {
             if ($n_addr > 0) {
-                print(STDERR, "CO field on second address for borrower " . $borrower->{IdBorrower} . "\n");
+                print(STDERR ("CO field on second address for borrower " . $borrower->{IdBorrower} . "\n"));
             } else {
                 $borrower->{contactname} = $addr->{CO};
             }
@@ -279,7 +279,7 @@ sub set_address {
         if (!defined($addr->{Address1})) {
             $borrower->{"${pre}address"} = '';
             $borrower->{"${pre}streetnumber"} = '';
-        } elsif ($addr->{Address1} =~ /^(.*?)[ ]*(\d+(?:,[ ]*\d+tr\.)?)/) {
+        } elsif ($addr->{Address1} =~ /^(.*?)[ ]*(\d+(?:(?:[a-zA-Z]+)|(?:,[ ]*\d+tr\.))?)$/) {
             $borrower->{"${pre}address"} = $1;
             $borrower->{"${pre}streetnumber"} = $2;
         } else {
@@ -293,43 +293,53 @@ sub set_address {
 
         $borrower->{"${pre}zipcode"} = $addr->{ZipCode} if (defined($addr->{ZipCode}));
         $borrower->{"${pre}country"} = $addr->{Country} if (defined($addr->{Country}));
+        $borrower->{"${pre}city"}    = $addr->{City}    if (defined($addr->{City}));
     }
 
     $phone_sth->execute( $borrower->{IdBorrower} );
 
-    my $n_phone = 0;
-    my $n_email = 0;
+    my ($n_phone, $n_email, $n_mob) = (0, 0, 0);
 
     while (my $phone = $phone_sth->fetchrow_hashref()) {
 
         $phone->{PhoneNumber} = '' unless defined($phone->{PhoneNumber});
 
-        if ($phone->{PhoneNumber} =~ /\@/) {
+        if ($phone->{Type} eq 'E') {
             if ($n_email == 0) {
-                $pre = 'B_';
+                $pre = '';
             } elsif ($n_email == 1) {
                 $pre = 'B_';
             } else {
-                print(STDERR, "Borrower has more than 2 email addresses: " . $borrower->{IdBorrower} . "\n");
+                print(STDERR ("Borrower has more than 2 email addresses: " . $borrower->{IdBorrower} . "\n"));
             }
 
             $n_email++;
 
             $borrower->{"${pre}email"} = $phone->{PhoneNumber};
-            $borrower->{"${pre}phone"} = '';
-        } else {
+        } elsif ($phone->{Type} eq 'T') {
             if ($n_phone == 0) {
-                $pre = 'B_';
+                $pre = '';
             } elsif ($n_phone == 1) {
                 $pre = 'B_';
             } else {
-                print(STDERR, "Borrower has more than 2 phone numbers: " . $borrower->{IdBorrower} . "\n");
+                print(STDERR ("Borrower has more than 2 phone numbers: " . $borrower->{IdBorrower} . "\n"));
             }
 
             $n_phone++;
 
-            $borrower->{"${pre}email"} = '';
             $borrower->{"${pre}phone"} = $phone->{PhoneNumber};
+        } elsif ($phone->{Type} eq 'M') {
+            if ($n_mob == 0) {
+                $pre = '';
+            } else {
+                print(STDERR ("Borrower has more than 1 mobile phone numbers: " . $borrower->{IdBorrower} . "\n"));
+            }
+
+            $n_mob++;
+
+            $borrower->{"${pre}mobile"} = $phone->{PhoneNumber};
+        } else {
+                print(STDERR ("Borrower has unknown phone number type: '" . $phone->{Type} . "', " . $borrower->{IdBorrower} . "\n"));
         }
     }
 }
