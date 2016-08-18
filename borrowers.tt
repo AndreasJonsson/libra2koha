@@ -12,8 +12,8 @@ VALUES (
     "[% address2 %]", -- address2
     "[% City %]", -- city
     "", -- state
-    "[% ZipCode %]", -- zipcode
-    "[% Country %] ", -- country
+    "[% zipcode %]", -- zipcode
+    "[% country %] ", -- country
     "[% email %]", -- email
     "[% phone %]", -- phone
     "", -- mobile
