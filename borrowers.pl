@@ -81,15 +81,9 @@ my $dbh = DBI->connect( $config->{'db_dsn'}, $config->{'db_user'}, $config->{'db
 
 # Query for selecting all borrowers, with relevant data
 my $sth = $dbh->prepare("
-    SELECT Borrowers.*, BarCodes.BarCode
-    FROM Borrowers, BarCodes
-    WHERE Borrowers.IdBorrower = BarCodes.IdBorrower
+    SELECT Borrowers.*, BarCodes.BarCode, BorrowerAddresses.*, BorrowerPhoneNumbers.*
+    FROM Borrowers JOIN (BarCodes JOIN BorrowerAddresses JOIN BorrowerPhoneNumbers) ON (Borrowers.IdBorrower=BarCodes.IdBorrower AND Borrowers.IdBorrower=BorrowerAddresses.IdBorrower AND Borrowers.IdBorrower = BorrowerPhoneNumbers.IdBorrower)
 ");
-#my $sth = $dbh->prepare("
-#    SELECT Borrowers.*
-#    FROM Borrowers
-#    WHERE Borrowers.IdBorrower != 0
-#");
 
 =head1 PROCESS BORROWERS
 
@@ -112,6 +106,8 @@ $sth->execute();
 # my $borrowers = $sth->fetchall_arrayref({});
 # ITEM: foreach my $b ( @{ $borrowers } ) {
 
+my $auto_count = 1;
+
 while ( my $borrower = $sth->fetchrow_hashref() ) {
 
     say Dumper $borrower if $debug;
@@ -121,6 +117,13 @@ while ( my $borrower = $sth->fetchrow_hashref() ) {
         $count++;
         next RECORD;
     }
+
+    if ( !defined($borrower->{'Barcode'}) ) {
+        $borrower->{'Barcode'} = "Autho$auto_count";
+        $auto_count++;
+    }
+
+    set_address( $borrower );
 
     # Do transformations
     # Add a branchcode
@@ -237,6 +240,39 @@ sub fix_date {
     my $day   = substr $d, 6, 2;
     return "$year-$month-$day";
 
+}
+
+
+#
+# Fill out converted address fields.
+sub set_address {
+    my $borrower = shift;
+
+
+    if (!defined($borrower->{Address1})) {
+        $borrower->{address} = '';
+        $borrower->{streetnumber} = '';
+    } elsif ($borrower->{Address1} =~ /^(.*?)[ ]*(\d+(?:,[ ]*\d+tr\.)?)/) {
+        $borrower->{address} = $1;
+        $borrower->{streetnumber} = $2;
+    } else {
+        $borrower->{address} = $borrower->{Address1};
+        $borrower->{streetnumber} = '';
+    }
+
+    $borrower->{address2} = '';
+    $borrower->{address2} .= $borrower->{Address2} if (defined($borrower->{Address2}));
+    $borrower->{address2} .= $borrower->{Address3} if (defined($borrower->{Address3}));
+
+    $borrower->{PhoneNumber} = '' unless defined($borrower->{PhoneNumber});
+
+    if ($borrower->{PhoneNumber} =~ /\@/) {
+        $borrower->{email} = $borrower->{PhoneNumber};
+        $borrower->{phone} = '';
+    } else {
+        $borrower->{email} = '';
+        $borrower->{phone} = $borrower->{PhoneNumber};
+    }
 }
 
 =head1 AUTHOR

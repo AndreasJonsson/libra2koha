@@ -151,6 +151,8 @@ echo "DROP TABLE IF EXISTS Items         ;" | $MYSQL
 echo "DROP TABLE IF EXISTS BarCodes      ;" | $MYSQL
 echo "DROP TABLE IF EXISTS StatusCodes   ;" | $MYSQL
 echo "DROP TABLE IF EXISTS Borrowers           ;" | $MYSQL
+echo "DROP TABLE IF EXISTS BorrowerAddresses     ;" | $MYSQL
+echo "DROP TABLE IF EXISTS BorrowerPhoneNumbers;" | $MYSQL
 
 ## Create tables and load the datafiles
 echo -n "Going to create tables for records and items, and load data into MySQL... "
@@ -170,7 +172,7 @@ echo "done"
 
 ## Create tables and load the datafiles
 echo -n "Going to create tables for borrowers, and load data into MySQL... "
-create_tables.pl --dir "$utf8dir" --tables "Borrowers|BorrowerPhoneNumbers|BarCodes" | eval $MYSQL_LOAD
+create_tables.pl --dir "$utf8dir" --tables "Borrowers|BorrowerPhoneNumbers|BarCodes|BorrowerAddresses" | eval $MYSQL_LOAD
 echo "DELETE FROM BarCodes WHERE IdBorrower = 0;" | $MYSQL
 echo "done"
 
@@ -187,7 +189,6 @@ echo "done"
 
 # Clean up the database
 echo "DROP TABLE IF EXISTS Transactions        ;" | $MYSQL
-echo "DROP TABLE IF EXISTS BorrowerPhoneNumbers;" | $MYSQL
 echo "DROP TABLE IF EXISTS BarCodes            ;" | $MYSQL
 echo "DROP TABLE IF EXISTS BorrowerBarCodes    ;" | $MYSQL
 echo "DROP TABLE IF EXISTS ItemBarCodes        ;" | $MYSQL

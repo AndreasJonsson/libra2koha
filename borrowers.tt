@@ -6,16 +6,16 @@ VALUES (
     "", -- title
     "", -- othernames
     "", -- initials
-    "", -- streetnumber
+    "[% streetnumber %]", -- streetnumber
     "", -- streettype
-    "", -- address
-    "", -- address2
-    "", -- city
+    "[% address %]", -- address
+    "[% address2 %]", -- address2
+    "[% City %]", -- city
     "", -- state
-    "", -- zipcode
-    "", -- country
-    "", -- email
-    "", -- phone
+    "[% ZipCode %]", -- zipcode
+    "[% Country %] ", -- country
+    "[% email %]", -- email
+    "[% phone %]", -- phone
     "", -- mobile
     "", -- fax
     "", -- emailpro
