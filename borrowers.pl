@@ -81,7 +81,7 @@ my $dbh = DBI->connect( $config->{'db_dsn'}, $config->{'db_user'}, $config->{'db
 
 # Query for selecting all borrowers, with relevant data
 my $sth = $dbh->prepare("
-    SELECT Borrowers.*, BarCodes.BarCode, BorrowerRegId.*
+    SELECT Borrowers.*, BarCodes.BarCode, BorrowerRegId.RegId
     FROM (Borrowers LEFT JOIN BarCodes USING (IdBorrower)) LEFT JOIN BorrowerRegId USING (IdBorrower)
 ");
 
@@ -133,16 +133,17 @@ while ( my $borrower = $sth->fetchrow_hashref() ) {
     $borrower->{'branchcode'} = $branchcodes->{ $borrower->{'IdBranchCode'} };
     # Fix the format of dates
     $borrower->{'dateofbirth'} = _fix_date( $borrower->{'BirthDate'} );
+    $borrower->{'dateenrolled'} = _fix_date( $borrower->{'RegDate'} );
+    $borrower->{'dateexpiry'}   = DateTime->now->add( 'years' => 1 )->strftime( '%F' );
     # Tranlsate patron categories
     $borrower->{'categorycode'} = $patroncategories->{ $borrower->{'IdBorrowerCategory'} };
 
     $tt2->process( 'borrowers.tt', $borrower, \*STDOUT,  {binmode => ':utf8'} ) || die $tt2->error();
 
     if (defined($borrower->{RegId}) && $borrower->{RegId} ne '') {
-        $tt2->process( 'borrower_attributes.tt', { 'borrowernumber' => $borrower->{BarCode},
-                                                    'code' => 'PERSNUMMER',
+        $tt2->process( 'borrower_attributes.tt', {  'code' => 'PERSNUMMER',
                                                     'attribute' => $borrower->{RegId}
-                       }, \*STDOUT, {binmode => ':utf8'});
+                       }, \*STDOUT, {binmode => ':utf8'}) || die $tt2->error();
     }
 
     $count++;

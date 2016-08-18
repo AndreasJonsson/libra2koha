@@ -1,6 +1,6 @@
 INSERT INTO borrower_attributes ( borrowernumber, code, attribute )
   VALUES (
-     [% borrowernumber %],
+    LAST_INSERT_ID(),
     "[% code %]",
     "[% attribute %]"
   );

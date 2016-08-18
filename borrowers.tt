@@ -33,8 +33,8 @@ VALUES (
     "[% dateofbirth %]", -- dateofbirth - BirthDate: [% BirthDate %]
     "[% branchcode %]", -- branchcode - IdBranchCode: [% IdBranchCode %]
     "[% categorycode %]", -- categorycode - IdBorrowerCategory: [% IdBorrowerCategory %]
-    "", -- dateenrolled
-    "", -- dateexpiry
+    "[% dateenrolled %]", -- dateenrolled
+    "[% dateexpiry %]", -- dateexpiry
     "", -- gonenoaddress
     "", -- lost
     "", -- debarred
