@@ -30,14 +30,14 @@ VALUES (
     "[% B_country %]", -- B_country
     "[% B_email %]", -- B_email
     "[% B_phone %]", -- B_phone
-    "[% dateofbirth %]", -- dateofbirth - BirthDate: [% BirthDate %]
+    [% dateofbirth %], -- dateofbirth - BirthDate: [% BirthDate %]
     "[% branchcode %]", -- branchcode - IdBranchCode: [% IdBranchCode %]
     "[% categorycode %]", -- categorycode - IdBorrowerCategory: [% IdBorrowerCategory %]
-    "[% dateenrolled %]", -- dateenrolled
-    "[% dateexpiry %]", -- dateexpiry
+    [% dateenrolled %], -- dateenrolled
+    [% dateexpiry %], -- dateexpiry
     "", -- gonenoaddress
     "", -- lost
-    "", -- debarred
+    NULL, -- debarred
     "", -- debarredcomment
     "[% contactname %]", -- contactname
     "", -- contactfirstname

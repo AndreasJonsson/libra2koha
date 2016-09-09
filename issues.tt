@@ -2,9 +2,9 @@ INSERT INTO issues ( borrowernumber, itemnumber, date_due, branchcode, renewals,
 VALUES (
     ( SELECT borrowernumber FROM borrowers WHERE cardnumber = '[% BorrowerBarcode %]' ),
     ( SELECT itemnumber FROM items WHERE barcode = '[% ItemBarcode %]' ),
-    '[% date_due %]', -- date_due
+    [% date_due %], -- date_due
     '[% branchcode %]', -- branchcode
     '[% NoOfRenewals %]', -- renewals
-    '[% issuedate %]' -- issuedate
+    [% issuedate %] -- issuedate
 );
 UPDATE items SET onloan = '[% issuedate %]' WHERE barcode = '[% ItemBarcode %]';

@@ -205,9 +205,9 @@ sub _fix_date {
     my ( $d ) = @_;
     if ( $d && length $d == 8 ) {
         $d =~ m/(\d{4})(\d{2})(\d{2})/;
-        return "$1-$2-$3";
+        return "'$1-$2-$3'";
     } else {
-        return '';
+        return 'NULL';
     }
 
 }
