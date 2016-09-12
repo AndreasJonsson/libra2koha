@@ -7,4 +7,4 @@ VALUES (
     '[% NoOfRenewals %]', -- renewals
     [% issuedate %] -- issuedate
 );
-UPDATE items SET onloan = '[% issuedate %]' WHERE barcode = '[% ItemBarcode %]';
+UPDATE items SET onloan = [% issuedate %] WHERE barcode = '[% ItemBarcode %]';

@@ -1,0 +1,18 @@
+INSERT INTO `serial` (`biblionumber`, `subscriptitionid`, `serialseq`, `serialseq_x`, `serialseq_y`, `planneddate`, `publisheddate`, `status`) VALUES
+(
+  catid,
+  subscriptionid,
+  serialseq',
+  'serialseq_x',
+  'serialseq_y',
+  'planneddate',
+  'publisheddate',
+  status
+);
+[% FOREACH itemid IN itemids -%]
+INSERT INTO `serialitems` (`itemnumber`, `serialid`) VALUES
+(
+  itemid,
+  LAST_INSERT_ID()
+);
+[% END -%]

@@ -25,12 +25,19 @@ use Modern::Perl;
 use Data::Dumper;
 use Itemtypes;
 use ExplicitRecordNrField;
+use MarcMappingCollection;
 
 binmode STDOUT, ":utf8";
 $|=1; # Flush output
 
 # Get options
 my ( $config_dir, $input_file, $flag_done, $limit, $every, $output_dir, $verbose, $debug, $explicit_record_id ) = get_options();
+
+my $mmc = MarcMappingCollection::marc_mappings(
+    'homebranch' =>    { map => { '952', 'a' } },
+    'holdingbranch' => { map => { '952', 'b' } },
+    'localshelf' =>    { map => { '952', 'c' } }
+    );
 
 =head1 CONFIG FILES
 
@@ -164,19 +171,8 @@ RECORD: while (my $record = $batch->next()) {
 The records from Libra.se have subjects in 976b, we'll move them to 653
 
 =cut
-
-    if ( $record->field( '976' ) ) {
-        my @f976s = $record->field( '976' );
-        foreach my $f976 ( @f976s ) {
-            if ( $f976->subfield( 'b' ) ) {
-                my $field653 = MARC::Field->new( 653, ' ', ' ',
-                  'a' => $f976->subfield( 'b' ),
-                );
-                $record->insert_fields_ordered( $field653 );
-                $record->delete_fields( $f976 );
-            }
-        }
-    }
+    $mmc->set('subjects', $mmc->get('libra_subjects'));
+    $mmc->delete('libra_subjects');
 
 =head2 Add item level information in 952
 
@@ -226,12 +222,9 @@ L<http://wiki.koha-community.org/wiki/Holdings_data_fields_%289xx%29>
 
 =cut
 
-        my $field952 = MARC::Field->new( 952, ' ', ' ',
-          'a' => $branchcodes->{ $item->{'IdBranchCode'} }, # Homebranch
-          'b' => $branchcodes->{ $item->{'IdBranchCode'} }, # Holdingbranch
-        );
+        $mmc->set('homebranch',    $item->{'IdBranchCode'} );
+        $mmc->set('holdingbranch', $item->{'IdBranchCode'} );
 
-	say Dumper $field952 if $debug;
 
 =head3 952$c Shelving location
 
@@ -245,7 +238,7 @@ which values are actually in use:
 =cut
 
         # $field952->add_subfields( 'c', $item->{'IdDepartment'} ) if $item->{'IdDepartment'};
-        $field952->add_subfields( 'c', $loc->{ $item->{'IdLocalShelf'} } ) if $item->{'IdLocalShelf'};
+        $mmc->set('localshelf', $loc->{ $item->{'IdLocalShelf'} });
 
 =head3 952$d Date acquired
 
@@ -272,7 +265,11 @@ To see which prices occur in the data:
 
 =cut
 
+<<<<<<< HEAD
         $field952->add_subfields( 'l', $item->{'NoOfLoansTot'} ) if $item->{'NoOfLoansTot'};
+=======
+        $mmc->set('total_number_of_checkouts', $item->{'NoOfLoansTot'} ) if (defined($item->{'NoOfLoansTot'}));
+>>>>>>> 374002c... fix
 
 =head3 952$o Call number
 
@@ -385,6 +382,16 @@ How often the codes are used, with names:
 FIXME This should be done with a mapping file!
 
 =cut
+<<<<<<< HEAD
+=======
+        sub _ap {
+            my ($a, $b) = @_;
+            if (defined($b)) {
+                return "$a $b";
+            }
+            return $a;
+        }
+>>>>>>> 374002c... fix
 
         # 1 = Försvunna
         if ( $item->{'IdStatusCode'} == 1 ) {
@@ -410,9 +417,13 @@ We assume 1 is normal and subtract 1.  Add Authorized values in Koha accordingly
 
 =cut
 
+<<<<<<< HEAD
         if (defined($item->{'IdLoanInfo'})) {
             $field952->add_subfields( '7', $item->{'IdLoanInfo'} - 1 );
         }
+=======
+        $mmc->set('not_for_loan', $item->{'IdLoanInfo'} - 1) if defined($item->{'IdLoanInfo'});
+>>>>>>> 374002c... fix
 
 =head3 952$8 Collection code
 
