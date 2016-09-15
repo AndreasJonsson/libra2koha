@@ -25,7 +25,7 @@ use Modern::Perl;
 use Data::Dumper;
 use Itemtypes;
 use ExplicitRecordNrField;
-use MarcMappingCollection;
+use MarcUtil::MarcMappingCollection;
 
 binmode STDOUT, ":utf8";
 $|=1; # Flush output
@@ -33,10 +33,26 @@ $|=1; # Flush output
 # Get options
 my ( $config_dir, $input_file, $flag_done, $limit, $every, $output_dir, $verbose, $debug, $explicit_record_id ) = get_options();
 
-my $mmc = MarcMappingCollection::marc_mappings(
-    'homebranch' =>    { map => { '952', 'a' } },
-    'holdingbranch' => { map => { '952', 'b' } },
-    'localshelf' =>    { map => { '952', 'c' } }
+my $mmc = MarcUtil::MarcMappingCollection::marc_mappings(
+    'homebranch'                       => { map => { '952' => 'a' } },
+    'holdingbranch'                    => { map => { '952' => 'b' } },
+    'localshelf'                       => { map => { '952' => 'c' } },
+    'date_acquired'                    => { map => { '952' => 'd' } },
+    'price'                            => { map => { '952' => [ 'g', 'v' ] } },
+    'total_number_of_checkouts'        => { map => { '952' => 'l' } },
+    'call_number'                      => { map => { '952' => 'o' } },
+    'barcode'                          => { map => { '952' => 'p' } },
+    'date_last_seen'                   => { map => { '952' => 'r' } },
+    'date_last_checkout'               => { map => { '952' => 's' } },
+    'internal_staff_note'              => { map => { '952' => 'x' } },
+    'itemtype'                         => { map => { '952' => 'y' } },
+    'lost_status'                      => { map => { '952' => '1' } },
+    'damaged_status'                   => { map => { '952' => '4' } },
+    'not_for_loan'                     => { map => { '952' => '7' } },
+    'collection_code'                  => { map => { '952' => '8' } },
+    'subjects'                         => { map => { '653' => 'b' } },
+    'libra_subjects'                   => { map => { '976' => 'b' } },
+    'last_itemtype'                    => { map => { '942' => 'c' }, append => 0 }
     );
 
 =head1 CONFIG FILES
@@ -265,11 +281,7 @@ To see which prices occur in the data:
 
 =cut
 
-<<<<<<< HEAD
-        $field952->add_subfields( 'l', $item->{'NoOfLoansTot'} ) if $item->{'NoOfLoansTot'};
-=======
         $mmc->set('total_number_of_checkouts', $item->{'NoOfLoansTot'} ) if (defined($item->{'NoOfLoansTot'}));
->>>>>>> 374002c... fix
 
 =head3 952$o Call number
 
@@ -382,8 +394,6 @@ How often the codes are used, with names:
 FIXME This should be done with a mapping file!
 
 =cut
-<<<<<<< HEAD
-=======
         sub _ap {
             my ($a, $b) = @_;
             if (defined($b)) {
@@ -391,7 +401,6 @@ FIXME This should be done with a mapping file!
             }
             return $a;
         }
->>>>>>> 374002c... fix
 
         # 1 = Försvunna
         if ( $item->{'IdStatusCode'} == 1 ) {
@@ -416,14 +425,7 @@ FIXME This should be done with a mapping file!
 We assume 1 is normal and subtract 1.  Add Authorized values in Koha accordingly.
 
 =cut
-
-<<<<<<< HEAD
-        if (defined($item->{'IdLoanInfo'})) {
-            $field952->add_subfields( '7', $item->{'IdLoanInfo'} - 1 );
-        }
-=======
         $mmc->set('not_for_loan', $item->{'IdLoanInfo'} - 1) if defined($item->{'IdLoanInfo'});
->>>>>>> 374002c... fix
 
 =head3 952$8 Collection code
 

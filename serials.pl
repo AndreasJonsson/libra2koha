@@ -119,7 +119,7 @@ while (my $row = $sth->fetchrow_hashref()) {
     if ($prev_biblio != $biblionumber) {
         $prev_biblio = $biblionumber;
         print SERIALS <<"EOF"
-INSERT INTO subscription (biblionumber) VALUES ($biblionumber);
+INSERT INTO subscription (biblionumber, serialsadditems) VALUES ($biblionumber, 1);
 SELECT CONVERT(LAST_INSERT_ID(), CHAR) INTO \@SUBSCRIPTIONID;
 EOF
     }
