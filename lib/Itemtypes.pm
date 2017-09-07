@@ -46,6 +46,7 @@ sub get_itemtype {
        'f007p0' => $f007p0,
        'f007p1' => $f007p1,
        'f007p4' => $f007p4,
+       'f007p10' => $f007p10,
        'f008p21' => $f008p21,
        'f008p24' => $f008p24,
        'f008p25' => $f008p25,
@@ -96,17 +97,20 @@ sub get_itemtype {
     } elsif ( $f000p6 eq 'c' || $f000p6 eq 'd' ) {
         $itemtype = 'NOTER';
 
-    } elsif ( $f000p6 eq 'j' && $f007p0 eq 's' ) {
-        if ( $f007p1 eq 's' ) {
-            $itemtype = 'KASSETT';
-        } elsif ( $f007p1 eq 'd' && $f007p10 eq 'm' ) {
-            $itemtype = 'MUSIKCD';
-        } elsif ( $f007p1 eq 'd' && $f007p10 eq 'p' ) {
-            $itemtype = 'MUSIKLP';
-        } else {
-            $itemtype = "MUSIKCD";
-        }
-
+    } elsif ( $f000p6 eq 'j' ) {
+	if ( $f007p0 eq 's' ) {
+	    if ( $f007p1 eq 's' ) {
+		$itemtype = 'KASSETT';
+	    } elsif ( $f007p1 eq 'd' && $f007p10 eq 'm' ) {
+		$itemtype = 'MUSIKCD';
+	    } elsif ( $f007p1 eq 'd' && $f007p10 eq 'p' ) {
+		$itemtype = 'MUSIKLP';
+	    } else {
+		$itemtype = "MUSIKCD";
+	    }
+	} else {
+	    $itemtype = "MUSIKCD";
+	}
     # Spelfilmer
     # http://www.kb.se/katalogisering/Formathandboken/Bibliografiska-formatet/007/Spelfilm/
     # http://www.kb.se/katalogisering/Formathandboken/Bibliografiska-formatet/008/Grafisk-resurs-/
@@ -191,6 +195,8 @@ sub get_itemtype {
         $itemtype = 'BOK';
     } elsif ( $f000p6 eq 'p' ) {
         $itemtype = 'BLANDAT';
+    } elsif ( $f000p6 eq 'o' ) {
+        $itemtype = 'PAKET';
     } elsif ( $f000p6 eq 'g' ) {
         $itemtype = 'PROJEKTION';
     } elsif ( $f000p6 eq 'k' ) {
