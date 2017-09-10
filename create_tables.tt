@@ -10,9 +10,10 @@ CREATE TABLE `[% tablename %]` (
     [%- UNLESS loop.last %],[% END %]
 [% END -%]
 ) ENGINE=MEMORY DEFAULT CHARSET=utf8;
-LOAD DATA LOCAL INFILE '[% dirs %][% tablename %].txt'
+LOAD DATA LOCAL INFILE '[% dirs %]/[% tablename %][% ext %]'
     INTO TABLE [% tablename %]
-    CHARACTER SET utf8 
-    FIELDS TERMINATED BY '[% IF sep %][% sep %][% ELSE %]!*![% END %]' ENCLOSED BY '"' ESCAPED BY '\\'
-    LINES TERMINATED BY '[% IF rowsep %][% rowsep %][% ELSE %]!#!\r\n[% END %]';
+    CHARACTER SET [% enc %]
+    FIELDS TERMINATED BY '[% sep %]' ENCLOSED BY '"' ESCAPED BY '\\'
+    LINES TERMINATED BY '[% rowsep %]'
+    IGNORE [% headerrows %] LINES;
 

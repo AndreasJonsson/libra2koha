@@ -1,6 +1,7 @@
 #!/usr/bin/env perl 
 
 # Copyright 2014 Magnus Enger Libriotech
+# Copyright 2017 Andreas Jonsson andreas.jonsson@kreablo.se
 
 =head1 NAME
 
@@ -8,7 +9,7 @@ create_tables.pl - Create database tables.
 
 =head1 SYNOPSIS
 
- perl create_tables.pl --dir /path/to/export -v > tables.sql
+ perl create_tables.pl [options] > tables.sql
 
 =head1 DESCRIPTION
 
@@ -17,126 +18,91 @@ corresponding "CREATE TABLE" SQL statements, written to STDOUT.
 
 =cut
 
-use File::Find::Rule;
 use File::Basename;
-use Getopt::Long;
+use Getopt::Long::Descriptive;
 use Data::Dumper;
 use Template;
 use DateTime;
 use Pod::Usage;
 use Modern::Perl;
+use BuildTableInfo;
 
-# Get options
-my ( $dir, $tables, $verbose, $debug ) = get_options();
-my $indir = $dir;
+my ($opt, $usage) = describe_options(
+    '%c %o <some-arg>',
+    [ 'tables=s@', "tables to create", { required => 1  } ],
+    [ 'spec=s',    'spec directory',   { required => 1 } ],
+    [ 'dir=s',     'tables directory', { required => 1 } ],
+    [ 'ext=s',     'table filename extension', { default => '.txt' } ],
+    [ 'columndelimiter=s', 'column delimiter',  { default => '!*!' } ],
+    [ 'rowdelimiter=s',  'row delimiter'      ],
+    [ 'encoding=s',  'character encoding',      { default => 'utf-16' } ],
+    [ 'specencoding=s',  'character encoding of specfile',      { default => 'utf-16' } ],
+    [ 'quote=s',  'quote character' ],
+    [ 'headerrows=i', 'number of header rows',  { default => 0 } ],
+           [],
+           [ 'verbose|v',  "print extra stuff"            ],
+           [ 'help',       "print usage message and exit", { shortcircuit => 1 } ],
+         );
 
-# Check that the file exists
-if ( !-d $indir ) {
-    print "The directory $indir does not exist! Did you run prep.sh?\n";
-    exit;
-}
+print $usage->text if ($opt->help);
+
+my  ($csvfiles, $specfiles, $missingcsvs, $missingspecs) =
+    build_table_info($opt->dir, $opt->spec, $opt->columndelimiter, $opt->rowdelimiter, $opt->ext);
+
+my $ttenc = $opt->encoding;
+
+$ttenc =~ s/-//g;
+
 
 # Configure Template Toolkit
 my $ttconfig = {
     INCLUDE_PATH => '', 
-    ENCODING => 'utf8'  # ensure correct encoding
+    ENCODING => 'utf8'
 };
 # create Template object
 my $tt2 = Template->new( $ttconfig ) || die Template->error(), "\n";
 
-# Find all the *spec.txt files and turn them into database tables
-my @files = File::Find::Rule->file()->name( '*spec.txt' )->in( $indir );
-foreach my $file ( @files ) {
+foreach my $table (@{$opt->tables}) {
 
-    # Get the name of the table
-    my( $filename, $dirs, $suffix ) = fileparse( $file );
-    my $tablename = substr( $filename, 0, -8 );
+    die "No spec file for $table" unless defined($specfiles->{$table});
+    my $specfile = $opt->spec . '/' . $specfiles->{$table}->{filename};
 
-    # Only do the tables we will actually use
-    next unless ( index( $tables, $tablename ) >= 0 );
-
-    # Get the columns
-    my @columns;
-    open(my $fh, "<:encoding(UTF-8):crlf", $file) or die "Couldn't open $file: $!";
-    while(my $line = <$fh> ) {
-        chomp($line);
-        my ( $name, $type, $size ) = split /\t/, $line;
-        if ( $type eq 'uniqueidentifier' ) {
-            $type = 'CHAR(38)';
+    my @columns = ();
+    for my $c (@{$csvfiles->{$table}->{columnlist}}) {
+	my $s = $specfiles->{$table}->{columns}->{$c};
+	my $type = $s->{type};
+	my $size;
+	if (defined($s->{typeextra}) and $s->{typeextra} ne '') {
+	    $size = $s->{typeextra};
+	}
+	if ($type eq 'nvarchar') {
+	    $type = 'varchar';
+	} elsif ($type eq 'smallint') {
+	    $type = 'int';
+	} elsif ( $type eq 'uniqueidentifier' ) {
+            $type = 'CHAR(38) UNIQUE NOT NULL';
+	    $size = ''
         }
-        push @columns, { 'name' => $name, 'type' => $type, 'size' => "$size" };
+	my $coldecl = {
+	    'name' => $c,
+		'type' => $type
+	};
+	if (defined($size)) {
+	    $coldecl->{size} = $size;
+	}
+	push @columns, $coldecl;
     }
-    close $fh;
-    my $vars = { 'dirs' => $dirs, 'tablename' => $tablename, 'columns' => \@columns };
-    $tt2->process( 'create_tables.tt', $vars, \*STDOUT,  {binmode => ':utf8'} ) || die $tt2->error();
-
-}
-
-# Special treatment for exportCatMatch, which does not have a *spec.txt file
-if ( index( $tables, 'exportCatMatch' ) >= 0 ) {
-
-    # Special treatment for exportCatMatch.txt
-    my @columns;
-    push @columns, { 'name' => 'IdCat', 'type' => 'int', 'size' => '12' };
-    push @columns, { 'name' => 'ThreeOne', 'type' => 'char', 'size' => '32' };
-    my $vars = { 'dirs' => "$dir/", 'tablename' => 'exportCatMatch', 'columns' => \@columns, 'sep' => ', ', 'rowsep' => '\r\n' };
-    $tt2->process( 'create_tables.tt', $vars, \*STDOUT,  {binmode => ':utf8'} ) || die $tt2->error();
-
-}
-
-=head1 OPTIONS
-
-=over 4
-
-=item B<--dir>
-
-Directory that contains files exported from Libra.
-
-=item B<-t, --tables>
-
-List of tables that should be considered in this pass. Separate table names with
-the vertical bar character. E.g.: 
-
-  perl create_tables.pl --tables exportCatMatch|Items|BarCodes|StatusCodes
-
-=item B<-v --verbose>
-
-More verbose output.
-
-=item B<-d --debug>
-
-Even more verbose output.
-
-=item B<-h, -?, --help>
-
-Prints this help message and exits.
-
-=back
-                                                               
-=cut
-
-sub get_options {
-
-    # Options
-    my $dir     = '';
-    my $tables  = '';
-    my $verbose = '';
-    my $debug   = '';
-    my $help    = '';
-
-    GetOptions (
-        'dir=s'      => \$dir,
-        't|tables=s' => \$tables,
-        'v|verbose'  => \$verbose,
-        'd|debug'    => \$debug,
-        'h|?|help'   => \$help
-    );
-
-    pod2usage( -exitval => 0 ) if $help;
-    pod2usage( -msg => "\nMissing Argument: --dir required\n", -exitval => 1 ) if !$dir;
-    pod2usage( -msg => "\nMissing Argument: -t, --tables required\n", -exitval => 1 ) if !$tables;
-
-    return ( $dir, $tables, $verbose, $debug );
+    my $vars = {
+	'dirs' => $opt->dir,
+	    'tablename' => $table,
+	    'columns' => \@columns,
+	    'sep' => $opt->columndelimiter,
+	    'rowsep' => $opt->rowdelimiter,
+	    'ext' => $opt->ext,
+	    'enc' => $ttenc,
+	    'headerrows' => $opt->headerrows
+    };
+    $tt2->process( 'create_tables.tt', $vars, \*STDOUT,  {binmode => ':utf8' } ) || die $tt2->error();
 
 }
 
