@@ -47,7 +47,7 @@ my ($opt, $usage) = describe_options(
 print $usage->text if ($opt->help);
 
 my  ($csvfiles, $specfiles, $missingcsvs, $missingspecs) =
-    build_table_info($opt->dir, $opt->spec, $opt->columndelimiter, $opt->rowdelimiter, $opt->ext);
+    build_table_info($opt);
 
 my $ttenc = $opt->encoding;
 
@@ -80,23 +80,32 @@ foreach my $table (@{$opt->tables}) {
 	} elsif ($type eq 'smallint') {
 	    $type = 'int';
 	} elsif ( $type eq 'uniqueidentifier' ) {
-            $type = 'CHAR(38) UNIQUE NOT NULL';
+            $type = 'CHAR(38)';
 	    $size = ''
-        }
+        } elsif ( $type eq 'bit' ) {
+	    $type = 'BOOLEAN';
+	    $size = '';
+	}
+	if ($type ne 'varchar') {
+	    $size = '';
+	}
 	my $coldecl = {
 	    'name' => $c,
-		'type' => $type
+		'type' => $type,
+		'size' => $size
 	};
 	if (defined($size)) {
 	    $coldecl->{size} = $size;
 	}
 	push @columns, $coldecl;
     }
+    my $columndelimiter = $opt->columndelimiter;
+    $columndelimiter =~ s/	/\\t/g;
     my $vars = {
 	'dirs' => $opt->dir,
 	    'tablename' => $table,
 	    'columns' => \@columns,
-	    'sep' => $opt->columndelimiter,
+	    'sep' => $columndelimiter,
 	    'rowsep' => $opt->rowdelimiter,
 	    'ext' => $opt->ext,
 	    'enc' => $ttenc,

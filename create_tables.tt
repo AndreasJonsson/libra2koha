@@ -9,7 +9,7 @@ CREATE TABLE `[% tablename %]` (
     [%- IF tablename == 'Borrowers' && col.name == 'IdBorrower' %] PRIMARY KEY[% END %]
     [%- UNLESS loop.last %],[% END %]
 [% END -%]
-) ENGINE=MEMORY DEFAULT CHARSET=utf8;
+) ENGINE=InnoDB DEFAULT CHARSET=utf8;
 LOAD DATA LOCAL INFILE '[% dirs %]/[% tablename %][% ext %]'
     INTO TABLE [% tablename %]
     CHARACTER SET [% enc %]

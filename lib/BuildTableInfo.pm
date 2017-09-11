@@ -31,15 +31,11 @@ sub create_file_hash {
 }
 
 sub build_table_info {
-    my $csvdir  = shift;
-    my $specdir = shift;
-    my $columndelimiter = shift;
-    my $rowdelimiter    = shift;
-    my $ext             = shift;
+    my $opt = shift;
 	
     
-    my $csvfiles  = create_file_hash($csvdir, '(.*)' . $ext . '$');
-    my $specfiles = create_file_hash($specdir, '(.*)spec.txt$');
+    my $csvfiles  = create_file_hash($opt->dir, '(.*)' . $opt->ext . '$');
+    my $specfiles = create_file_hash($opt->spec, '(.*)spec.txt$');
 
     my @missingspecs = ();
     my @missingcsvs = ();
@@ -51,12 +47,12 @@ sub build_table_info {
 	} else {
 	    my $base = $_;
 	    my $fh;
-	    my $csvfile = $csvdir . "/" . $csvfiles->{$base}->{filename};
-	    open $fh, "<:encoding(utf16)", $csvfile or die ($csvfile . ": $!");
+	    my $csvfile = $opt->dir . "/" . $csvfiles->{$base}->{filename};
+	    open $fh, ("<:encoding(" . $opt->encoding . ")"), $csvfile or die ($csvfile . ": $!");
 	    my $csv = Text::CSV->new({
-		quote_char => undef,
-		sep_char => $columndelimiter,
-		eol => $rowdelimiter });
+		quote_char => $opt->quote,
+		sep_char => $opt->columndelimiter,
+		eol => $opt->rowdelimiter });
 	    my $columns = $csv->getline( $fh );
 	    my %columns = ();
 	    my $i = 0;
@@ -70,8 +66,8 @@ sub build_table_info {
 	    $csvfiles->{$base}->{columnlist} = $columns;
 	    $csvfiles->{$base}->{missingspecs} = [];
 	    close $fh;
-	    my $specfile = $specdir . "/" . $specfiles->{$base}->{filename};
-	    open $fh, "<:encoding(utf16)", $specfile;
+	    my $specfile = $opt->spec . "/" . $specfiles->{$base}->{filename};
+	    open $fh, ("<:encoding(" . $opt->specencoding . ")"), $specfile;
 	    my %columns_spec = ();
 	    $i = 0;
 	    while (<$fh>) {
