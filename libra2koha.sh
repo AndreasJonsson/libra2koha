@@ -2,16 +2,19 @@
 
 # libra2db.sh
 
-if [ "$#" != 3 ]; then
-    echo "Usage: $0 /path/to/config /path/to/export <instance name>"
-    exit;
-fi
+#if [ "$#" != 3 ]; then
+#    echo "Usage: $0 /path/to/config /path/to/export <instance name>"
+#    exit;
+#fi
 
-CONFIG="$1"
-DIR="$2"
+CONFIG=/home/aj/koha/Hjo/Config
+DIR=/home/aj/koha/Hjo/Data
+SPECDIR=/home/aj/spec
+TABLEEXT=.csv
+TABLEENC=utf16
 INSTANCE="$3"
 EXPORTCAT="$DIR/exportCat.txt"
-MARCXML="$DIR/bib/raw-records.marcxml"
+MARC="$DIR/CatalogueExport.dat"
 OUTPUTDIR="$DIR/out"
 IDMAP="$OUTPUTDIR/IdMap.txt"
 MYSQL_CREDENTIALS="-u libra2koha -ppass libra2koha"
@@ -19,7 +22,6 @@ MYSQL="mysql $MYSQL_CREDENTIALS"
 MYSQL_LOAD="mysql $MYSQL_CREDENTIALS --local-infile=1 --init-command='SET max_heap_table_size=4294967295;'"
 
 export PERLIO=:unix:utf8
-
 
 if [[ -z "$SCRIPTDIR" ]]; then
    SCRIPTDIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd -P)"
@@ -64,12 +66,6 @@ if [ ! -d "$DIR/bib/" ]; then
     mkdir "$DIR/bib/"
 fi
 
-if [[ ! -e "$MARCXML" ]]; then
-   echo "Going to convert bibliographic records to MARCXML... "
-   line2iso.pl -i "$EXPORTCAT" --xml $LINE2ISO_PARAMS > "$MARCXML"
-   echo $MARCXML
-   echo "done"
-fi
 
 ### CHECK FOR CONFIG FILES ###
 
@@ -83,22 +79,23 @@ fi
 if [ ! -f "$CONFIG/branchcodes.yaml" ]; then
     echo "Missing $CONFIG/branchcodes.yaml"
     MISSING_FILE=1
-    table2config.pl "$DIR/Branches.txt" 0 2 > "$CONFIG/branchcodes.yaml"
+    echo table2config.pl --columndelim='	' --headerrows=2 --dir="$DIR" --name='Branches' --key=0 --comment=2 > "$CONFIG/branchcodes.yaml"
+    table2config.pl --columndelim='	' --headerrows=2 --dir="$DIR" --name='Branches' --key=0 --comment=2 > "$CONFIG/branchcodes.yaml"
 fi
 if [ ! -f "$CONFIG/loc.yaml" ]; then
     echo "Missing $CONFIG/loc.yaml"
     MISSING_FILE=1
-    table2config.pl "$DIR/LocalShelfs.txt" 1 2 > "$CONFIG/loc.yaml"
+    table2config.pl --columndelim='	' --headerrows=2  --dir="$DIR" --name='LocalShelfs' --key=1 --comment=2 > "$CONFIG/loc.yaml"
 fi
 if [ ! -f "$CONFIG/ccode.yaml" ]; then
     echo "Missing $CONFIG/ccode.yaml"
     MISSING_FILE=1
-    table2config.pl "$DIR/Departments.txt" 0 2 > "$CONFIG/ccode.yaml"
+    table2config.pl --columndelim='	' --headerrows=2  --dir="$DIR/" --name='Departments' --key=0 --comment=2 > "$CONFIG/ccode.yaml"
 fi
 if [ ! -f "$CONFIG/patroncategories.yaml" ]; then
     echo "Missing $CONFIG/patroncategories.yaml"
     MISSING_FILE=1
-    table2config.pl "$DIR/BorrowerCategories.txt" 0 2 > "$CONFIG/patroncategories.yaml"
+    table2config.pl --columndelim='	' --headerrows=2  --dir="$DIR" --name='BorrowerCategories' --key=0 --comment=2 > "$CONFIG/patroncategories.yaml"
 fi
 if [ $MISSING_FILE -eq 1 ]; then
     exit
@@ -107,45 +104,49 @@ fi
 
 ### RECORDS ###
 
-utf8dir="$(mktemp -d)"
+#utf8dir="$(mktemp -d)"
+utf8dir=/home/aj/utf8dir
+mkdir -p "$utf8dir"
 
-for file in "$DIR"/*.txt  ; do
+for file in "$DIR"/*"${TABLEEXT}"  ; do
    if [[ -f  "$file" ]] ; then
       if [[ ! ( "$file" =~ spec\.txt$ ) ]]; then
-         name="$(basename -s .txt "$file")"
+         name="$(basename -s "${TABLEEXT}" "$file")"
 	 specName="$name"spec
-	 specFile="$DIR/$specName".txt
+	 specFile="$SPECDIR/$specName".txt
          if [[ ! -e "$specFile" && "$name" != 'exportCat' && "$name" != 'exportCatMatch' ]]; then
 	    echo "No specification file corresponding to $file!" 1>&2
-         else
-	    if [[ "$name" == exportCat || "$name" == exportCatMatch ]] ; then
-               enc=utf8
-               numColumns=8
-            else
-               iconv -f utf16 -t utf8 "$specFile" > "$utf8dir"/"$specName".txt
-               numColumns=$(wc -l "$utf8dir"/"$specName".txt | awk '{ print $1 }')
-	       enc=utf16
-	    fi
-            if [[ $(stat -c %s "$file") == 2 ]] ; then
-               # Skip, due to a bug in the GHC IO library that generates an error on a file containing
-               # only the unicode byte order marker.  The bug exists in ghc 7.6.3-21 (Debian jessie) but appears to
-               # have been fixed in ghc 7.10.3-7 (Ubuntu xenial)
-               touch "$utf8dir"/"$name".txt
-            elif [[ "$name" != exportCatMatch ]]; then
-   	       delimtabletransform --num-columns=$numColumns          \
-                                   --encoding=$enc                    \
-                                   --column-delimiter='!*!'           \
+         elif [[ ! -e "$utf8dir"/"$name""${TABLEEXT}" ]]; then
+             if [[ "$name" == exportCat || "$name" == exportCatMatch ]] ; then
+		 enc=utf8
+		 numColumns=8
+             else
+		 numColumns=$(wc -l $specFile | awk '{ print $1 }')
+		 enc=$TABLEENC
+             fi
+	     
+             if [[ $(stat -c %s "$file") == 2 ]] ; then
+		 # Skip, due to a bug in the GHC IO library that generates an error on a file containing
+		 # only the unicode byte order marker.  The bug exists in ghc 7.6.3-21 (Debian jessie) but appears to
+		 # have been fixed in ghc 7.10.3-7 (Ubuntu xenial)
+ 		touch "$utf8dir"/"$name""${TABLEEXT}"
+	     else
+		 delimtabletransform  --encoding=$TABLEENC               \
+                                   --column-delimiter='\t'            \
                                    --row-delimiter='\n'               \
                                    --row-delimiter='\r\n'             \
                                    --enclosed-by='"'                  \
-                                   --output-row-delimiter='!#!\r\n' "$file" > "$utf8dir"/"$name".txt
-            else
-               cp "$file" "$utf8dir"/exportCatMatch.txt
-            fi
+				   --null-literal                     \
+                                   "$file" > "$utf8dir"/"${name}${TABLEEXT}"
+             fi
          fi
       fi
    fi
 done
+
+
+tabledir="$utf8dir"
+#tabledir="$DIR"
 
 ## Clean up the database
 echo "DROP TABLE IF EXISTS exportCatMatch;" | $MYSQL
@@ -160,22 +161,30 @@ echo "DROP TABLE IF EXISTS BorrowerRegId;" | $MYSQL
 ## Create tables and load the datafiles
 echo -n "Going to create tables for records and items, and load data into MySQL... "
 bib_tables="$(mktemp)"
-create_tables.pl --dir "$utf8dir" --tables "exportCatMatch|Items|BarCodes|StatusCodes" > "$bib_tables"
+create_tables.pl --quote='"' --headerrows=2 --encoding=utf8 --ext=.csv --spec "$SPECDIR" --columndelimiter='	' --rowdelimiter='\r\n' --dir "$tabledir" --table 'Items' --table 'BarCodes' --table 'StatusCodes' --table 'CA_CATALOG' > "$bib_tables"
 eval $MYSQL_LOAD < "$bib_tables"
-echo "ALTER TABLE Items ADD COLUMN done INT(1) DEFAULT 0;" | eval $MYSQL_LOAD
-echo "done"
-
+eval $MYSQL_LOAD <<EOF 
+ALTER TABLE Items ADD COLUMN done INT(1) DEFAULT 0;
+CREATE UNIQUE INDEX ca_catalog_title_no_index  ON CA_CATALOG (TITLE_NO);
+CREATE UNIQUE INDEX items_itemid_index ON Items (IdItem);
+CREATE INDEX barcode_iditem_index ON BarCodes (IdItem);
+CREATE INDEX items_catid_index ON Items (IdCat);
+CREATE INDEX CA_CATALOG_ID_index ON CA_CATALOG (CA_CATALOG_ID);
+EOF
 
 ## Get the relevant info out of the database and into a .marcxml file
 echo "Going to transform records... "
-records.pl --config $CONFIG --infile $MARCXML --outputdir "$OUTPUTDIR" --flag_done $RECORDS_PARAMS
+if [[ ! -e "$OUTPUTDIR"/records.marc ]]; then
+    records.pl --config $CONFIG --infile $MARC --outputdir "$OUTPUTDIR" --flag_done $RECORDS_PARAMS
+fi
 echo "done"
 
 ### BORROWERS ###
 
 ## Create tables and load the datafiles
 echo -n "Going to create tables for borrowers, and load data into MySQL... "
-create_tables.pl --dir "$utf8dir" --tables "Borrowers|BorrowerPhoneNumbers|BarCodes|BorrowerAddresses|BorrowerRegId" | eval $MYSQL_LOAD
+create_tables.pl  --quote='"' --headerrows=2 --encoding=utf8 --ext=.csv  --spec "$SPECDIR" --columndelimiter='	' --rowdelimiter='\r\n' --dir "$tabledir" --table "Borrowers" --table "BorrowerPhoneNumbers" --table "BarCodes" --table "BorrowerAddresses" --table "BorrowerRegId"
+create_tables.pl  --quote='"' --headerrows=2 --encoding=utf8 --ext=.csv  --spec "$SPECDIR" --columndelimiter='	' --rowdelimiter='\r\n' --dir "$tabledir" --table "Borrowers" --table "BorrowerPhoneNumbers" --table "BarCodes" --table "BorrowerAddresses" --table "BorrowerRegId" | eval $MYSQL_LOAD
 echo "DELETE FROM BarCodes WHERE IdBorrower = 0;" | $MYSQL
 echo "done"
 
@@ -195,24 +204,28 @@ echo "DROP TABLE IF EXISTS Transactions        ;" | $MYSQL
 echo "DROP TABLE IF EXISTS BarCodes            ;" | $MYSQL
 echo "DROP TABLE IF EXISTS BorrowerBarCodes    ;" | $MYSQL
 echo "DROP TABLE IF EXISTS ItemBarCodes        ;" | $MYSQL
-# Don't confuse Isses.txt, which corresponds to issues of a serial, with issues,
+# Don't confuse Isses"${TABLEEXT}", which corresponds to issues of a serial, with issues,
 # as in outstanding loans (in issues.sql).
 echo "DROP TABLE IF EXISTS Issues              ;" | $MYSQL
 
 
 # Create tables and load the datafiles
 echo -n "Going to create tables for active issues, and load data into MySQL... "
-create_tables.pl --dir "$utf8dir" --tables "Transactions|BarCodes|Issues" | eval $MYSQL_LOAD
+create_tables.pl  --quote='"' --headerrows=2 --encoding=utf8 --ext=.csv  --spec "$SPECDIR" --columndelimiter='	' --rowdelimiter='\r\n' --dir "$tabledir" --table "Transactions" --table "BarCodes" --table "Issues" | eval $MYSQL_LOAD
 # Now copy the BarCodes table so we can have one for items and one for borrowers
-echo "CREATE TABLE BorrowerBarCodes LIKE BarCodes;" | $MYSQL
-echo "INSERT BorrowerBarCodes SELECT * FROM BarCodes;" | $MYSQL
-echo "RENAME TABLE BarCodes TO ItemBarCodes;" | $MYSQL
-echo "ALTER TABLE BorrowerBarCodes DROP COLUMN IdItem;" | $MYSQL
-echo "DELETE FROM BorrowerBarCodes WHERE IdBorrower = 0;" | $MYSQL
-echo "ALTER TABLE ItemBarCodes DROP COLUMN IdBorrower;" | $MYSQL
-echo "DELETE FROM ItemBarCodes WHERE IdItem = 0;" | $MYSQL
-echo "ALTER TABLE BorrowerBarCodes ADD PRIMARY KEY (IdBorrower);" | $MYSQL
-echo "ALTER TABLE ItemBarCodes ADD PRIMARY KEY (IdItem);" | $MYSQL
+$MYSQL <<EOF
+CREATE TABLE BorrowerBarCodes LIKE BarCodes;
+INSERT BorrowerBarCodes SELECT * FROM BarCodes;
+RENAME TABLE BarCodes TO ItemBarCodes;
+ALTER TABLE BorrowerBarCodes DROP COLUMN IdItem;
+DELETE FROM BorrowerBarCodes WHERE IdBorrower IS NULL;
+ALTER TABLE ItemBarCodes DROP COLUMN IdBorrower;
+DELETE FROM ItemBarCodes WHERE IdItem IS NULL;
+ALTER TABLE BorrowerBarCodes ADD PRIMARY KEY (IdBorrower);
+ALTER TABLE ItemBarCodes ADD PRIMARY KEY (IdItem);
+CREATE INDEX transaction_idborrower_index ON Transactions (IdBorrower);
+CREATE INDEX transaction_iditem_index ON Transactions (IdItem);
+EOF
 echo "done"
 
 # Get the relevant info out of the database and into a .sql file
@@ -240,7 +253,7 @@ fi
 echo "TODO: The -idmap parameter to the bulkmarcimport.pl script doesn't work as expected.  To make this work you will need to hack the bulkmarcimport.pl script." 2>&1
 echo "      (This is only needed to generate serials.sql, though)." 2>&1
 exit 0
-sudo koha-shell -c "/usr/share/koha/bin/migration_tools/bulkmarcimport.pl -b -file '$OUTPUTDIR'/records.marcxml -v -commit 100 -m MARCXML -d -fk -idmap '$IDMAP'" "$INSTANCE"
+sudo koha-shell -c "/usr/share/koha/bin/migration_tools/bulkmarcimport.pl -b -file '$OUTPUTDIR'/records.marc -v -commit 100 -m MARCXML -d -fk -idmap '$IDMAP'" "$INSTANCE"
 
 eval $MYSQL_LOAD <<EOF
 DROP TABLE IF EXISTS IdMap;

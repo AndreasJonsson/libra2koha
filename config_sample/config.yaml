@@ -10,4 +10,4 @@ db_pass: 'pass'
 
 # Where to put the output
 
-output_marcxml: "/path/to/data/out/records.marcxml"
+output_marc: "/path/to/data/out/records.marc"

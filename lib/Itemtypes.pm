@@ -204,8 +204,8 @@ sub get_itemtype {
     }
 
     if ($itemtype eq 'X') {
-        say STDERR "Failed to determine itemtype of this field:";
-        print STDERR Dumper(\%fieldpositions);
+        # say STDERR "Failed to determine itemtype of this field:";
+        # print STDERR Dumper(\%fieldpositions);
     }
 
     return $itemtype;
