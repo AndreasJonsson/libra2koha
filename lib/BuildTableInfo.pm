@@ -52,7 +52,9 @@ sub build_table_info {
 	    my $csv = Text::CSV->new({
 		quote_char => $opt->quote,
 		sep_char => $opt->columndelimiter,
-		eol => $opt->rowdelimiter });
+		eol => $opt->rowdelimiter,
+		escape_char => "\\"
+				     });
 	    my $columns = $csv->getline( $fh );
 	    my %columns = ();
 	    my $i = 0;
