@@ -21,6 +21,7 @@ use DateTime;
 use Pod::Usage;
 use Modern::Perl;
 use Data::Dumper;
+use Email::Valid;
 
 $|=1; # Flush output
 
@@ -137,6 +138,7 @@ while ( my $borrower = $sth->fetchrow_hashref() ) {
     $borrower->{'dateexpiry'}   = '"' . DateTime->now->add( 'years' => 1 )->strftime( '%F' ) . '"';
     # Tranlsate patron categories
     $borrower->{'categorycode'} = $patroncategories->{ $borrower->{'IdBorrowerCategory'} };
+    next if ($borrower->{'categorycode'} eq '');
 
     $tt2->process( 'borrowers.tt', $borrower, \*STDOUT,  {binmode => ':utf8'} ) || die $tt2->error();
 
@@ -310,45 +312,60 @@ sub set_address {
 
     while (my $phone = $phone_sth->fetchrow_hashref()) {
 
-        $phone->{PhoneNumber} = '' unless defined($phone->{PhoneNumber});
+        next unless defined($phone->{PhoneNumber}) and $phone->{PhoneNumber} ne '';
+      RETRY: while (1) {
+	  if ($phone->{Type} eq 'E') {
+	      if ($n_email == 0) {
+		  $pre = '';
+	      } elsif ($n_email == 1) {
+		  $pre = 'B_';
+	      } else {
+		  print(STDERR ("Borrower has more than 2 email addresses: " . $borrower->{IdBorrower} . "\n"));
+	      }
 
-        if ($phone->{Type} eq 'E') {
-            if ($n_email == 0) {
-                $pre = '';
-            } elsif ($n_email == 1) {
-                $pre = 'B_';
-            } else {
-                print(STDERR ("Borrower has more than 2 email addresses: " . $borrower->{IdBorrower} . "\n"));
-            }
+	      $n_email++;
 
-            $n_email++;
+	      $borrower->{"${pre}email"} = $phone->{PhoneNumber};
+	  } elsif ($phone->{Type} eq 'T') {
+	      if (Email::Valid->address($phone->{PhoneNumber})) {
+		  $phone->{Type} = 'E';
+		  next RETRY;
+	      }
+	      if ($n_phone == 0) {
+		  $pre = '';
+	      } elsif ($n_phone == 1) {
+		  $pre = 'B_';
+	      } else {
+		  print(STDERR ("Borrower has more than 2 phone numbers: " . $borrower->{IdBorrower} . "\n"));
+	      }
 
-            $borrower->{"${pre}email"} = $phone->{PhoneNumber};
-        } elsif ($phone->{Type} eq 'T') {
-            if ($n_phone == 0) {
-                $pre = '';
-            } elsif ($n_phone == 1) {
-                $pre = 'B_';
-            } else {
-                print(STDERR ("Borrower has more than 2 phone numbers: " . $borrower->{IdBorrower} . "\n"));
-            }
+	      $n_phone++;
 
-            $n_phone++;
-
-            $borrower->{"${pre}phone"} = $phone->{PhoneNumber};
-        } elsif ($phone->{Type} eq 'M') {
-            if ($n_mob == 0) {
-                $pre = '';
-            } else {
-                print(STDERR ("Borrower has more than 1 mobile phone numbers: " . $borrower->{IdBorrower} . "\n"));
-            }
-
-            $n_mob++;
-
-            $borrower->{"${pre}mobile"} = $phone->{PhoneNumber};
-        } else {
-                print(STDERR ("Borrower has unknown phone number type: '" . $phone->{Type} . "', " . $borrower->{IdBorrower} . "\n"));
-        }
+	      $borrower->{"${pre}phone"} = $phone->{PhoneNumber};
+	  } elsif ($phone->{Type} eq 'M') {
+	      if (Email::Valid->address($phone->{PhoneNumber})) {
+		  $phone->{Type} = 'E';
+		  next RETRY;
+	      }
+	      if ($n_mob > 0) {
+		  if ($n_phone < 2) {
+		      # Make the previous mobile phone number a regular phone number.
+		      my $tmpphone = $borrower->{"mobile"};
+		      $borrower->{"mobile"} = $phone->{PhoneNumber};
+		      $phone->{PhoneNumber} = $tmpphone;
+		      $phone->{Type} = 'T';
+		  } else {
+		      print(STDERR ("Borrower has more than 3 phone numbers: " . $borrower->{IdBorrower} . "\n"));
+		      last RETRY;
+		  }
+	      }
+	      $n_mob++;
+	      $borrower->{"mobile"} = $phone->{PhoneNumber};
+	  } else {
+	      print(STDERR ("Borrower has unknown phone number type: '" . $phone->{Type} . "', " . $borrower->{IdBorrower} . "\n"));
+	  }
+	  last RETRY;
+      }
     }
 }
 
