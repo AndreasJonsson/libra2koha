@@ -1,6 +1,7 @@
 #!/usr/bin/env perl
 
 # Copyright 2015 Magnus Enger Libriotech
+# Copyright 2017 Andreas Jonsson, andreas.jonsson@kreablo.se
 
 =head1 NAME
 
@@ -12,6 +13,7 @@ records.pl - Read MARCXML records from a file and add items from the database.
 
 =cut
 
+use MARC::File::USMARC;
 use MARC::File::XML ( BinaryEncoding => 'utf8', RecordFormat => 'NORMARC' );
 use DBI;
 use Getopt::Long;
@@ -22,7 +24,6 @@ use Template;
 use DateTime;
 use Pod::Usage;
 use Modern::Perl;
-use Data::Dumper;
 use Itemtypes;
 use ExplicitRecordNrField;
 use MarcUtil::MarcMappingCollection;
@@ -33,7 +34,27 @@ $|=1; # Flush output
 # Get options
 my ( $config_dir, $input_file, $flag_done, $limit, $every, $output_dir, $verbose, $debug, $explicit_record_id ) = get_options();
 
+sub add_stat {
+    my ($stat, $item) = @_;
+    unless (defined ($stat->{$item})) {
+	$stat->{$item} = 1
+    } else {
+	$stat->{$item}++;
+    }
+}
+my %itemtype_stats = ();
+sub add_itemtype_stat  {
+    my $itemtype = shift;
+    add_stat(\%itemtype_stats, $itemtype);
+}
+my %catid_types = ();
+sub add_catitem_stat {
+    my $catid = shift;
+    add_stat(\%catid_types, $catid);
+}
+
 my $mmc = MarcUtil::MarcMappingCollection::marc_mappings(
+    'catid'                            => { map => { '035' => 'a' } },
     'homebranch'                       => { map => { '952' => 'a' } },
     'holdingbranch'                    => { map => { '952' => 'b' } },
     'localshelf'                       => { map => { '952' => 'c' } },
@@ -74,7 +95,7 @@ my $config;
 if ( -f $config_dir . '/config.yaml' ) {
     $config = LoadFile( $config_dir . '/config.yaml' );
 }
-my $output_file = $output_dir ? "$output_dir/records.marcxml" : $config->{'output_marcxml'};
+my $output_file = $output_dir ? "$output_dir/records.marc" : $config->{'output_marc'};
 
 =head2 branchcodes.yaml
 
@@ -123,7 +144,9 @@ if ( !-e $input_file ) {
     exit;
 }
 
-$limit = num_records_($input_file) if $limit == 0;
+$limit = 33376;
+#$limit = num_records_($input_file) if $limit == 0;
+
 my $progress = Term::ProgressBar->new( $limit );
 
 # Set up the database connection
@@ -131,15 +154,34 @@ my $dbh = DBI->connect( $config->{'db_dsn'}, $config->{'db_user'}, $config->{'db
 
 # Query for selecting items connected to a given record
 
-my $sth;
+my $sth = $dbh->prepare("SHOW TABLES LIKE 'CA_CATALOG'");
+$sth->execute() or die "Failed to execute query";
+
+my $ca_catalog_table = $sth->fetchall_arrayref();
+my $has_ca_catalog = +@{$ca_catalog_table} != 0;
+
 unless ($explicit_record_id) {
-    $sth = $dbh->prepare( <<'EOF' );
+    if ($has_ca_catalog) {
+#	$sth = $dbh->prepare( <<'EOF' );
+#	SELECT Items.*, BarCodes.BarCode
+#        FROM Items JOIN CA_CATALOG ON Items.IdCat = CA_CATALOG_ID
+#                   LEFT OUTER JOIN BarCodes USING (IdItem)
+#        WHERE TITLE_NO = ?
+#EOF
+	$sth = $dbh->prepare( <<'EOF' );
+	SELECT Items.*, BarCodes.BarCode
+        FROM Items LEFT OUTER JOIN BarCodes USING (IdItem)
+        WHERE IdCat = ?
+EOF
+    } else {
+	$sth = $dbh->prepare( <<'EOF' );
     SELECT Items.*, BarCodes.BarCode
     FROM exportCatMatch, Items, BarCodes
     WHERE exportCatMatch.ThreeOne = ?
       AND exportCatMatch.IdCat = Items.IdCat
       AND Items.IdItem = BarCodes.IdItem
 EOF
+    }
 } else {
     $sth = $dbh->prepare( <<'EOF' );
     SELECT Items.*, BarCodes.BarCode
@@ -164,7 +206,7 @@ Record level actions
 =cut
 
 say "Starting record iteration" if $verbose;
-my $batch = MARC::File::XML->in( $input_file );
+my $batch = MARC::File::USMARC->in( $input_file );
 my $count = 0;
 my $count_items = 0;
 RECORD: while (my $record = $batch->next()) {
@@ -174,6 +216,8 @@ RECORD: while (my $record = $batch->next()) {
         $count++;
         next RECORD;
     }
+
+    $mmc->record($record);
 
     my $last_itemtype;
 
@@ -203,16 +247,20 @@ L<http://wiki.koha-community.org/wiki/Holdings_data_fields_%289xx%29>
     my $recordid;
 
     unless ($explicit_record_id) {
-        next RECORD unless $record->field( '001' ) && $record->field( '003' );
+	my $catid = $mmc->get('catid');
+	$catid =~ s/\((.*)\)//;
+	add_catitem_stat($catid);
+        die "Record does not have 001 and 003!" unless $record->field( '001' ) && $record->field( '003' );
         # Get the record ID from 001 and 003
         my $f001 = $record->field( '001' )->data();
         my $f003 = lc $record->field( '003' )->data();
         my $recordid = lc "$f003$f001";
         # Remove any non alphanumerics
         $recordid =~ s/[^a-zæøåöA-ZÆØÅÖ\d]//g;
-        say "$f003 + $f001 = $recordid" if $verbose;
+        say "recordid: $f003 + $f001 = $recordid" if $verbose;
+	say "catid: $catid" if $verbose;
         # Look up items by recordid in the DB and add them to our record
-        $sth->execute( $recordid );
+        $sth->execute( $catid ) or die "Failed to query items for $catid";
         $items = $sth->fetchall_arrayref({});
     } else {
         my $f = $record->field( $ExplicitRecordNrField::RECORD_NR_FIELD );
@@ -238,8 +286,8 @@ L<http://wiki.koha-community.org/wiki/Holdings_data_fields_%289xx%29>
 
 =cut
 
-        $mmc->set('homebranch',    $item->{'IdBranchCode'} );
-        $mmc->set('holdingbranch', $item->{'IdBranchCode'} );
+        $mmc->set('homebranch',    $branchcodes->{$item->{'IdBranchCode'}} );
+        $mmc->set('holdingbranch', $branchcodes->{$item->{'IdBranchCode'}} );
 
 
 =head3 952$c Shelving location
@@ -253,8 +301,12 @@ which values are actually in use:
 
 =cut
 
-        # $field952->add_subfields( 'c', $item->{'IdDepartment'} ) if $item->{'IdDepartment'};
-        $mmc->set('localshelf', $loc->{ $item->{'IdLocalShelf'} });
+	my $localshelf;
+	if (defined($item->{'IdLocalShelf'})) {
+	    # $field952->add_subfields( 'c', $item->{'IdDepartment'} ) if $item->{'IdDepartment'};
+	    $localshelf = $loc->{ $item->{'IdLocalShelf'} };
+	    $mmc->set('localshelf', $localshelf);
+	}
 
 =head3 952$d Date acquired
 
@@ -262,7 +314,7 @@ YYYY-MM-DD
 
 =cut
 
-        $field952->add_subfields( 'd', fix_date( $item->{'RegDate'} ) ) if $item->{'RegDate'};
+        $mmc->set( 'date_acquired', fix_date( $item->{'RegDate'} ) ) if $item->{'RegDate'};
 
 =head3 952$g  Purchase price + 952$v Replacement price
 
@@ -272,8 +324,7 @@ To see which prices occur in the data:
 
 =cut
 
-        $field952->add_subfields( 'g', $item->{'Price'} ) if $item->{'Price'};
-        $field952->add_subfields( 'v', $item->{'Price'} ) if $item->{'Price'};
+	$mmc->set('price', $item->{'Price'})  if $item->{'Price'};
 
 =head3 952$l Total Checkouts
 
@@ -291,7 +342,7 @@ To see what is present in the data:
 
 =cut
         if ( defined($item->{'Location_Marc'}) && length($item->{'Location_Marc'}) > 1) {
-            $field952->add_subfields( 'o', $item->{'Location_Marc'} );
+            $mmc->set( 'call_number', $item->{'Location_Marc'} );
         } else {
             my $field852 = $record->field( '852' );
             if (defined $field852) {
@@ -299,9 +350,9 @@ To see what is present in the data:
                 foreach my $sf ($field852->subfields()) {
                     $s .= $sf->[1];
                 }
-                $field952->add_subfields( 'o', $s );
+		$mmc->set('call_number', $s);
             } else {
-                say STDERR "Didn't add any 952 o) to record $recordid!";
+                # say STDERR "Didn't add any 952 o) to record!";
             }
         }
 
@@ -311,9 +362,9 @@ From BarCodes.Barcode.
 
 =cut
 
-    $field952->add_subfields( 'p', $item->{'BarCode'} ) if $item->{'BarCode'};
+	$mmc->set('barcode', $item->{'BarCode'}) if $item->{'BarCode'};
 
-    say STDERR "Item without barcode: " . $item->{'IdItem'} unless $item->{'BarCode'};
+	say STDERR "Item without barcode: " . $item->{'IdItem'} unless $item->{'BarCode'};
 
 =head3 952$r Date last seen
 
@@ -322,12 +373,13 @@ From BarCodes.Barcode.
 
 =cut
 
-        if ( $item->{'LatestLoanDate'} ne '' && $item->{'LatestReturnDate'} ne '' && $item->{'LatestLoanDate'} > $item->{'LatestReturnDate'} ) {
-            $field952->add_subfields( 'r', $item->{'LatestLoanDate'} ) if $item->{'LatestLoanDate'};
-        } elsif ( $item->{'LatestReturnDate'} ne '' ) {
-            $field952->add_subfields( 'r', fix_date( $item->{'LatestReturnDate'} ) ) if $item->{'LatestReturnDate'};
-        } elsif ( $item->{'LatestLoanDate'} ne '' ) {
-            $field952->add_subfields( 'r', fix_date( $item->{'LatestLoanDate'} ) ) if $item->{'LatestLoanDate'};
+        if ( defined($item->{'LatestLoanDate'}) && $item->{'LatestLoanDate'} ne '' &&
+             defined($item->{'LatestReturnDate'}) && $item->{'LatestReturnDate'} ne '' && $item->{'LatestLoanDate'} > $item->{'LatestReturnDate'} ) {
+	    $mmc->set('date_last_seen', fix_date( $item->{'LatestLoanDate'}) );
+        } elsif ( defined($item->{'LatestReturnDate'}) && $item->{'LatestReturnDate'} ne '' ) {
+            $mmc->set('date_last_seen', fix_date( $item->{'LatestReturnDate'} ));
+        } elsif ( defined($item->{'LatestLoanDate'}) && $item->{'LatestLoanDate'} ne '' ) {
+            $mmc->set( 'date_last_seen', fix_date( $item->{'LatestLoanDate'} ) );
         }
 
 =head3 952$s Date last checked out
@@ -336,7 +388,7 @@ From BarCodes.Barcode.
 
 =cut
 
-        $field952->add_subfields( 's', fix_date( $item->{'LatestLoanDate'} ) ) if $item->{'LatestLoanDate'};
+        $mmc->set( 'date_last_checkout', fix_date( $item->{'LatestLoanDate'} ) ) if $item->{'LatestLoanDate'};
 
 =head3 952$x     Non-public note
 
@@ -352,7 +404,7 @@ this by checking for length greater than 1.
 =cut
 
         if ( defined $item->{'Info'} && length $item->{'Info'} > 1 ) {
-            $field952->add_subfields( 'x', $item->{'Info'} ) if $item->{'Info'} ne ' ';
+	    $mmc->set('internal_staff_note', $item->{'Info'}) if $item->{'Info'} ne ' ';
         }
 
 =head3 952$y Itemtype (mandatory)
@@ -369,7 +421,8 @@ debug output. Run C<perldoc itemtypes.pl> for more documentation.
 =cut
 
         my $itemtype = get_itemtype( $record );
-        $field952->add_subfields( 'y', $itemtype );
+	add_itemtype_stat($itemtype);
+	$mmc->set('itemtype', $itemtype);
         $last_itemtype = $itemtype;
 
 =head3 952$1 Lost status
@@ -402,22 +455,24 @@ FIXME This should be done with a mapping file!
             return $a;
         }
 
-        # 1 = Försvunna
-        if ( $item->{'IdStatusCode'} == 1 ) {
-            $field952->add_subfields( '1', '1' );
-        }
-        # 2 = Bokvård
-        elsif ( $item->{'IdStatusCode'} == 2 ) {
-            $field952->add_subfields( '4', '1' );
-        }
-        # 3 = Osprättade
-        elsif ( $item->{'IdStatusCode'} == 3 ) {
-            $field952->add_subfields( 'x', 'Osprättad' );
-        }
-        # 4 = till översättning
-        elsif ( $item->{'IdStatusCode'} == 3 ) {
-            $field952->add_subfields( 'x', 'till översättning' );
-        }
+	if (defined($item->{'IdStatusCode'})) {
+	    # 1 = Försvunna
+	    if ( $item->{'IdStatusCode'} == 1 ) {
+		$mmc->set('lost_status', '1');
+	    }
+	    # 2 = Bokvård
+	    elsif ( $item->{'IdStatusCode'} == 2 ) {
+		$mmc->set('damaged_status', '1');
+	    }
+	    ## 3 = Osprättade
+	    #elsif ( $item->{'IdStatusCode'} == 3 ) {
+	    #$field952->add_subfields( 'x', 'Osprättad' );
+	    #}
+	    ## 4 = till översättning
+	    #elsif ( $item->{'IdStatusCode'} == 3 ) {
+	    #    $field952->add_subfields( 'x', 'till översättning' );
+	    #}
+	}
 
 
 =head3 952$7 Not for loan
@@ -434,18 +489,22 @@ Values must be defined in the CCODE authorized values category.
 We base this on the Departments table and the value of Items.IdDepartment value.
 
 =cut
+	my $iddepartment;
+	if (defined($localshelf) && $localshelf eq 'Magasin') {
+	    $iddepartment = 'Magasin';
+	} else {
+	    $iddepartment = $ccode->{ $item->{'IdDepartment'} };
+	}
 
-        $field952->add_subfields( '8', $ccode->{ $item->{'IdDepartment'} } ) if $item->{'IdDepartment'};
+	$mmc->set('collection_code',  $iddepartment ) if $iddepartment;
 
-
-        # Add the field to the record
-        $record->insert_fields_ordered( $field952 );
 
         # Mark the item as done, if we are told to do so
         if ( $flag_done ) {
             $sth_done->execute( $item->{'IdItem'} );
         }
 
+	$mmc->reset();
         $count_items++;
 
     } # end foreach items
@@ -457,8 +516,7 @@ Just add the itemtype in 942$c.
 =cut
 
     if ( $last_itemtype ) {
-        my $field942 = MARC::Field->new( 942, ' ', ' ', 'c' => $last_itemtype );
-        $record->insert_fields_ordered( $field942 );
+	$mmc->set('last_itemtype', $last_itemtype);
     }
 
     $file->write( $record );
@@ -475,6 +533,13 @@ $progress->update( $limit );
 
 say "$count records, $count_items items done";
 say "Did you remember to load data into memory?" if $count_items == 0;
+
+for my $itemtype (sort(keys %itemtype_stats)) {
+    say "$itemtype\t$itemtype_stats{$itemtype}";
+}
+for my $cattype (sort(keys %catid_types)) {
+    say "$cattype\t$catid_types{$cattype}";
+}
 
 =head1 OPTIONS
 
@@ -587,7 +652,7 @@ sub fix_date {
 
 sub num_records_ {
     $input_file = shift;
-    my $batch = MARC::File::XML->in( $input_file );
+    my $batch = MARC::File::USMARC->in( $input_file );
     my $n = 0;
     while ($batch->next()) {
         $n++;
