@@ -83,9 +83,7 @@ my $dbh = DBI->connect( $config->{'db_dsn'}, $config->{'db_user'}, $config->{'db
 # Query for selecting all issues, with relevant data
 my $sth = $dbh->prepare("
     SELECT t.*, bbc.BarCode AS BorrowerBarcode, ibc.BarCode as ItemBarcode
-    FROM Transactions as t, BorrowerBarCodes as bbc, ItemBarCodes as ibc
-    WHERE t.IdItem = ibc.IdItem
-      AND t.IdBorrower = bbc.IdBorrower;
+    FROM Transactions as t JOIN BorrowerBarCodes as bbc USING (IdBorrower) JOIN ItemBarCodes as ibc USING (IdItem)
 ");
 
 =head1 PROCESS ISSUES
