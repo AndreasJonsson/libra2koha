@@ -7,6 +7,7 @@ use DBI;
 use Getopt::Long;
 use Data::Dumper;
 use DateTime::Format::Builder;
+use Template;
 
 =head1 OPTIONS
 
@@ -69,8 +70,18 @@ our $dbh = DBI->connect( $config->{'db_dsn'},
                         $config->{'db_pass'},
                         { RaiseError => 1, AutoCommit => 1 } );
 
-my $sth = $dbh->prepare( 'SELECT * FROM Issues, IdMap WHERE Issues.IdCat=IdMap.original ORDER BY IdCat' );
-my $serialitems_sth = $dbh->prepare( 'SELECT * From Items, ItemBarCodes WHERE ItemBarCodes.IdItem = Items.IdItem AND Items.IdIssue = ?' );
+# Configure Template Toolkit
+my $ttconfig = {
+    INCLUDE_PATH => '', 
+    ENCODING => 'utf8'
+};
+# create Template object
+my $tt2 = Template->new( $ttconfig ) || die Template->error(), "\n";
+
+my $sth = $dbh->prepare( 'SELECT Issues.*, ISBN_ISSN, TITLE_NO FROM Issues JOIN CA_CATALOG ON CA_CATALOG_ID=IdCat ORDER BY IdCat' );
+my $serialitems_sth = $dbh->prepare( 'SELECT IdItem, BarCode  From Items JOIN ItemBarCodes USING(IdItem) WHERE IdIssue = ?' );
+
+# CONCAT(LCASE(REPLACE(ExtractValue(metadata, '//controlfield[\@tag=\"003\"]'), '-', '')), ExtractValue(metadata, '//controlfield[\@tag=\"001\"]'))
 
 our $date_parser = DateTime::Format::Builder->new()->parser( regex => qr/^(\d{4})(\d\d)(\d\d)$/,
                                                             params => [qw(year month day)] );
@@ -116,14 +127,6 @@ while (my $row = $sth->fetchrow_hashref()) {
     my $biblionumber = $row->{biblioitem};
     my $biblionumber_str = $dbh->quote($biblionumber);
 
-    if ($prev_biblio != $biblionumber) {
-        $prev_biblio = $biblionumber;
-        print SERIALS <<"EOF"
-INSERT INTO subscription (biblionumber, serialsadditems) VALUES ($biblionumber, 1);
-SELECT CONVERT(LAST_INSERT_ID(), CHAR) INTO \@SUBSCRIPTIONID;
-EOF
-    }
-
     if (!defined($planneddate)) {
         $status = 1; # expected
     } elsif (defined($publisheddate) && $publisheddate < $planneddate) {
@@ -135,25 +138,26 @@ EOF
     my $planneddate_str = ds($planneddate);
     my $publisheddate_str = ds($publisheddate);
 
-    print SERIALS <<"EOF";
-INSERT INTO serial  ( biblionumber,       subscriptionid,  serialseq,  serialseq_x,  serialseq_y,  status,  planneddate,      publisheddate)
-       VALUES       ($biblionumber_str, \@SUBSCRIPTIONID, $serialseq, $serialseq_x, $serialseq_y, $status, $planneddate_str, $publisheddate_str);
-SELECT LAST_INSERT_ID() INTO \@SERIALID;
+    my $tt = {
+	serialseq    => $serialseq,
+	serialseq_x  => $serialseq_x,
+	serialseq_y  => $serialseq_y,
+	status       => $status,
+	planneddate_str => $planneddate_str,
+	publisheddate_str => $publisheddate_str,
+        issn         => $dbh->quote($row->{ISBN_ISSN}),
+	titleno      => $dbh->quote($row->{TITLE_NO}),
+	barcodes     => []
+    };
 
-EOF
     $ret = $serialitems_sth->execute( $row->{IdIssue} );
     die "Failed to query serialitems" unless defined($ret);
 
     while (my $item_row = $serialitems_sth->fetchrow_hashref()) {
-
-        my $barcode = $item_row->{BarCode};
-
-        print SERIALS <<"EOF"
-INSERT INTO serialitems ( itemnumber,                                               serialid)
-       VALUES           ((SELECT itemnumber FROM items WHERE barcode='$barcode'), \@SERIALID );
-EOF
+        push @{$tt->{barcodes}},  $dbh->quote($item_row->{BarCode}) if $item_row->{BarCode};
     }
 
-}
+    $tt2->process( 'serials.tt', $tt, \*SERIALS,  {binmode => ':utf8' } ) || die $tt2->error();
 
+}
 
