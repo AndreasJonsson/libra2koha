@@ -1,0 +1,14 @@
+
+SELECT bi.biblionumber
+FROM biblioitems AS bi
+    JOIN biblio_metadata AS bm ON bi.biblionumber=bm.biblionumber AND format='marcxml' [% IF isbn_issn != "''" %]
+    AND isbn = [% isbn_issn %] OR issn = [% isbn_issn %][% END %]
+WHERE
+    CONCAT(LCASE(REPLACE(ExtractValue(metadata, '//controlfield[@tag="003"]'), '-', '')), ExtractValue(metadata, '//controlfield[@tag="001"]')) = [% titleno %] INTO @BIBLIONUMBER;
+
+SELECT [% IF item_barcode != 'NULL' %] itemnumber FROM items WHERE barcode = [% item_barcode %] [% ELSE %] NULL [% END %] INTO @ITEMNUMBER;
+
+SELECT borrowernumber FROM borrowers WHERE cardnumber = [% borrower_barcode %] INTO @BORROWERNUMBER;
+
+INSERT INTO reserves (borrowernumber, reservedate, biblionumber, branchcode, notificationdate, reminderdate, cancellationdate, reservenotes, priority, found, timestamp, itemnumber, waitingdate, expirationdate, lowestPriority, suspend, suspend_until, itemtype)
+   SELECT @BORROWERNUMBER, [% reservedate %], @BIBLIONUMBER, [% branchcode %], [% notificationdate %], [% reminderdate %], [% cancellationdate %], [% reservenotes %], [% priority %], [% found %], [% timestamp %], @ITEMNUMBER, [% waitingdate %], [% expirationdate %], [% lowestPriority %], [% suspend %], [% suspend_until %], [% itemtype %] WHERE @BIBLIONUMBER IS NOT NULL;
