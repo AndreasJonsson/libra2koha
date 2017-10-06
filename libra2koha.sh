@@ -183,7 +183,6 @@ echo "done"
 
 ## Create tables and load the datafiles
 echo -n "Going to create tables for borrowers, and load data into MySQL... "
-create_tables.pl  --quote='"' --headerrows=2 --encoding=utf8 --ext=.csv  --spec "$SPECDIR" --columndelimiter='	' --rowdelimiter='\r\n' --dir "$tabledir" --table "Borrowers" --table "BorrowerPhoneNumbers" --table "BarCodes" --table "BorrowerAddresses" --table "BorrowerRegId"
 create_tables.pl  --quote='"' --headerrows=2 --encoding=utf8 --ext=.csv  --spec "$SPECDIR" --columndelimiter='	' --rowdelimiter='\r\n' --dir "$tabledir" --table "Borrowers" --table "BorrowerPhoneNumbers" --table "BarCodes" --table "BorrowerAddresses" --table "BorrowerRegId" | eval $MYSQL_LOAD
 echo "DELETE FROM BarCodes WHERE IdBorrower = 0;" | $MYSQL
 echo "done"
@@ -211,7 +210,7 @@ echo "DROP TABLE IF EXISTS Issues              ;" | $MYSQL
 
 # Create tables and load the datafiles
 echo -n "Going to create tables for active issues, and load data into MySQL... "
-create_tables.pl  --quote='"' --headerrows=2 --encoding=utf8 --ext=.csv  --spec "$SPECDIR" --columndelimiter='	' --rowdelimiter='\r\n' --dir "$tabledir" --table "Transactions" --table "BarCodes" --table "Issues" | eval $MYSQL_LOAD
+create_tables.pl  --quote='"' --headerrows=2 --encoding=utf8 --ext=.csv  --spec "$SPECDIR" --columndelimiter='	' --rowdelimiter='\r\n' --dir "$tabledir" --table "Transactions" --table "BarCodes" --table "Issues"  --table "ILL" --table "ILL_Libraries" --table "Reservations" --table "ReservationBranches" | eval $MYSQL_LOAD
 # Now copy the BarCodes table so we can have one for items and one for borrowers
 $MYSQL <<EOF
 CREATE TABLE BorrowerBarCodes LIKE BarCodes;
@@ -236,6 +235,12 @@ if [ -f $ISSUESSQL ]; then
 fi
 issues.pl --config $CONFIG >> $ISSUESSQL
 echo "done writing to $ISSUESSQL"
+
+echo "Serials"
+serials.pl --outputdir "$OUTPUTDIR" --config "$CONFIG"
+echo "Reservations"
+reservations.pl --configdir "$CONFIG" > "$OUTPUTDIR"/reservations.sql
+
 
 if [[ $LIBRA2KOHA_NOCONFIRM != '1' ]]; then
     confirm="no"
@@ -266,4 +271,3 @@ CREATE TABLE IdMap (
 LOAD DATA LOCAL INFILE '$IDMAP' INTO TABLE IdMap CHARACTER SET utf8 FIELDS TERMINATED BY '|' LINES TERMINATED BY '\\n';
 EOF
 
-serials.pl --outputdir "$OUTPUTDIR" --config "$CONFIG"
