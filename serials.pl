@@ -85,8 +85,6 @@ my $serialitems_sth = $dbh->prepare( 'SELECT IdItem, BarCode  From Items JOIN It
 
 our $date_parser = DateTime::Format::Builder->new()->parser( regex => qr/^(\d{4})(\d\d)(\d\d)$/,
                                                             params => [qw(year month day)] );
-our $subscription_id = 1;
-
 sub dp {
     my $ds = shift;
     if (!defined($ds) || $ds eq '') {
@@ -158,6 +156,5 @@ while (my $row = $sth->fetchrow_hashref()) {
     }
 
     $tt2->process( 'serials.tt', $tt, \*SERIALS,  {binmode => ':utf8' } ) || die $tt2->error();
-
 }
 
