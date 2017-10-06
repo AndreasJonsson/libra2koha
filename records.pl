@@ -35,17 +35,26 @@ $|=1; # Flush output
 my ( $config_dir, $input_file, $flag_done, $limit, $every, $output_dir, $verbose, $debug, $explicit_record_id ) = get_options();
 
 sub add_stat {
-    my ($stat, $item) = @_;
+    my ($stat, $item, $extra) = @_;
     unless (defined ($stat->{$item})) {
-	$stat->{$item} = 1
+	$stat->{$item} = {
+	    count => 1
+	}
     } else {
-	$stat->{$item}++;
+	$stat->{$item}->{count}++;
+    }
+    if (defined($extra)) {
+	unless ($stat->{$item}->{extra}) {
+	    $stat->{$item}->{extra} = {};
+	}
+	add_stat($stat->{$item}->{extra}, $extra);
     }
 }
 my %itemtype_stats = ();
 sub add_itemtype_stat  {
     my $itemtype = shift;
-    add_stat(\%itemtype_stats, $itemtype);
+    my $extra = shift;
+    add_stat(\%itemtype_stats, $itemtype, $extra);
 }
 my %catid_types = ();
 sub add_catitem_stat {
@@ -55,6 +64,10 @@ sub add_catitem_stat {
 
 my $mmc = MarcUtil::MarcMappingCollection::marc_mappings(
     'catid'                            => { map => { '035' => 'a' } },
+    'klassifikationskod'               => { map => { '084' => 'a' } },
+    'okontrollerad_term'               => { map => { '653' => 'a' } },
+    'fysisk_beskrivning'               => { map => { '300' => 'e' } },
+    'genre_form_uppgift_eller_fokusterm' => { map => { '655' => 'a' } },
     'homebranch'                       => { map => { '952' => 'a' } },
     'holdingbranch'                    => { map => { '952' => 'b' } },
     'localshelf'                       => { map => { '952' => 'c' } },
@@ -144,8 +157,10 @@ if ( !-e $input_file ) {
     exit;
 }
 
-$limit = 33376;
-#$limit = num_records_($input_file) if $limit == 0;
+#$limit = 33376;
+$limit = num_records_($input_file) if $limit == 0;
+
+print "There are $limit records in $input_file\n";
 
 my $progress = Term::ProgressBar->new( $limit );
 
@@ -169,8 +184,8 @@ unless ($explicit_record_id) {
 #        WHERE TITLE_NO = ?
 #EOF
 	$sth = $dbh->prepare( <<'EOF' );
-	SELECT Items.*, BarCodes.BarCode
-        FROM Items LEFT OUTER JOIN BarCodes USING (IdItem)
+	SELECT Items.*, BarCodes.BarCode, CA_CATALOG_LINK_TYPE_ID
+        FROM Items JOIN CA_CATALOG ON CA_CATALOG_ID = Items.IdCat LEFT OUTER JOIN BarCodes USING (IdItem)
         WHERE IdCat = ?
 EOF
     } else {
@@ -421,7 +436,8 @@ debug output. Run C<perldoc itemtypes.pl> for more documentation.
 =cut
 
         my $itemtype = get_itemtype( $record );
-	add_itemtype_stat($itemtype);
+	$itemtype = refine_itemtype( $mmc, $record, $item, $itemtype );
+	add_itemtype_stat($itemtype, $item->{'CA_CATALOG_LINK_TYPE_ID'});
 	$mmc->set('itemtype', $itemtype);
         $last_itemtype = $itemtype;
 
@@ -456,22 +472,31 @@ FIXME This should be done with a mapping file!
         }
 
 	if (defined($item->{'IdStatusCode'})) {
-	    # 1 = Försvunna
-	    if ( $item->{'IdStatusCode'} == 1 ) {
+	    # 7 = Saknat - efterforkas
+	    if ( $item->{'IdStatusCode'} == 7 ) {
 		$mmc->set('lost_status', '1');
 	    }
-	    # 2 = Bokvård
+	    
+	    # 10 = Förlorat
 	    elsif ( $item->{'IdStatusCode'} == 2 ) {
-		$mmc->set('damaged_status', '1');
+		$mmc->set('lost_status', '1');
 	    }
-	    ## 3 = Osprättade
-	    #elsif ( $item->{'IdStatusCode'} == 3 ) {
-	    #$field952->add_subfields( 'x', 'Osprättad' );
-	    #}
-	    ## 4 = till översättning
-	    #elsif ( $item->{'IdStatusCode'} == 3 ) {
-	    #    $field952->add_subfields( 'x', 'till översättning' );
-	    #}
+
+	    # 9 = Hos boklagning
+	    elsif ( $item->{'IdStatusCode'} == 9) {
+		# 2 = Under arbete
+		$mmc->set('damaged_status', '2');
+	    }
+
+	    # 11 = Gallrat
+	    elsif ( $item->{'IdStatusCode'} == 11) {
+		$mmc->set('lost_status', '1');
+	    }
+
+	    # 12 = Kasserat
+	    elsif ( $item->{'IdStatusCode'} == 12) {
+		$mmc->set('lost_status', '1');
+	    }
 	}
 
 
@@ -535,11 +560,14 @@ say "$count records, $count_items items done";
 say "Did you remember to load data into memory?" if $count_items == 0;
 
 for my $itemtype (sort(keys %itemtype_stats)) {
-    say "$itemtype\t$itemtype_stats{$itemtype}";
+    say "$itemtype\t$itemtype_stats{$itemtype}->{count}";
+    for my $ca_link_type_id (sort(keys %{$itemtype_stats{$itemtype}->{extra}})) {
+	say "    $ca_link_type_id\t$itemtype_stats{$itemtype}->{extra}->{$ca_link_type_id}->{count}";
+    }
 }
-for my $cattype (sort(keys %catid_types)) {
-    say "$cattype\t$catid_types{$cattype}";
-}
+#for my $cattype (sort(keys %catid_types)) {
+#    say "$cattype\t$catid_types{$cattype}->{count}";
+#}
 
 =head1 OPTIONS
 
@@ -658,6 +686,63 @@ sub num_records_ {
         $n++;
     }
     return $n;
+}
+
+sub check_multi_fields {
+    my $mmc = shift;
+    my $fields = shift;
+    my $values = shift;
+
+    my %values = ();
+
+    for my $val (@$values) {
+	$values{$val} = 1;
+    }
+
+    for my $field (@$fields) {
+	for my $v ($mmc->get($field)) {
+	    if (defined($v) && defined ($values{$v})) {
+		return 1;
+	    }
+	}
+    }
+    return 0;
+}
+
+sub refine_itemtype {
+    my $mmc = shift;
+    my $record = shift;
+    my $item = shift;
+    my $original_itemtype = shift;
+
+    my $itemtype = $original_itemtype;
+
+    my $ccall = $item->{'Location_Marc'};
+
+    my $classificationcode = $mmc->get('klassifikationskod');
+
+    my  $children = $ccall =~ /hc(f|g|(,u))/i or (defined $classificationcode && $classificationcode =~ /,u/);
+
+    if ($original_itemtype eq 'LJUDBOK') {
+	if ($ccall =~ /mp3/i) {
+	    $itemtype = $children ? 'BARNMP3' : 'MP3';
+	} elsif ($children) {
+	    $itemtype = 'BARN LJUD';
+	}
+    } elsif ($original_itemtype eq 'TIDSKRIFT') {
+	if ($children) {
+	    $itemtype = 'BARN TIDSK';
+	}
+    } elsif ($original_itemtype eq 'BOK') {
+	$children = check_multi_fields($mmc, ['okontrollerad_term',  'genre_form_uppgift_eller_fokusterm'],
+				    ['Barnbok', 'Barnböcker', 'Ungdomsbok', 'Ungdomsböcker',
+				     'Barn och ungdom', 'Barn och ungdsomsbok', 'Barn och ungdomsböcker']);
+	if ($children) {
+	    $itemtype = 'BARNBOK';
+	}
+    }
+    
+    return $itemtype;
 }
 
 =head1 AUTHOR
