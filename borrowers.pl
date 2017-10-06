@@ -83,7 +83,7 @@ my $dbh = DBI->connect( $config->{'db_dsn'}, $config->{'db_user'}, $config->{'db
 # Query for selecting all borrowers, with relevant data
 my $sth = $dbh->prepare("
     SELECT Borrowers.*, BarCodes.BarCode, BorrowerRegId.RegId
-    FROM (Borrowers LEFT JOIN BarCodes USING (IdBorrower)) LEFT JOIN BorrowerRegId USING (IdBorrower)
+    FROM (Borrowers LEFT OUTER JOIN BarCodes USING (IdBorrower)) LEFT OUTER JOIN BorrowerRegId USING (IdBorrower)
 ");
 
 my $addresses_sth = $dbh->prepare("SELECT * FROM BorrowerAddresses WHERE IdBorrower = ?");
