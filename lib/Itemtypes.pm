@@ -95,7 +95,7 @@ sub get_itemtype {
     # Musikalisk resurs eller ljudupptagning
     # http://www.kb.se/katalogisering/Formathandboken/Bibliografiska-formatet/008/Musikalisk-resurs/
     } elsif ( $f000p6 eq 'c' || $f000p6 eq 'd' ) {
-        $itemtype = 'NOTER';
+        $itemtype = 'MUSIK';
 
     } elsif ( $f000p6 eq 'j' ) {
 	if ( $f007p0 eq 's' ) {
@@ -121,9 +121,9 @@ sub get_itemtype {
         } elsif ( $f007p4 eq 's' ) {
             $itemtype = 'BLURAY';
         } elsif ( $f007p4 eq 'v' ) {
-            $itemtype = 'DVD';
+            $itemtype = 'FILM';
         } else {
-            $itemtype = 'DVD';
+            $itemtype = 'FILM';
         }
 
     # Ljudbok
@@ -148,8 +148,8 @@ sub get_itemtype {
         $itemtype = 'LJUDBOK';
 
     # Avhandlingar
-    } elsif ( $f008p24 eq 'm' || $f008p25 eq 'm' || $f008p26 eq 'm' || $f008p27 eq 'm' ) {
-        $itemtype = 'AVHANDLING';
+    #} elsif ( $f008p24 eq 'm' || $f008p25 eq 'm' || $f008p26 eq 'm' || $f008p27 eq 'm' ) {
+    #    $itemtype = 'AVHANDLING';
 
     # E-bok
     } elsif ( $f000p6 eq 'a' && $f000p7 eq 'm' && $f007p0 eq 'c' && $f007p1 eq 'r' ) {
@@ -179,7 +179,7 @@ sub get_itemtype {
     # Kartografisk resurs
     # http://www.kb.se/katalogisering/Formathandboken/Bibliografiska-formatet/008/Kartografisk-resurs/
     } elsif ( $f000p6 eq 'e' || $f000p6 eq 'f' ) {
-        $itemtype = 'KARTA';
+        $itemtype = 'KARTOR';
 
     # Daisy
     # http://libra-hjalp.axiell.com/daisy
@@ -197,11 +197,11 @@ sub get_itemtype {
         $itemtype = 'BLANDAT';
     } elsif ( $f000p6 eq 'o' ) {
         $itemtype = 'PAKET';
-    } elsif ( $f000p6 eq 'g' ) {
-        $itemtype = 'PROJEKTION';
-    } elsif ( $f000p6 eq 'k' ) {
-        $itemtype = '2DEJPROJGR';
-    }
+    } #elsif ( $f000p6 eq 'g' ) {
+      #  $itemtype = 'PROJEKTION';
+      # } elsif ( $f000p6 eq 'k' ) {
+      #  $itemtype = '2DEJPROJGR';
+      #}
 
     if ($itemtype eq 'X') {
         # say STDERR "Failed to determine itemtype of this field:";
