@@ -129,16 +129,38 @@ while ( my $borrower = $sth->fetchrow_hashref() ) {
 
     set_address( $borrower );
 
+    my $isKohaMarked = 0;
+    my @messages = ();
+    if ($borrower->{'Message'}) {
+	$isKohaMarked = $borrower->{'Message'} =~ /\bkoha\b/;
+	push @messages, $dbh->quote($borrower->{'Message'});
+    }
+    if ($borrower->{'Comment'}) {
+	$isKohaMarked = $isKohaMarked or $borrower->{'Comment'} =~ /\bkoha\b/;
+	push @messages, $dbh->quote($borrower->{'Comment'});
+    }
+    $borrower->{'messages'} = \@messages;
+
     # Do transformations
     # Add a branchcode
     $borrower->{'branchcode'} = $branchcodes->{ $borrower->{'IdBranchCode'} };
     # Fix the format of dates
     $borrower->{'dateofbirth'} = _fix_date( $borrower->{'BirthDate'} );
     $borrower->{'dateenrolled'} = _fix_date( $borrower->{'RegDate'} );
-    $borrower->{'dateexpiry'}   = '"' . DateTime->now->add( 'years' => 1 )->strftime( '%F' ) . '"';
+    if ($isKohaMarked) {
+	$borrower->{'dateexpiry'}   = '"' . DateTime->now->add( 'years' => 1000 )->strftime( '%F' ) . '"';
+    } else {
+	$borrower->{'dateexpiry'}   = '"' . DateTime->now->subtract( 'days' => 1 )->strftime( '%F' ) . '"';
+    }
     # Tranlsate patron categories
     $borrower->{'categorycode'} = $patroncategories->{ $borrower->{'IdBorrowerCategory'} };
     next if ($borrower->{'categorycode'} eq '');
+
+    $borrower->{'userid'} = $borrower->{'BarCode'};
+    
+    if (defined($borrower->{RegId}) && $borrower->{RegId} ne '') {
+	$borrower->{'userid'} = $borrower->{RegId};
+    }
 
     $tt2->process( 'borrowers.tt', $borrower, \*STDOUT,  {binmode => ':utf8'} ) || die $tt2->error();
 

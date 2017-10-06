@@ -48,7 +48,7 @@ VALUES (
     "", -- sex
     "", -- password
     "", -- flags
-    "[% BarCode | trim %]", -- userid
+    "[% userid %]", -- userid
     "", -- opacnote
     "", -- contactnote
     "", -- sort1
@@ -65,3 +65,8 @@ VALUES (
     "", -- smsalertnumber
     "" -- privacy
 );
+SELECT LAST_INSERT_ID() INTO @BORROWERNUMBER;
+[% FOREACH message IN messages -%]
+INSERT INTO messages (borrowernumber,     branchcode,         message_type, message,       message_date,       manager_id)
+VALUES               (@BORROWERNUMBER, "[% branchcode %]", 'L',          [% message %], CURDATE(), 1);
+[% END -%]
