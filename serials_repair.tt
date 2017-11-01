@@ -12,11 +12,8 @@ SELECT IFNULL(@BIBLIONUMBER, @PREVBIBLIONUMBER) INTO @PREVBIBLIONUMBER;
 INSERT INTO subscription (biblionumber, serialsadditems) SELECT @BIBLIONUMBER, 1 FROM DUAL WHERE @CREATE_NEW_SUBSCRIPTION;
 SELECT IF (@CREATE_NEW_SUBSCRIPTION, CONVERT(LAST_INSERT_ID(), CHAR), @SUBSCRIPTIONID) INTO @SUBSCRIPTIONID;
 
-INSERT INTO serial  ( biblionumber,       subscriptionid,    serialseq,       serialseq_x,       serialseq_y,       status,       planneddate,           publisheddate)
-       SELECT        @BIBLIONUMBER,      @SUBSCRIPTIONID, [% serialseq %], [% serialseq_x %], [% serialseq_y %], [% status %], [% planneddate_str %], [% publisheddate_str %]
-FROM DUAL
-WHERE @BIBLIONUMBER IS NOT NULL;
-
+SELECT subscriptionid FROM subscription WHERE biblionumber = @BIBLIONUMBER INTO @SUBSCRIPTIONID;
+SELECT serialid FROM serial WHERE subscriptionid = @SUBSCRIPTIONID AND serialseq = [% serialseq %] INTO @SERIALID;
 
 SELECT IF (@BIBLIONUMBER IS NOT NULL, LAST_INSERT_ID(), @SERIALID) INTO @SERIALID;
 
