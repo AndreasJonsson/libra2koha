@@ -1,6 +1,6 @@
 INSERT INTO issues ( borrowernumber, itemnumber, date_due, branchcode, renewals, issuedate )
 VALUES (
-    ( SELECT borrowernumber FROM borrowers WHERE cardnumber = '[% BorrowerBarcode %]' ),
+    ( SELECT borrowernumber FROM borrowers WHERE [% IF BorrowerBarCode %] cardnumber = '[% BorrowerBarcode %]' [% ELSE %] cardnumber IS NULL AND surname = [% surname_str %] AND firstname = [% firstname_str %] [% END %] ),
     ( SELECT itemnumber FROM items WHERE barcode = '[% ItemBarcode %]' ),
     [% date_due %], -- date_due
     '[% branchcode %]', -- branchcode

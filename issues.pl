@@ -82,8 +82,8 @@ my $dbh = DBI->connect( $config->{'db_dsn'}, $config->{'db_user'}, $config->{'db
 
 # Query for selecting all issues, with relevant data
 my $sth = $dbh->prepare("
-    SELECT t.*, bbc.BarCode AS BorrowerBarcode, ibc.BarCode as ItemBarcode
-    FROM Transactions as t JOIN BorrowerBarCodes as bbc USING (IdBorrower) JOIN ItemBarCodes as ibc USING (IdItem)
+    SELECT t.*, bbc.BarCode AS BorrowerBarcode, ibc.BarCode as ItemBarcode, b.FirstName, b.LastName
+    FROM Transactions as t JOIN Borrowers AS b USING (IdBorrower) LEFT OUTER JOIN BorrowerBarCodes as bbc USING (IdBorrower) LEFT OUTER JOIN ItemBarCodes as ibc USING (IdItem)
 ");
 
 =head1 PROCESS ISSUES
@@ -119,6 +119,8 @@ while ( my $issue = $sth->fetchrow_hashref() ) {
     $issue->{'branchcode'} = $branchcodes->{ $issue->{'IdBranchCode'} };
     $issue->{'issuedate'} = _fix_date( $issue->{'RegDate'} );
     $issue->{'date_due'} = _fix_date( $issue->{'EstReturnDate'} );
+    $issue->{'surname_str'} = $dbh->quote($issue->{'LastName'});
+    $issue->{'firstname_str'} = $dbh->quote($issue->{'FirstName'});
 
     $tt2->process( 'issues.tt', $issue, \*STDOUT, {binmode => ':utf8'} ) || die $tt2->error();
 

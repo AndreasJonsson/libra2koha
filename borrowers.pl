@@ -28,8 +28,6 @@ $|=1; # Flush output
 # Get options
 my ( $config_dir, $limit, $every, $verbose, $debug ) = get_options();
 
-$limit = 130889 if $limit == 0; # FIXME Get this from the database
-my $progress = Term::ProgressBar->new( $limit );
 
 =head1 CONFIG FILES
 
@@ -80,6 +78,15 @@ if ( -f $config_dir . '/patroncategories.yaml' ) {
 # Set up the database connection
 my $dbh = DBI->connect( $config->{'db_dsn'}, $config->{'db_user'}, $config->{'db_pass'}, { RaiseError => 1, AutoCommit => 1 } );
 
+if (!defined($limit) || $limit == 0) {
+    my $count_sth = $dbh->prepare("SELECT count(*) AS n FROM Borrowers;");
+    $count_sth->execute() or die "Failed to count borrowers!";
+    $limit = $count_sth->fetchrow_arrayref()->[0];
+}
+print STDERR "Limit: $limit\n";
+my $progress = Term::ProgressBar->new( $limit );
+
+
 # Query for selecting all borrowers, with relevant data
 my $sth = $dbh->prepare("
     SELECT Borrowers.*, BarCodes.BarCode, BorrowerRegId.RegId
@@ -112,7 +119,7 @@ $sth->execute();
 
 my $auto_count = 1;
 
-while ( my $borrower = $sth->fetchrow_hashref() ) {
+RECORD: while ( my $borrower = $sth->fetchrow_hashref() ) {
 
     say Dumper $borrower if $debug;
 
@@ -123,8 +130,9 @@ while ( my $borrower = $sth->fetchrow_hashref() ) {
     }
 
     if ( !defined($borrower->{'BarCode'}) || $borrower->{'BarCode'} eq '' ) {
-        $borrower->{'BarCode'} = "AUTO$auto_count";
-        $auto_count++;
+        $borrower->{'cardnumber_str'} = "NULL";
+    } else {
+	$borrower->{'cardnumber_str'} = $dbh->quote($borrower->{'BarCode'});
     }
 
     set_address( $borrower );
@@ -156,10 +164,13 @@ while ( my $borrower = $sth->fetchrow_hashref() ) {
     $borrower->{'categorycode'} = $patroncategories->{ $borrower->{'IdBorrowerCategory'} };
     next if ($borrower->{'categorycode'} eq '');
 
-    $borrower->{'userid'} = $borrower->{'BarCode'};
-    
+    $borrower->{'userid_str'} = 'NULL';
+
+    if (defined($borrower->{'BarCode'}) && $borrower->{'BarCode'} ne '') {
+	$borrower->{'userid_str'} = $dbh->quote($borrower->{'BarCode'});
+    } 
     if (defined($borrower->{RegId}) && $borrower->{RegId} ne '') {
-	$borrower->{'userid'} = $borrower->{RegId};
+	$borrower->{'userid_str'} = $dbh->quote($borrower->{RegId});
     }
 
     $tt2->process( 'borrowers.tt', $borrower, \*STDOUT,  {binmode => ':utf8'} ) || die $tt2->error();
@@ -276,7 +287,6 @@ sub fix_date {
     return "$year-$month-$day";
 
 }
-
 
 #
 # Fill out converted address fields.
