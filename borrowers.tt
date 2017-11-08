@@ -1,6 +1,10 @@
+
+SELECT count(*) > 0 FROM borrowers WHERE cardnumber = [% cardnumber_str %] INTO @CARDNUMBER_COLLISSION;
+SELECT count(*) > 0 FROM borrowers WHERE userid = [% userid_str %] INTO @USERID_COLLISSION;
+
 INSERT INTO borrowers ( cardnumber, surname, firstname, title, othernames, initials, streetnumber, streettype, address, address2, city, state, zipcode, country, email, phone, mobile, fax, emailpro, phonepro, B_streetnumber, B_streettype, B_address, B_address2, B_city, B_state, B_zipcode, B_country, B_email, B_phone, dateofbirth, branchcode, categorycode, dateenrolled, dateexpiry, gonenoaddress, lost, debarred, debarredcomment, contactname, contactfirstname, contacttitle, guarantorid, borrowernotes, relationship, sex, password, flags, userid, opacnote, contactnote, sort1, sort2, altcontactfirstname, altcontactsurname, altcontactaddress1, altcontactaddress2, altcontactaddress3, altcontactstate, altcontactzipcode, altcontactcountry, altcontactphone, smsalertnumber, privacy )
 VALUES (
-    [% cardnumber_str %], -- cardnumber
+    IF (@CARDNUMBER_COLLISSION, NULL, [% cardnumber_str %]), -- cardnumber
     "[% LastName %]", -- surname
     "[% FirstName %]", -- firstname
     "", -- title
@@ -48,7 +52,7 @@ VALUES (
     "", -- sex
     "", -- password
     "", -- flags
-    [% userid_str %], -- userid
+    IF (@USERID_COLLISSION, NULL,[% userid_str %]), -- userid
     "", -- opacnote
     "", -- contactnote
     "", -- sort1
