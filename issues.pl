@@ -122,13 +122,17 @@ while ( my $issue = $sth->fetchrow_hashref() ) {
     $issue->{'surname_str'} = $dbh->quote($issue->{'LastName'});
     $issue->{'firstname_str'} = $dbh->quote($issue->{'FirstName'});
 
-    $tt2->process( 'issues.tt', $issue, \*STDOUT, {binmode => ':utf8'} ) || die $tt2->error();
+    if ($issue->{'branchcode'} eq '') {
+	warn "No branchcode for issue: " . Dumper($issue);
+    } else {
+	$tt2->process( 'issues.tt', $issue, \*STDOUT, {binmode => ':utf8'} ) || die $tt2->error();
 
-    $count++;
-    if ( $limit && $limit == $count ) {
-        last;
+	$count++;
+	if ( $limit && $limit == $count ) {
+	    last;
+	}
+	$progress->update( $count );
     }
-    $progress->update( $count );
 
 } # end foreach record
 
