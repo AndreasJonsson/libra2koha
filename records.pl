@@ -177,17 +177,17 @@ my $has_ca_catalog = +@{$ca_catalog_table} != 0;
 
 unless ($explicit_record_id) {
     if ($has_ca_catalog) {
-#	$sth = $dbh->prepare( <<'EOF' );
-#	SELECT Items.*, BarCodes.BarCode
-#        FROM Items JOIN CA_CATALOG ON Items.IdCat = CA_CATALOG_ID
-#                   LEFT OUTER JOIN BarCodes USING (IdItem)
-#        WHERE TITLE_NO = ?
-#EOF
 	$sth = $dbh->prepare( <<'EOF' );
-	SELECT Items.*, BarCodes.BarCode, CA_CATALOG_LINK_TYPE_ID
-        FROM Items JOIN CA_CATALOG ON CA_CATALOG_ID = Items.IdCat LEFT OUTER JOIN BarCodes USING (IdItem)
-        WHERE IdCat = ?
+	SELECT Items.*, BarCodes.BarCode
+        FROM Items JOIN CA_CATALOG ON Items.IdCat = CA_CATALOG_ID
+                   LEFT OUTER JOIN BarCodes USING (IdItem)
+        WHERE TITLE_NO = ?
 EOF
+#	$sth = $dbh->prepare( <<'EOF' );
+#	SELECT Items.*, BarCodes.BarCode, CA_CATALOG_LINK_TYPE_ID
+#        FROM Items JOIN CA_CATALOG ON CA_CATALOG_ID = Items.IdCat LEFT OUTER JOIN BarCodes USING (IdItem)
+#        WHERE IdCat = ?
+#EOF
     } else {
 	$sth = $dbh->prepare( <<'EOF' );
     SELECT Items.*, BarCodes.BarCode
@@ -264,18 +264,24 @@ L<http://wiki.koha-community.org/wiki/Holdings_data_fields_%289xx%29>
     unless ($explicit_record_id) {
 	my $catid = $mmc->get('catid');
 	$catid =~ s/\((.*)\)//;
-	add_catitem_stat($catid);
-        die "Record does not have 001 and 003!" unless $record->field( '001' ) && $record->field( '003' );
         # Get the record ID from 001 and 003
         my $f001 = $record->field( '001' )->data();
-        my $f003 = lc $record->field( '003' )->data();
+        my $f003;
+	unless ($record->field( '003' )) {
+	    warn 'Record does not have 003! catid: ' + $catid + ' default to tida';
+	    $f003 = 'tida';
+	} else {
+	    $f003 = lc $record->field( '003' )->data();
+	}
+        die "Record does not have 001 and 003!" unless $f001 && $f003;
         my $recordid = lc "$f003$f001";
         # Remove any non alphanumerics
         $recordid =~ s/[^a-zæøåöA-ZÆØÅÖ\d]//g;
         say "recordid: $f003 + $f001 = $recordid" if $verbose;
 	say "catid: $catid" if $verbose;
+	add_catitem_stat($catid);
         # Look up items by recordid in the DB and add them to our record
-        $sth->execute( $catid ) or die "Failed to query items for $catid";
+        $sth->execute( $recordid ) or die "Failed to query items for $recordid";
         $items = $sth->fetchall_arrayref({});
     } else {
         my $f = $record->field( $ExplicitRecordNrField::RECORD_NR_FIELD );
@@ -294,6 +300,8 @@ L<http://wiki.koha-community.org/wiki/Holdings_data_fields_%289xx%29>
     ITEM: foreach my $item ( @{ $items } ) {
 
         say Dumper $item if $debug;
+
+	next ITEM if $branchcodes->{$item->{'IdBranchCode'}} eq '';
 
 =head3 952$a and 952$b Homebranch and holdingbranch (mandatory)
 
@@ -434,9 +442,13 @@ script and output the number of occurences for each itemtype, with or without
 debug output. Run C<perldoc itemtypes.pl> for more documentation.
 
 =cut
-
-        my $itemtype = get_itemtype( $record );
-	$itemtype = refine_itemtype( $mmc, $record, $item, $itemtype );
+        my $itemtype;
+	if ($item->{'IdBranchCode'} eq '088') {
+	    $itemtype = 'FJARRLAN';
+	} else {
+	    $itemtype = get_itemtype( $record );
+	    $itemtype = refine_itemtype( $mmc, $record, $item, $itemtype );
+	}
 	add_itemtype_stat($itemtype, $item->{'CA_CATALOG_LINK_TYPE_ID'});
 	$mmc->set('itemtype', $itemtype);
         $last_itemtype = $itemtype;
@@ -515,7 +527,7 @@ We base this on the Departments table and the value of Items.IdDepartment value.
 
 =cut
 	my $iddepartment;
-	if (defined($localshelf) && $localshelf eq 'Magasin') {
+	if ($item->{'IdBranchCode'} eq '006') {
 	    $iddepartment = 'Magasin';
 	} else {
 	    $iddepartment = $ccode->{ $item->{'IdDepartment'} };
