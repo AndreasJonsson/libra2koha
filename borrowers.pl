@@ -189,6 +189,29 @@ RECORD: while ( my $borrower = $sth->fetchrow_hashref() ) {
 
 } # end foreach record
 
+print <<EOF;
+CREATE TEMPORARY TABLE bm_borrower_message_preferences_existing (borrowernumber INT(11) PRIMARY KEY NOT NULL);
+START TRANSACTION;
+INSERT INTO bm_borrower_message_preferences_existing
+SELECT borrowernumber FROM borrower_message_preferences WHERE message_attribute_id=2 AND borrowernumber IS NOT NULL;
+
+INSERT INTO borrower_message_preferences (borrowernumber, categorycode, message_attribute_id, days_in_advance, wants_digest)
+SELECT borrowernumber, NULL, 2, 3, 0 FROM borrowers WHERE (SELECT count(*) = 0 FROM bm_borrower_message_preferences_existing AS e WHERE e.borrowernumber=borrowers.borrowernumber);
+COMMIT;
+
+DELETE FROM bm_borrower_message_preferences_existing;
+START TRANSACTION;
+INSERT INTO bm_borrower_message_preferences_existing
+SELECT borrower_message_preference_id FROM borrower_message_transport_preferences;
+
+INSERT INTO borrower_message_transport_preferences (borrower_message_preference_id, message_transport_type)
+SELECT borrower_message_preference_id, 'email' FROM borrower_message_preferences WHERE (SELECT count(*) = 0 FROM bm_borrower_message_preferences_existing AS e WHERE e.borrowernumber=borrower_message_preferences.borrower_message_preference_id);
+
+COMMIT;
+
+EOF
+
+
 $progress->update( $limit );
 
 # say "$count borrowers done";
@@ -312,7 +335,7 @@ sub set_address {
             if ($n_addr > 0) {
                 print(STDERR ("CO field on second address for borrower " . $borrower->{IdBorrower} . "\n"));
             } else {
-                $borrower->{contactname} = $addr->{CO};
+                $borrower->{contactname} = clean_control($addr->{CO});
             }
         }
 
@@ -322,20 +345,20 @@ sub set_address {
             $borrower->{"${pre}address"} = '';
             $borrower->{"${pre}streetnumber"} = '';
         } elsif ($addr->{Address1} =~ /^(.*?)[ ]*(\d+(?:(?:[a-zA-Z]+)|(?:,[ ]*\d+tr\.))?)$/) {
-            $borrower->{"${pre}address"} = $1;
-            $borrower->{"${pre}streetnumber"} = $2;
+            $borrower->{"${pre}address"} = clean_control($1);
+            $borrower->{"${pre}streetnumber"} = clean_control($2);
         } else {
-            $borrower->{"${pre}address"} = $addr->{Address1};
+            $borrower->{"${pre}address"} = clean_control($addr->{Address1});
             $borrower->{"${pre}streetnumber"} = '';
         }
 
         $borrower->{"${pre}address2"} = '';
-        $borrower->{"${pre}address2"} .= $addr->{Address2} if (defined($addr->{Address2}));
-        $borrower->{"${pre}address2"} .= $addr->{Address3} if (defined($addr->{Address3}));
+        $borrower->{"${pre}address2"} .= clean_control($addr->{Address2}) if (defined($addr->{Address2}));
+        $borrower->{"${pre}address2"} .= clean_control($addr->{Address3}) if (defined($addr->{Address3}));
 
-        $borrower->{"${pre}zipcode"} = $addr->{ZipCode} if (defined($addr->{ZipCode}));
-        $borrower->{"${pre}country"} = $addr->{Country} if (defined($addr->{Country}));
-        $borrower->{"${pre}city"}    = $addr->{City}    if (defined($addr->{City}));
+        $borrower->{"${pre}zipcode"} = clean_control($addr->{ZipCode}) if (defined($addr->{ZipCode}));
+        $borrower->{"${pre}country"} = clean_control($addr->{Country}) if (defined($addr->{Country}));
+        $borrower->{"${pre}city"}    = clean_control($addr->{City})    if (defined($addr->{City}));
     }
 
     $phone_sth->execute( $borrower->{IdBorrower} );
@@ -357,7 +380,7 @@ sub set_address {
 
 	      $n_email++;
 
-	      $borrower->{"${pre}email"} = $phone->{PhoneNumber};
+	      $borrower->{"${pre}email"} = clean_control($phone->{PhoneNumber});
 	  } elsif ($phone->{Type} eq 'T') {
 	      if (Email::Valid->address($phone->{PhoneNumber})) {
 		  $phone->{Type} = 'E';
@@ -373,7 +396,7 @@ sub set_address {
 
 	      $n_phone++;
 
-	      $borrower->{"${pre}phone"} = $phone->{PhoneNumber};
+	      $borrower->{"${pre}phone"} = clean_control($phone->{PhoneNumber});
 	  } elsif ($phone->{Type} eq 'M') {
 	      if (Email::Valid->address($phone->{PhoneNumber})) {
 		  $phone->{Type} = 'E';
@@ -383,7 +406,7 @@ sub set_address {
 		  if ($n_phone < 2) {
 		      # Make the previous mobile phone number a regular phone number.
 		      my $tmpphone = $borrower->{"mobile"};
-		      $borrower->{"mobile"} = $phone->{PhoneNumber};
+		      $borrower->{"mobile"} = clean_control($phone->{PhoneNumber});
 		      $phone->{PhoneNumber} = $tmpphone;
 		      $phone->{Type} = 'T';
 		  } else {
@@ -392,13 +415,21 @@ sub set_address {
 		  }
 	      }
 	      $n_mob++;
-	      $borrower->{"mobile"} = $phone->{PhoneNumber};
+	      $borrower->{"mobile"} = clean_control($phone->{PhoneNumber});
 	  } else {
 	      print(STDERR ("Borrower has unknown phone number type: '" . $phone->{Type} . "', " . $borrower->{IdBorrower} . "\n"));
 	  }
 	  last RETRY;
       }
     }
+}
+
+sub clean_control {
+    my $s = shift;
+
+    $s =~ s/[:cntrl:]//g;
+    
+    return $s;
 }
 
 =head1 AUTHOR
