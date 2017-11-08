@@ -1,10 +1,6 @@
 
 SELECT bi.biblionumber
-FROM biblioitems AS bi
-    JOIN biblio_metadata AS bm ON bi.biblionumber=bm.biblionumber AND format='marcxml' [% IF issn != "''" %] AND issn = [% issn %][% END %]
-WHERE
-    CONCAT(LCASE(REPLACE(ExtractValue(metadata, '//controlfield[@tag="003"]'), '-', '')), ExtractValue(metadata, '//controlfield[@tag="001"]')) = [% titleno %] INTO @BIBLIONUMBER;
-
+FROM biblioitems AS bi JOIN bm_biblio_identification AS id ON bi.biblionumber = id.biblionumber AND CONCAT(marc003, marc001) = [% titleno %] INTO @BIBLIONUMBER;
 
 SELECT @BIBLIONUMBER IS NOT NULL AND (@PREVBIBLIONUMBER IS NULL OR @BIBLIONUMBER != @PREVBIBLIONUMBER) INTO @CREATE_NEW_SUBSCRIPTION;
 SELECT IFNULL(@BIBLIONUMBER, @PREVBIBLIONUMBER) INTO @PREVBIBLIONUMBER;

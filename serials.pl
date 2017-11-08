@@ -53,7 +53,6 @@ GetOptions (
     'h|?|help'             => \$help
     );
 
-
 pod2usage( -exitval => 0 ) if $help;
 pod2usage( -msg => "\nMissing Argument: -c, --config required\n",  -exitval => 1 ) if !$config_dir;
 pod2usage( -msg => "\nMissing Argument: -o, --outputdir required\n",  -exitval => 1 ) if !$output_dir;
@@ -144,7 +143,7 @@ while (my $row = $sth->fetchrow_hashref()) {
 	planneddate_str => $planneddate_str,
 	publisheddate_str => $publisheddate_str,
         issn         => $dbh->quote($row->{ISBN_ISSN}),
-	titleno      => $dbh->quote($row->{TITLE_NO}),
+	titleno      => $dbh->quote(uc($row->{TITLE_NO})),
 	barcodes     => []
     };
 
