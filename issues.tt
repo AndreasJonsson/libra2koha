@@ -1,10 +1,16 @@
+
+SELECT count(itemnumber) FROM items WHERE barcode = '[% ItemBarcode %]' > 0 INTO @HAS_ITEM;
+SELECT IF(@HAS_ITEM, (SELECT itemnumber FROM items WHERE barcode = '[% ItemBarcode %]'), NULL) FROM DUAL INTO @ITEMNUMBER;
+SELECT count(*) > 0 FROM issues WHERE itemnumber = @ITEMNUMBER INTO @ITEM_BORROWED;
+SELECT CONCAT("Exemplar redan utlånat: ", @ITEMNUMBER) FROM DUAL WHERE @ITEM_BORROWED;
+
 INSERT INTO issues ( borrowernumber, itemnumber, date_due, branchcode, renewals, issuedate )
-VALUES (
+  SELECT
     ( SELECT borrowernumber FROM borrowers WHERE [% IF BorrowerBarCode %] cardnumber = '[% BorrowerBarcode %]' [% ELSE %] cardnumber IS NULL AND surname = [% surname_str %] AND firstname = [% firstname_str %] [% END %] ),
-    ( SELECT itemnumber FROM items WHERE barcode = '[% ItemBarcode %]' ),
+    ( @ITEMNUMBER ),
     [% date_due %], -- date_due
     '[% branchcode %]', -- branchcode
     '[% NoOfRenewals %]', -- renewals
     [% issuedate %] -- issuedate
-);
-UPDATE items SET onloan = [% issuedate %] WHERE barcode = '[% ItemBarcode %]';
+  FROM DUAL WHERE @HAS_ITEM AND NOT @ITEM_BORROWED;
+UPDATE items SET onloan = [% issuedate %] WHERE @HAS_ITEM AND barcode = '[% ItemBarcode %]' AND NOT @ITEM_BORROWED;
