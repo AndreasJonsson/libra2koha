@@ -427,7 +427,7 @@ sub set_address {
 sub clean_control {
     my $s = shift;
 
-    $s =~ s/[:cntrl:]//g;
+    $s =~ s/[[:cntrl:]]//g;
     
     return $s;
 }

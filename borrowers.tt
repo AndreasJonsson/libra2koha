@@ -74,3 +74,9 @@ SELECT LAST_INSERT_ID() INTO @BORROWERNUMBER;
 INSERT INTO messages (borrowernumber,     branchcode,         message_type, message,       message_date,       manager_id)
 VALUES               (@BORROWERNUMBER, "[% branchcode %]", 'L',          [% message %], CURDATE(), 1);
 [% END -%]
+
+INSERT INTO borrower_attributes (borrowernumber, code, attribute)
+SELECT @BORROWERNUMBER, 'USERID', [% userid_str %] WHERE @USERID_COLLISSION;
+
+INSERT INTO borrower_attributes (borrowernumber, code, attribute)
+SELECT @BORROWERNUMBER, 'CARDNUMBER', [% cardnumber_str %] WHERE @CARDNUMBER_COLLISSION;
