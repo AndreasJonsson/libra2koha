@@ -1,6 +1,6 @@
 
 SELECT bi.biblionumber
-FROM biblioitems AS bi JOIN bm_biblio_identification AS id ON bi.biblionumber = id.biblionumber AND CONCAT(marc003, marc001) = [% titleno %] INTO @BIBLIONUMBER;
+FROM biblioitems AS bi JOIN bm_biblio_identification AS id ON bi.biblionumber = id.biblionumber WHERE [% issn %] IS NULL AND CONCAT(marc003, marc001) = [% titleno %] OR id.issn = normalize_issn([% issn %]) INTO @BIBLIONUMBER;
 
 SELECT @BIBLIONUMBER IS NOT NULL AND (@PREVBIBLIONUMBER IS NULL OR @BIBLIONUMBER != @PREVBIBLIONUMBER) INTO @CREATE_NEW_SUBSCRIPTION;
 SELECT IFNULL(@BIBLIONUMBER, @PREVBIBLIONUMBER) INTO @PREVBIBLIONUMBER;
