@@ -7,8 +7,8 @@
 #    exit;
 #fi
 
-CONFIG=/home/aj/koha/Hjo/Config
-DIR=/home/aj/koha/Hjo/Data
+CONFIG=/home/aj/koha/Tidaholm/Config
+DIR=/home/aj/koha/Tidaholm/Data
 SPECDIR=/home/aj/spec
 TABLEEXT=.csv
 TABLEENC=utf16
@@ -161,7 +161,7 @@ echo "DROP TABLE IF EXISTS BorrowerRegId;" | $MYSQL
 ## Create tables and load the datafiles
 echo -n "Going to create tables for records and items, and load data into MySQL... "
 bib_tables="$(mktemp)"
-create_tables.pl --quote='"' --headerrows=2 --encoding=utf8 --ext=.csv --spec "$SPECDIR" --columndelimiter='	' --rowdelimiter='\r\n' --dir "$tabledir" --table 'Items' --table 'BarCodes' --table 'StatusCodes' --table 'CA_CATALOG' > "$bib_tables"
+create_tables.pl --quote='"' --headerrows=2 --encoding=utf8 --ext=.csv --spec "$SPECDIR" --columndelimiter='	' --rowdelimiter='\r\n' --dir "$tabledir" --table 'Items' --table 'BarCodes' --table 'StatusCodes' --table 'CA_CATALOG' --table 'LoanPeriods' > "$bib_tables"
 eval $MYSQL_LOAD < "$bib_tables"
 eval $MYSQL_LOAD <<EOF 
 ALTER TABLE Items ADD COLUMN done INT(1) DEFAULT 0;
