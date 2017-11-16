@@ -7,6 +7,8 @@
 #    exit;
 #fi
 
+BRANCHCODE=TIDA
+
 CONFIG=/home/aj/koha/Tidaholm/Config
 DIR=/home/aj/koha/Tidaholm/Data
 SPECDIR=/home/aj/spec
@@ -15,7 +17,7 @@ TABLEENC=utf16
 INSTANCE="$3"
 EXPORTCAT="$DIR/exportCat.txt"
 MARC="$DIR/CatalogueExport.dat"
-OUTPUTDIR="$DIR/out"
+OUTPUTDIR="$DIR/out_skarp"
 IDMAP="$OUTPUTDIR/IdMap.txt"
 MYSQL_CREDENTIALS="-u libra2koha -ppass libra2koha"
 MYSQL="mysql $MYSQL_CREDENTIALS"
@@ -105,7 +107,7 @@ fi
 ### RECORDS ###
 
 #utf8dir="$(mktemp -d)"
-utf8dir=/home/aj/utf8dir
+utf8dir="${OUTPUTDIR}"/utf8dir
 mkdir -p "$utf8dir"
 
 for file in "$DIR"/*"${TABLEEXT}"  ; do
@@ -157,6 +159,8 @@ echo "DROP TABLE IF EXISTS Borrowers           ;" | $MYSQL
 echo "DROP TABLE IF EXISTS BorrowerAddresses     ;" | $MYSQL
 echo "DROP TABLE IF EXISTS BorrowerPhoneNumbers;" | $MYSQL
 echo "DROP TABLE IF EXISTS BorrowerRegId;" | $MYSQL
+echo "DROP TABLE IF EXISTS ILL;" | $MYSQL
+echo "DROP TABLE IF EXISTS ILL_Libraries;" | $MYSQL
 
 ## Create tables and load the datafiles
 echo -n "Going to create tables for records and items, and load data into MySQL... "
@@ -183,8 +187,16 @@ echo "done"
 
 ## Create tables and load the datafiles
 echo -n "Going to create tables for borrowers, and load data into MySQL... "
-create_tables.pl  --quote='"' --headerrows=2 --encoding=utf8 --ext=.csv  --spec "$SPECDIR" --columndelimiter='	' --rowdelimiter='\r\n' --dir "$tabledir" --table "Borrowers" --table "BorrowerPhoneNumbers" --table "BarCodes" --table "BorrowerAddresses" --table "BorrowerRegId" | eval $MYSQL_LOAD
+create_tables.pl  --quote='"' --headerrows=2 --encoding=utf8 --ext=.csv  --spec "$SPECDIR" --columndelimiter='	' --rowdelimiter='\r\n' --dir "$tabledir" --table "Borrowers" --table "BorrowerPhoneNumbers" --table "BarCodes" --table "BorrowerAddresses" --table "BorrowerRegId" --table ILL --table ILL_Libraries | eval $MYSQL_LOAD
 echo "DELETE FROM BarCodes WHERE IdBorrower = 0;" | $MYSQL
+eval $MYSQL_LOAD <<EOF 
+CREATE INDEX Borrowers_Id ON Borrowers(IdBorrower);
+CREATE INDEX BorrowerRegId_Id ON BorrowerRegId(IdBorrower);
+CREATE INDEX BorrowerAddress_Id ON BorrowerAddresses(IdBorrower);
+CREATE INDEX BorrowerPhoneNumbers_Id ON BorrowerPhoneNumbers(IdBorrower);
+CREATE INDEX Borrower_BarCode_Id ON BarCodes(IdBorrower);
+EOF
+
 echo "done"
 
 ## Get the relevant info out of the database and into a .sql file
@@ -224,6 +236,10 @@ ALTER TABLE BorrowerBarCodes ADD PRIMARY KEY (IdBorrower);
 ALTER TABLE ItemBarCodes ADD PRIMARY KEY (IdItem);
 CREATE INDEX transaction_idborrower_index ON Transactions (IdBorrower);
 CREATE INDEX transaction_iditem_index ON Transactions (IdItem);
+CREATE INDEX ILL_ActiveLibrary ON ILL(ActiveLibrary);
+CREATE INDEX ILL_Library_Id ON ILL_Libraries(IdLibrary);
+CREATE INDEX Issues_Cat_Id ON Issues(IdCat);
+CREATE INDEX Item_Issue_Id ON Items(IdIssue);
 EOF
 echo "done"
 
@@ -237,7 +253,7 @@ issues.pl --config $CONFIG >> $ISSUESSQL
 echo "done writing to $ISSUESSQL"
 
 echo "Serials"
-serials.pl --outputdir "$OUTPUTDIR" --config "$CONFIG"
+serials.pl --branchcode "$BRANCHCODE" --outputdir "$OUTPUTDIR" --config "$CONFIG"
 echo "Reservations"
 reservations.pl --configdir "$CONFIG" > "$OUTPUTDIR"/reservations.sql
 
