@@ -65,6 +65,7 @@ sub add_catitem_stat {
 my $mmc = MarcUtil::MarcMappingCollection::marc_mappings(
     'catid'                            => { map => { '035' => 'a' } },
     'klassifikationskod'               => { map => { '084' => 'a' } },
+    'klassifikationsdel_av_uppställningssignum' => { map => { '852' => 'h' } },
     'okontrollerad_term'               => { map => { '653' => 'a' } },
     'fysisk_beskrivning'               => { map => { '300' => 'e' } },
     'genre_form_uppgift_eller_fokusterm' => { map => { '655' => 'a' } },
@@ -178,8 +179,10 @@ my $has_ca_catalog = +@{$ca_catalog_table} != 0;
 unless ($explicit_record_id) {
     if ($has_ca_catalog) {
 	$sth = $dbh->prepare( <<'EOF' );
-	SELECT Items.*, BarCodes.BarCode
+	SELECT Items.*, BarCodes.BarCode, StatusCodes.Name AS StatusName, LoanPeriods.Name AS LoanPeriodName
         FROM Items JOIN CA_CATALOG ON Items.IdCat = CA_CATALOG_ID
+                   LEFT OUTER JOIN StatusCodes USING(IdStatusCode)
+	           LEFT OUTER JOIN LoanPeriods USING(IdLoanInfo)
                    LEFT OUTER JOIN BarCodes USING (IdItem)
         WHERE TITLE_NO = ?
 EOF
@@ -268,7 +271,7 @@ L<http://wiki.koha-community.org/wiki/Holdings_data_fields_%289xx%29>
         my $f001 = $record->field( '001' )->data();
         my $f003;
 	unless ($record->field( '003' )) {
-	    warn 'Record does not have 003! catid: ' + $catid + ' default to tida';
+	    warn 'Record does not have 003! catid: ' . $catid . ' default to tida';
 	    $f003 = 'tida';
 	} else {
 	    $f003 = lc $record->field( '003' )->data();
@@ -369,13 +372,9 @@ To see what is present in the data:
         } else {
             my $field852 = $record->field( '852' );
             if (defined $field852) {
-                my $s = '';
-                foreach my $sf ($field852->subfields()) {
-                    $s .= $sf->[1];
-                }
-		$mmc->set('call_number', $s);
-            } else {
-                # say STDERR "Didn't add any 952 o) to record!";
+		$mmc->set('call_number', scalar($mmc->get('klassifikationsdel_av_uppställningssignum')));
+	    } else {
+		$mmc->set('call_number', scalar($mmc->get('klassifikationskod')));
             }
         }
 
@@ -483,30 +482,14 @@ FIXME This should be done with a mapping file!
             return $a;
         }
 
-	if (defined($item->{'IdStatusCode'})) {
-	    # 7 = Saknat - efterforkas
-	    if ( $item->{'IdStatusCode'} == 7 ) {
+	if (defined($item->{'StatusName'})) {
+	    if ( $item->{'StatusName'} eq 'Försvunnen' ) {
 		$mmc->set('lost_status', '1');
 	    }
-	    
-	    # 10 = Förlorat
-	    elsif ( $item->{'IdStatusCode'} == 2 ) {
+	    elsif ( $item->{'StatusName'} eq 'Gallras' ) {
 		$mmc->set('lost_status', '1');
 	    }
-
-	    # 9 = Hos boklagning
-	    elsif ( $item->{'IdStatusCode'} == 9) {
-		# 2 = Under arbete
-		$mmc->set('damaged_status', '2');
-	    }
-
-	    # 11 = Gallrat
-	    elsif ( $item->{'IdStatusCode'} == 11) {
-		$mmc->set('lost_status', '1');
-	    }
-
-	    # 12 = Kasserat
-	    elsif ( $item->{'IdStatusCode'} == 12) {
+	    elsif ( $item->{'StatusName'} eq 'Status med borttag') {
 		$mmc->set('lost_status', '1');
 	    }
 	}
@@ -517,7 +500,22 @@ FIXME This should be done with a mapping file!
 We assume 1 is normal and subtract 1.  Add Authorized values in Koha accordingly.
 
 =cut
-        $mmc->set('not_for_loan', $item->{'IdLoanInfo'} - 1) if defined($item->{'IdLoanInfo'});
+	if ($item->{'Hidden'}) {
+	    $mmc->set('not_for_loan', 4);
+	}
+
+	if (defined($item->{'LoanPeriodName'})) {
+	    if ($item->{'LoanPeriodName'} eq 'Fjärrlån') {
+		$mmc->set('not_for_loan', 3);
+	    } elsif ($item->{'LoanPeriodName'} eq 'Tidskrifter') {
+		$mmc->set('not_for_loan', 2);
+	    } elsif ($item->{'LoanPeriodName'} eq 'Referenslån') {
+		$mmc->set('not_for_loan', 1);
+	    } elsif (defined($item->{'StatusName'}) and $item->{'StatusName'} eq 'Inköp') {
+		$mmc->set('not_for_loan', 5);
+	    }
+	}
+
 
 =head3 952$8 Collection code
 
@@ -730,10 +728,114 @@ sub refine_itemtype {
     my $itemtype = $original_itemtype;
 
     my $ccall = $item->{'Location_Marc'};
+    my $localshelf = defined($item->{'IdLocalShelf'}) ? $loc->{ $item->{'IdLocalShelf'} } : undef;
 
     my $classificationcode = $mmc->get('klassifikationskod');
+    my $ccode = $mmc->get('collection_code');
 
-    my  $children = $ccall =~ /hc(f|g|(,u))/i or (defined $classificationcode && $classificationcode =~ /,u/);
+    my $checkccall = sub {
+	my $re = shift;
+	return defined($ccall)              &&              $ccall =~ /$re/i ||
+               defined($classificationcode) && $classificationcode =~ /$re/i;
+    };
+
+    # Alla böcker med Hyllplats ”Storstil” ska även till exemplarkategori ”Storstil”
+    # 555 resultat hittade för 'location,wrdl: *storstil*' med begränsningar: 'mc-itype,phr:BOK TIDA' i Bibliotek Mellansjö katalog.
+    # 
+    #
+    if ($original_itemtype eq 'BOK' && defined($localshelf) && $localshelf =~ /Storstil/i) {
+	return 'STORSTIL';
+    }
+    # 
+    # Allt under lokal placering ”Cd-hylla” ska vara exemplartyp ”Musik CD”
+    #
+    if (defined($localshelf) && $localshelf =~ /Cd-hylla/i) {
+	return 'MUSIKCD'
+    }
+    #  
+    # 92 resultat hittade för 'callnum,wrdl: hcf/o or callnum,wrdl: hcg/o or callnum,wrdl: uhc/o or callnum,wrdl: uhce/o' med begränsningar: 'TIDA' i Bibliotek Mellansjö katalog.
+    # 
+    # Media med klassifikation Hcf/o, hcg/o, uHc/o ska till kategorin ”Blandad resurs bok och cd barn”
+
+    if ($checkccall->('((hc[fg])|(uhce?))\/o')) {
+	return 'BOK+CDBARN';
+    }
+    # 
+    # 59 resultat hittade för 'callnum,wrdl: hce/o or callnum,wrdl: hc/o' med begränsningar: 'TIDA' i Bibliotek Mellansjö katalog.
+    # 
+    # Media med klassifikation hc/o och hce/o ska till kategorin ”blandad resurs bok och cd”
+
+    if ($checkccall->('hce?\/o')) {
+	return 'BOK+CD';
+    }
+
+    # 
+    #  
+    # 7 resultat hittade  med begränsningar: 'mc-itype,phr:TIDSKRIFT mc-ccode:'Barn' or mc-ccode:'BoU' or mc-ccode:'Ungdom' TIDA' i Bibliotek Mellansjö katalog.
+    # 
+    # Barn tidskrift verkar Tidaholm ha 7st. De ligger under vanliga tidskrifter och ska till ”barn tidskrift”.
+    #
+
+    if ($original_itemtype eq 'TIDSKRIFT' && defined($ccode) && $ccode =~ /^((Barn)|(Ungdom)|(BoU$))/i) {
+	return 'BARN TIDSK';
+    }
+    
+    #  
+    # 164 resultat hittade  med begränsningar: 'mc-itype,phr:DAISY mc-ccode:'Barn' or mc-ccode:'BoU' or mc-ccode:'Ungdom' TIDA' i Bibliotek Mellansjö katalog.
+    # 
+    # 164 talböcker som ska till ”barn talbok”
+    #
+
+    if ($original_itemtype eq 'DAISY' && defined($ccode) && $ccode =~ /^((Barn)|(Ungdom)|(BoU$))/i) {
+	return 'BARNTAL';
+    }
+    
+    #  
+    # 208 resultat hittade för 'callnum,wrdl: hcf/cd or callnum,wrdl: hcf/lc' med begränsningar: 'TIDA' i Bibliotek Mellansjö katalog.
+    # 
+    # Dessa 208 ska tillhöra kategori ”barn ljudbok cd”
+    # 
+    #  
+    # 140 resultat hittade för 'callnum,wrdl: hcg/cd or callnum,wrdl: hcg/lc' med begränsningar: 'TIDA' i Bibliotek Mellansjö katalog.
+    # 
+    # Dessa 140 ska tillhöra kategori ”barn ljudbok cd”
+    # 
+    #  
+    # 32 resultat hittade för 'callnum,wrdl: uhc/cd or callnum,wrdl: uhc/lc' med begränsningar: 'TIDA' i Bibliotek Mellansjö katalog.
+    # 
+    # Dessa 32 ska tillhöra kategori ”barn ljudbok cd”
+    # 
+    #  
+    # 35 resultat hittade för 'callnum,wrdl: uhce/cd or callnum,wrdl: uhce/lc' med begränsningar: 'TIDA' i Bibliotek Mellansjö katalog.
+    # 
+    # Dessa 35 ska tillhöra kategori ”barn ljudbok cd”
+    #
+
+    if ($checkccall->('((hc[fg])|(uhce?))\/cd')) {
+	return 'BARN LJUD';
+    }
+    
+    #  
+    # 8 resultat hittade  med begränsningar: 'mc-itype,phr:MP3 mc-ccode:'Barn' or mc-ccode:'BoU' or mc-ccode:'Ungdom' TIDA' i Bibliotek Mellansjö katalog.
+    # 
+    # 8 ljudbok mp3 som ska till ”ljudbok mp3 barn”
+    #
+
+    if ($original_itemtype eq 'MP3' && defined($ccode) && $ccode =~ /^((Barn)|(Ungdom)|(BoU$))/i) {
+	return 'BARNMP3';
+    }
+    
+    #  
+    # 10289 resultat hittade  med begränsningar: 'mc-itype,phr:BOK mc-ccode:'Barn' or mc-ccode:'BoU' or mc-ccode:'Ungdom' TIDA' i Bibliotek Mellansjö katalog.
+    # 
+    # 10289 barnböcker under kategorin ”bok” som ska till kategori ”barnbok”
+
+    if ($original_itemtype eq 'BOK' && defined($ccode) && $ccode =~ /^((Barn)|(Ungdom)|(BoU$))/i) {
+	return 'BARNBOK';
+    }
+ 
+
+    my  $children = (defined($ccall) && $ccall =~ /hc(f|g|(,u))/i) or (defined $classificationcode && $classificationcode =~ /,u/);
 
     if ($original_itemtype eq 'LJUDBOK') {
 	if ($ccall =~ /mp3/i) {
@@ -742,17 +844,21 @@ sub refine_itemtype {
 	    $itemtype = 'BARN LJUD';
 	}
     } elsif ($original_itemtype eq 'TIDSKRIFT') {
+	$children = $children || check_multi_fields($mmc, ['okontrollerad_term',  'genre_form_uppgift_eller_fokusterm'],
+						   ['Barn', 'Ungdom', 'Barn och ungdom']);
 	if ($children) {
 	    $itemtype = 'BARN TIDSK';
 	}
     } elsif ($original_itemtype eq 'BOK') {
-	$children = check_multi_fields($mmc, ['okontrollerad_term',  'genre_form_uppgift_eller_fokusterm'],
+	$children = $children || check_multi_fields($mmc, ['okontrollerad_term',  'genre_form_uppgift_eller_fokusterm'],
 				    ['Barnbok', 'Barnböcker', 'Ungdomsbok', 'Ungdomsböcker',
 				     'Barn och ungdom', 'Barn och ungdsomsbok', 'Barn och ungdomsböcker']);
 	if ($children) {
 	    $itemtype = 'BARNBOK';
 	}
     }
+
+
     
     return $itemtype;
 }
