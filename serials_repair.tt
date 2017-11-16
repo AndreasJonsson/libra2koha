@@ -10,9 +10,10 @@ SELECT @BIBLIONUMBER IS NOT NULL AND (@PREVBIBLIONUMBER IS NULL OR @BIBLIONUMBER
 SELECT IFNULL(@BIBLIONUMBER, @PREVBIBLIONUMBER) INTO @PREVBIBLIONUMBER;
 
 SELECT subscriptionid FROM subscription WHERE biblionumber = @BIBLIONUMBER INTO @SUBSCRIPTIONID;
-SELECT serialid FROM serial WHERE subscriptionid = @SUBSCRIPTIONID AND serialseq = [% serialseq %] AND planneddate = [% planneddate_str %] AND publisheddate = [% publisheddate_str %] INTO @SERIALID;
+SELECT serialid FROM serial WHERE subscriptionid = @SUBSCRIPTIONID AND serialseq = [% serialseq %] AND ([% planneddate_str %] IS NULL AND planneddate IS NULL OR planneddate = [% planneddate_str %]) AND ([% publisheddate_str %] IS NULL AND publisheddate IS NULL OR publisheddate = [% publisheddate_str %]) INTO @SERIALID;
 
 [% FOREACH barcode IN barcodes -%]
+  DELETE FROM `serialitems` WHERE `itemnumber` = (SELECT itemnumber FROM items WHERE @BIBLIONUMBER IS NOT NULL AND barcode = [% barcode %]);
   INSERT INTO `serialitems` (`itemnumber`, `serialid`) SELECT itemnumber,  @SERIALID FROM items WHERE @BIBLIONUMBER IS NOT NULL AND barcode = [% barcode %];
 [% END -%]
 

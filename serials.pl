@@ -43,11 +43,13 @@ my $output_dir;
 my $debug = 0;
 my $verbose = 0;
 my $help = 0;
+my $branchcode;
 
 
 GetOptions (
     'c|config=s'           => \$config_dir,
     'o|outputdir=s'        => \$output_dir,
+    'b|branchcode=s'       => \$branchcode,
     'v|verbose'            => \$verbose,
     'd|debug'              => \$debug,
     'h|?|help'             => \$help
@@ -57,10 +59,8 @@ pod2usage( -exitval => 0 ) if $help;
 pod2usage( -msg => "\nMissing Argument: -c, --config required\n",  -exitval => 1 ) if !$config_dir;
 pod2usage( -msg => "\nMissing Argument: -o, --outputdir required\n",  -exitval => 1 ) if !$output_dir;
 
-say "config dir: $config_dir";
 my $config;
 if ( -f ($config_dir . '/config.yaml') ) {
-       say "loading config";
     $config = LoadFile( $config_dir . '/config.yaml' );
 }
 
@@ -144,6 +144,7 @@ while (my $row = $sth->fetchrow_hashref()) {
 	publisheddate_str => $publisheddate_str,
         issn         => $dbh->quote($row->{ISBN_ISSN}),
 	titleno      => $dbh->quote(uc($row->{TITLE_NO})),
+	branchcode_str => $dbh->quote($branchcode),
 	barcodes     => []
     };
 
