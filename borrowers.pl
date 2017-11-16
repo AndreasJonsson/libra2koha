@@ -331,30 +331,35 @@ sub set_address {
             last;
         }
 
+	my @lines = ();
+
         if (defined($addr->{CO}) && $addr->{CO} ne '') {
-            if ($n_addr > 0) {
-                print(STDERR ("CO field on second address for borrower " . $borrower->{IdBorrower} . "\n"));
+            if ($n_addr > 1) {
+                print(STDERR ("CO field on third address for borrower " . $borrower->{IdBorrower} . "\n"));
             } else {
-                $borrower->{contactname} = clean_control($addr->{CO});
+                push @lines, ('c/o ' . clean_control($addr->{CO}));
             }
         }
 
         $n_addr++;
 
+
         if (!defined($addr->{Address1})) {
             $borrower->{"${pre}address"} = '';
             $borrower->{"${pre}streetnumber"} = '';
         } elsif ($addr->{Address1} =~ /^(.*?)[ ]*(\d+(?:(?:[a-zA-Z]+)|(?:,[ ]*\d+tr\.))?)$/) {
-            $borrower->{"${pre}address"} = clean_control($1);
+	    push @lines, clean_control($addr->{Address1});
             $borrower->{"${pre}streetnumber"} = clean_control($2);
         } else {
-            $borrower->{"${pre}address"} = clean_control($addr->{Address1});
+	    push @lines, clean_control($addr->{Address1});
             $borrower->{"${pre}streetnumber"} = '';
         }
 
-        $borrower->{"${pre}address2"} = '';
-        $borrower->{"${pre}address2"} .= clean_control($addr->{Address2}) if (defined($addr->{Address2}));
-        $borrower->{"${pre}address2"} .= clean_control($addr->{Address3}) if (defined($addr->{Address3}));
+	push @lines, clean_control($addr->{Address2}) if (defined($addr->{Address2}) && !($addr->{Address2} =~ /^ *$/));
+	push @lines, clean_control($addr->{Address3}) if (defined($addr->{Address3}) && !($addr->{Address3} =~ /^ *$/));
+
+	$borrower->{"${pre}address"} = shift @lines;
+        $borrower->{"${pre}address2"} = join ', ', @lines;
 
         $borrower->{"${pre}zipcode"} = clean_control($addr->{ZipCode}) if (defined($addr->{ZipCode}));
         $borrower->{"${pre}country"} = clean_control($addr->{Country}) if (defined($addr->{Country}));
