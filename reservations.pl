@@ -132,10 +132,11 @@ our $dbh = DBI->connect( $config->{'db_dsn'},
                         { RaiseError => 1, AutoCommit => 1 } );
 
 
-
+our $time_parser = DateTime::Format::Builder->new()->parser( regex => qr/^(\d{4})(\d\d)(\d\d) (\d+):(\d+):(\d+)$/,
+							     params => [qw(year month day hour minute second)] );
 sub dp {
     my $ds = shift;
-    if (!defined($ds) || $ds eq '') {
+    if (!defined($ds) || $ds =~ /^ *$/) {
         return undef;
     }
     return $date_parser->parse_datetime($ds);
@@ -151,6 +152,28 @@ sub ds {
     }
 }
 
+sub tp {
+    my $ds = shift;
+    my $ts = shift;
+    if (!defined($ds) || $ds =~ /^ *$/) {
+        return undef;
+    }
+    if (defined($ts) && !$ds =~ /^ *$/) {
+	$ds .= " $ts";
+    }
+    return $time_parser->parse_datetime($ds);
+}
+
+sub ts {
+    my $d = shift;
+    my $t = shift;
+    $d = tp($d, $t);
+    if (defined($d)) {
+       return $dbh->quote($d->strftime( '%F %T' ));
+    } else {
+       return "NULL";
+    }
+}
 my $branchcodes;
 if ( -f $opt->configdir . '/branchcodes.yaml' ) {
     $branchcodes = LoadFile( $opt->configdir . '/branchcodes.yaml' );
@@ -164,35 +187,60 @@ my $ttconfig = {
 # create Template object
 my $tt2 = Template->new( $ttconfig ) || die Template->error(), "\n";
 
-my $sth = $dbh->prepare( 'SELECT ISBN_ISSN, TITLE_NO, Reservations.*, ReservationBranches.IdBranchCode, BorrowerBarCodes.BarCode as BarCode, ItemBarCodes.BarCode AS ItemBarCode FROM Reservations JOIN ReservationBranches USING (IdReservation) JOIN BorrowerBarCodes USING (IdBorrower) LEFT OUTER JOIN CA_CATALOG ON CA_CATALOG_ID=Reservations.IdCat LEFT OUTER JOIN Items ON (Items.IdItem = Reservations.IdItem) LEFT OUTER JOIN ItemBarCodes ON (ItemBarCodes.IdItem = Items.IdItem)' );
+my $sth = $dbh->prepare( 'SELECT ISBN_ISSN, TITLE_NO, Reservations.*, ReservationBranches.IdBranchCode, ReservationBranches.Priority, BorrowerBarCodes.BarCode as BarCode, ItemBarCodes.BarCode AS ItemBarCode, FirstName, LastName, Title, Author FROM Reservations JOIN ReservationBranches USING (IdReservation) JOIN BorrowerBarCodes USING (IdBorrower) JOIN Borrowers USING(IdBorrower) JOIN CA_CATALOG ON CA_CATALOG_ID=Reservations.IdCat LEFT OUTER JOIN Items ON (Items.IdItem = Reservations.IdItem) LEFT OUTER JOIN ItemBarCodes ON (ItemBarCodes.IdItem = Items.IdItem)' );
 
 my $ret = $sth->execute();
 die "Failed to execute sql query." unless $ret;
 
+print "LOCK TABLES reserves WRITE, tmp_holdsqueue WRITE, hold_fill_targets WRITE, bm_biblio_identification READ, items READ, borrowers READ;\n";
+
 while (my $row = $sth->fetchrow_hashref()) {
 
+    my $priority = int($row->{Priority});
+    my $status_str;
+    if ($row->{Status} eq 'A') {
+	$status_str = "'W'";
+    } elsif ($row->{Status} eq 'R') {
+	if ($row->{IdItem} == 0) {
+	    $status_str = 'NULL';
+	} else {
+	    $status_str = "'W'";
+	}
+    } elsif ($row->{Status} eq 'S') {
+	next;
+    }
+    
     my $params = {
 	isbn_issn        => $dbh->quote($row->{ISBN_ISSN}),
 	titleno          => $dbh->quote($row->{TITLE_NO}),
 	borrower_barcode => $dbh->quote($row->{BarCode}),
 	item_barcode     => $dbh->quote($row->{ItemBarCode}),
-	reservedate      => ds($row->{StartDate}),
-	branchcode       => $dbh->quote($branchcodes->{$row->{'IdBranchCode'}}),
+	reservedate      => ds($row->{ResDate}),
+	holdingbranch    => $dbh->quote($branchcodes->{$row->{'FromIdBranchCode'}}),
+	pickbranch       => $dbh->quote($branchcodes->{$row->{'GetIdBranchCode'}}),
 	notificationdate => ds($row->{SendDate}),
 	reminderdate     => ds($row->{NotificationDate}),
 	cancellationdate => 'NULL',
 	reservenotes     => $dbh->quote($row->{Info}),
-	priority         => 1,
-	found            => (defined($row->{Status}) && $row->{Status} eq 'A') ? "'W'" : 'NULL',
-	timestamp        => ds($row->{RegDate}),
-	waitingdate      => ds($row->{StendDate}),
+	priority         => $priority,
+	found            => $status_str,
+	timestamp        => ts($row->{RegDate}, $row->{RegTime}),
+	waitingdate      => ds($row->{SendDate}),
 	expirationdate   => ds($row->{StopDate}),
 	lowestPriority   => 1,
 	suspend          => 0,
 	suspend_until    => 'NULL',
 	itemtype         => 'NULL',
+	surname          => $dbh->quote($row->{LastName}),
+	firstname        => $dbh->quote($row->{FirstName}),
+	title            => $dbh->quote($row->{Title}),
+	author           => $dbh->quote($row->{Author}),
     };
 
+    
     $tt2->process( 'reservations.tt', $params, \*STDOUT, {binmode => ':utf8'}) || die $tt2->error();
 
 }
+
+print "UNLOCK TABLES;"
+
