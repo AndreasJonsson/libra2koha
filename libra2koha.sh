@@ -165,7 +165,7 @@ echo "DROP TABLE IF EXISTS ILL_Libraries;" | $MYSQL
 ## Create tables and load the datafiles
 echo -n "Going to create tables for records and items, and load data into MySQL... "
 bib_tables="$(mktemp)"
-create_tables.pl --quote='"' --headerrows=2 --encoding=utf8 --ext=.csv --spec "$SPECDIR" --columndelimiter='	' --rowdelimiter='\r\n' --dir "$tabledir" --table 'Items' --table 'BarCodes' --table 'StatusCodes' --table 'CA_CATALOG' --table 'LoanPeriods' > "$bib_tables"
+create_tables.pl --quote='"' --headerrows=2 --encoding=utf8 --ext=$TABLEEXT --spec "$SPECDIR" --columndelimiter='	' --rowdelimiter='\r\n' --dir "$tabledir" --table 'Items' --table 'BarCodes' --table 'StatusCodes' --table 'CA_CATALOG' --table 'LoanPeriods' > "$bib_tables"
 eval $MYSQL_LOAD < "$bib_tables"
 eval $MYSQL_LOAD <<EOF 
 ALTER TABLE Items ADD COLUMN done INT(1) DEFAULT 0;
@@ -187,7 +187,7 @@ echo "done"
 
 ## Create tables and load the datafiles
 echo -n "Going to create tables for borrowers, and load data into MySQL... "
-create_tables.pl  --quote='"' --headerrows=2 --encoding=utf8 --ext=.csv  --spec "$SPECDIR" --columndelimiter='	' --rowdelimiter='\r\n' --dir "$tabledir" --table "Borrowers" --table "BorrowerPhoneNumbers" --table "BarCodes" --table "BorrowerAddresses" --table "BorrowerRegId" --table ILL --table ILL_Libraries | eval $MYSQL_LOAD
+create_tables.pl  --quote='"' --headerrows=2 --encoding=utf8 --ext=$TABLEEXT  --spec "$SPECDIR" --columndelimiter='	' --rowdelimiter='\r\n' --dir "$tabledir" --table "Borrowers" --table "BorrowerPhoneNumbers" --table "BarCodes" --table "BorrowerAddresses" --table "BorrowerRegId" --table ILL --table ILL_Libraries | eval $MYSQL_LOAD
 echo "DELETE FROM BarCodes WHERE IdBorrower = 0;" | $MYSQL
 eval $MYSQL_LOAD <<EOF 
 CREATE INDEX Borrowers_Id ON Borrowers(IdBorrower);
@@ -222,7 +222,7 @@ echo "DROP TABLE IF EXISTS Issues              ;" | $MYSQL
 
 # Create tables and load the datafiles
 echo -n "Going to create tables for active issues, and load data into MySQL... "
-create_tables.pl  --quote='"' --headerrows=2 --encoding=utf8 --ext=.csv  --spec "$SPECDIR" --columndelimiter='	' --rowdelimiter='\r\n' --dir "$tabledir" --table "Transactions" --table "BarCodes" --table "Issues"  --table "ILL" --table "ILL_Libraries" --table "Reservations" --table "ReservationBranches" | eval $MYSQL_LOAD
+create_tables.pl  --quote='"' --headerrows=2 --encoding=utf8 --ext=$TABLEEXT --spec "$SPECDIR" --columndelimiter='	' --rowdelimiter='\r\n' --dir "$tabledir" --table "Transactions" --table "BarCodes" --table "Issues"  --table "ILL" --table "ILL_Libraries" --table "Reservations" --table "ReservationBranches" | eval $MYSQL_LOAD
 # Now copy the BarCodes table so we can have one for items and one for borrowers
 $MYSQL <<EOF
 CREATE TABLE BorrowerBarCodes LIKE BarCodes;
