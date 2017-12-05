@@ -1,6 +1,6 @@
 
 SELECT count(bi.biblionumber) > 0
-FROM biblioitems AS bi JOIN bm_biblio_identification AS id ON bi.biblionumber = id.biblionumber WHERE CONCAT(marc003, marc001) = [% titleno %] INTO @EXACT_MATCH;
+FROM biblioitems AS bi JOIN bm_biblio_identification AS id ON bi.biblionumber = id.biblionumber JOIN bm_merged_records AS m ON id.biblionumber = m.biblionumber WHERE CONCAT(id.marc003, id.marc001) = [% titleno %] OR CONCAT(m.marc003, m.marc001) = [% titleno %] INTO @EXACT_MATCH;
 
 SELECT bi.biblionumber
 FROM biblioitems AS bi JOIN bm_biblio_identification AS id ON bi.biblionumber = id.biblionumber WHERE (@EXACT_MATCH AND CONCAT(marc003, marc001) = [% titleno %]) OR (NOT @EXACT_MATCH AND id.issn = normalize_issn([% issn %])) LIMIT 1 INTO @BIBLIONUMBER;
