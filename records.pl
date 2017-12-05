@@ -429,6 +429,23 @@ this by checking for length greater than 1.
 	    $mmc->set('internal_staff_note', $item->{'Info'}) if $item->{'Info'} ne ' ';
         }
 
+=head3 952$8 Collection code
+
+Values must be defined in the CCODE authorized values category.
+
+We base this on the Departments table and the value of Items.IdDepartment value.
+
+=cut
+	my $iddepartment;
+	if ($item->{'IdBranchCode'} eq '009') {
+	    $iddepartment = 'Magasin';
+	} else {
+	    $iddepartment = $ccode->{ $item->{'IdDepartment'} };
+	}
+
+	$mmc->set('collection_code',  $iddepartment ) if $iddepartment;
+
+
 =head3 952$y Itemtype (mandatory)
 
 lib/Itemtype.pm is pulled in and the subroutine C<get_itemtype()> is used to
@@ -517,23 +534,6 @@ We assume 1 is normal and subtract 1.  Add Authorized values in Koha accordingly
 	}
 
 
-=head3 952$8 Collection code
-
-Values must be defined in the CCODE authorized values category.
-
-We base this on the Departments table and the value of Items.IdDepartment value.
-
-=cut
-	my $iddepartment;
-	if ($item->{'IdBranchCode'} eq '006') {
-	    $iddepartment = 'Magasin';
-	} else {
-	    $iddepartment = $ccode->{ $item->{'IdDepartment'} };
-	}
-
-	$mmc->set('collection_code',  $iddepartment ) if $iddepartment;
-
-
         # Mark the item as done, if we are told to do so
         if ( $flag_done ) {
             $sth_done->execute( $item->{'IdItem'} );
@@ -551,7 +551,7 @@ Just add the itemtype in 942$c.
 =cut
 
     if ( $last_itemtype ) {
-	$mmc->set('last_itemtype', $last_itemtype);
+      $mmc->set('last_itemtype', $last_itemtype);
     }
 
     $file->write( $record );
@@ -786,7 +786,7 @@ sub refine_itemtype {
     # 164 talböcker som ska till ”barn talbok”
     #
 
-    if ($original_itemtype eq 'DAISY' && defined($ccode) && $ccode =~ /^((Barn)|(Ungdom)|(BoU$))/i) {
+    if (($original_itemtype eq 'DAISY' || defined($localshelf) && $localshelf =~ /daisy/i ) && defined($ccode) && $ccode =~ /^((Barn)|(Ungdom)|(BoU$))/i) {
 	return 'BARNTAL';
     }
     
@@ -821,7 +821,7 @@ sub refine_itemtype {
     # 8 ljudbok mp3 som ska till ”ljudbok mp3 barn”
     #
 
-    if ($original_itemtype eq 'MP3' && defined($ccode) && $ccode =~ /^((Barn)|(Ungdom)|(BoU$))/i) {
+    if (($original_itemtype eq 'MP3' || defined($localshelf) && $localshelf =~ /mp3/i ) && defined($ccode) && $ccode =~ /^((Barn)|(Ungdom)|(BoU$))/i) {
 	return 'BARNMP3';
     }
     

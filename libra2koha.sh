@@ -7,17 +7,18 @@
 #    exit;
 #fi
 
-BRANCHCODE=TIDA
+dir="$(cd "$(dirname "$BASH_SOURCE")"; pwd -P)"
 
-CONFIG=/home/aj/koha/Tidaholm/Config
-DIR=/home/aj/koha/Tidaholm/Data
-SPECDIR=/home/aj/spec
-TABLEEXT=.csv
+if [[ -e "$dir"/config.inc ]]; then
+    . "$dir"/config.inc
+fi
+
+TABLEEXT=.txt
 TABLEENC=utf16
 INSTANCE="$3"
 EXPORTCAT="$DIR/exportCat.txt"
 MARC="$DIR/CatalogueExport.dat"
-OUTPUTDIR="$DIR/out_skarp"
+OUTPUTDIR="$DIR/out"
 IDMAP="$OUTPUTDIR/IdMap.txt"
 MYSQL_CREDENTIALS="-u libra2koha -ppass libra2koha"
 MYSQL="mysql $MYSQL_CREDENTIALS"
@@ -212,6 +213,7 @@ echo "done"
 
 # Clean up the database
 echo "DROP TABLE IF EXISTS Transactions        ;" | $MYSQL
+echo "DROP TABLE IF EXISTS TransactionsSaved   ;" | $MYSQL
 echo "DROP TABLE IF EXISTS BarCodes            ;" | $MYSQL
 echo "DROP TABLE IF EXISTS BorrowerBarCodes    ;" | $MYSQL
 echo "DROP TABLE IF EXISTS ItemBarCodes        ;" | $MYSQL
@@ -222,7 +224,7 @@ echo "DROP TABLE IF EXISTS Issues              ;" | $MYSQL
 
 # Create tables and load the datafiles
 echo -n "Going to create tables for active issues, and load data into MySQL... "
-create_tables.pl  --quote='"' --headerrows=2 --encoding=utf8 --ext=$TABLEEXT --spec "$SPECDIR" --columndelimiter='	' --rowdelimiter='\r\n' --dir "$tabledir" --table "Transactions" --table "BarCodes" --table "Issues"  --table "ILL" --table "ILL_Libraries" --table "Reservations" --table "ReservationBranches" | eval $MYSQL_LOAD
+create_tables.pl  --quote='"' --headerrows=2 --encoding=utf8 --ext=$TABLEEXT --spec "$SPECDIR" --columndelimiter='	' --rowdelimiter='\r\n' --dir "$tabledir" --table "Transactions" --table "BarCodes" --table "Issues"  --table "ILL" --table "ILL_Libraries" --table "Reservations" --table "ReservationBranches" --table "TransactionsSaved" | eval $MYSQL_LOAD
 # Now copy the BarCodes table so we can have one for items and one for borrowers
 $MYSQL <<EOF
 CREATE TABLE BorrowerBarCodes LIKE BarCodes;
@@ -256,7 +258,8 @@ echo "Serials"
 serials.pl --branchcode "$BRANCHCODE" --outputdir "$OUTPUTDIR" --config "$CONFIG"
 echo "Reservations"
 reservations.pl --configdir "$CONFIG" > "$OUTPUTDIR"/reservations.sql
-
+echo "Old issues"
+old_issues.pl --configdir "$CONFIG" --branchcode "$BRANCHCODE" > "$OUTPUTDIR"/old_issues.sql
 
 if [[ $LIBRA2KOHA_NOCONFIRM != '1' ]]; then
     confirm="no"
