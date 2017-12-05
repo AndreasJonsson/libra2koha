@@ -1,5 +1,7 @@
 
-SELECT biblionumber FROM bm_biblio_identification WHERE CONCAT(marc003, marc001) = [% titleno %] [% IF isbn_issn != "''" %] OR isbn = normalize_isbn([% isbn_issn %]) OR issn = normalize_issn([% isbn_issn %]) [% END %] INTO @BIBLIONUMBER;
+START TRANSACTION;
+
+SELECT DISTINCT biblionumber FROM bm_biblio_identification AS id JOIN bm_merged_records AS m USING(biblionumber) WHERE CONCAT(id.marc003, id.marc001) = [% titleno %] OR CONCAT(m.marc003, m.marc001) [% IF isbn_issn != "''" %] OR isbn = normalize_isbn([% isbn_issn %]) OR issn = normalize_issn([% isbn_issn %]) [% END %] INTO @BIBLIONUMBER;
 
 SELECT [% IF item_barcode != 'NULL' %] itemnumber FROM items WHERE barcode = [% item_barcode %] [% ELSE %] NULL [% END %] INTO @ITEMNUMBER;
 SELECT [% IF item_barcode != 'NULL' %] itemcallnumber FROM items WHERE barcode = [% item_barcode %] [% ELSE %] NULL [% END %] INTO @ITEMCALLNUMBER;
@@ -22,3 +24,5 @@ WHERE @ITEMNUMBER IS NOT NULL AND NOT @ALREADYRESERVED;
 
 SELECT 'Exemplar redan reserverat', 'Låntagare kortnummer', 'Bibliografisk post' FROM DUAL WHERE @ALREADYRESERVED UNION
 SELECT @ITEMNUMBER, [% borrower_barcode %], @BIBLIONUMBER FROM DUAL WHERE @ALREADYRESERVED;
+
+COMMIT;

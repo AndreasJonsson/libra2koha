@@ -192,7 +192,7 @@ my $sth = $dbh->prepare( 'SELECT ISBN_ISSN, TITLE_NO, Reservations.*, Reservatio
 my $ret = $sth->execute();
 die "Failed to execute sql query." unless $ret;
 
-print "LOCK TABLES reserves WRITE, tmp_holdsqueue WRITE, hold_fill_targets WRITE, bm_biblio_identification READ, items READ, borrowers READ;\n";
+#print "LOCK TABLES reserves,  WRITE, tmp_holdsqueue WRITE, hold_fill_targets WRITE, bm_biblio_identification READ, bm_merged_records READ, items READ, borrowers READ;\n";
 
 while (my $row = $sth->fetchrow_hashref()) {
 
@@ -242,5 +242,5 @@ while (my $row = $sth->fetchrow_hashref()) {
 
 }
 
-print "UNLOCK TABLES;"
+#print "UNLOCK TABLES;"
 
