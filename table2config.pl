@@ -90,10 +90,10 @@ my $found_file = 0;
 foreach my $suffix ('', '.txt', '.csv') {
     if (open ($fh, "<:encoding(" . $opt->encoding . "):crlf", ($filename  . $suffix))) {
 	$found_file = 1;
+	last;
     }
 }
 die ("Didn't find any table file for " . $opt->name) unless ($found_file);
-
 
 my $dt;
 if ($opt->timezone) {
@@ -113,6 +113,7 @@ my $csv = Text::CSV->new({
     eol => $opt->rowdelimiter });
 
 for (my $i = 0; $i < $opt->headerrows; $i++) {
+    die "Filehandle is closed! $i" unless defined(fileno($fh));
     $csv->getline( $fh );
 }
 
