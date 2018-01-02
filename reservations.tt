@@ -1,7 +1,21 @@
 
 START TRANSACTION;
 
-SELECT DISTINCT biblionumber FROM bm_biblio_identification AS id JOIN bm_merged_records AS m USING(biblionumber) WHERE CONCAT(id.marc003, id.marc001) = [% titleno %] OR CONCAT(m.marc003, m.marc001) [% IF isbn_issn != "''" %] OR isbn = normalize_isbn([% isbn_issn %]) OR issn = normalize_issn([% isbn_issn %]) [% END %] INTO @BIBLIONUMBER;
+SET @BIBLIONUMBER=NULL;
+SET @ITEMNUMBER=NULL;
+SET @BORROWERNUMBER=NULL;
+
+SELECT biblionumber FROM
+  bm_biblio_identification AS id
+LEFT OUTER JOIN
+  bm_merged_records AS m USING(biblionumber)
+WHERE
+  CONCAT(id.marc003, id.marc001) = [% titleno %] OR CONCAT(m.marc003, m.marc001) = [% titleno %]
+  [% IF isbn_issn != "''" %] OR isbn = normalize_isbn([% isbn_issn %]) OR issn = normalize_issn([% isbn_issn %]) [% END %]
+ORDER BY
+ CONCAT(id.marc003, id.marc001) = [% titleno %] OR CONCAT(m.marc003, m.marc001) = [% titleno %] DESC
+LIMIT 1
+INTO @BIBLIONUMBER;
 
 SELECT [% IF item_barcode != 'NULL' %] itemnumber FROM items WHERE barcode = [% item_barcode %] [% ELSE %] NULL [% END %] INTO @ITEMNUMBER;
 SELECT [% IF item_barcode != 'NULL' %] itemcallnumber FROM items WHERE barcode = [% item_barcode %] [% ELSE %] NULL [% END %] INTO @ITEMCALLNUMBER;
@@ -11,6 +25,8 @@ SELECT borrowernumber FROM borrowers WHERE cardnumber = [% borrower_barcode %] I
 
 INSERT INTO reserves (borrowernumber, reservedate, biblionumber, branchcode,  reservenotes, priority, found, timestamp, itemnumber, expirationdate)
    SELECT @BORROWERNUMBER, [% reservedate %], @BIBLIONUMBER, [% pickbranch %], [% reservenotes %], [% priority %], (@FOUND := [% found %]), [% timestamp %], @ITEMNUMBER, [% expirationdate %] WHERE @BIBLIONUMBER IS NOT NULL;
+
+SET @BIBLIONUMBER = IF(@BIBLIONUMBER IS NULL AND @ITEMNUMBER IS NOT NULL, (SELECT biblionumber FROM items WHERE itemnumber = @ITEMNUMBER), @BIBLIONUMBER);
 
 INSERT INTO tmp_holdsqueue (biblionumber, itemnumber, barcode, surname, firstname, phone, borrowernumber, cardnumber, reservedate, title, itemcallnumber, holdingbranch, pickbranch, notes, item_level_request)
 SELECT @BIBLIONUMBER, @ITEMNUMBER, [% item_barcode %], [% surname %], [% firstname %], (SELECT phone FROM borrowers WHERE borrowernumber = @BORROWERNUMBER), @BORROWERNUMBER, [% borrower_barcode %], [% reservedate %], [% title %], @ITEMCALLNUMBER, [% holdingbranch %], [% pickbranch %], '', IF([% found %] = 'W', 1, 0)

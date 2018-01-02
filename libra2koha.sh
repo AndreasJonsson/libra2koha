@@ -217,6 +217,8 @@ echo "DROP TABLE IF EXISTS TransactionsSaved   ;" | $MYSQL
 echo "DROP TABLE IF EXISTS BarCodes            ;" | $MYSQL
 echo "DROP TABLE IF EXISTS BorrowerBarCodes    ;" | $MYSQL
 echo "DROP TABLE IF EXISTS ItemBarCodes        ;" | $MYSQL
+echo "DROP TABLE IF EXISTS Reservations;"         | $MYSQL
+echo "DROP TABLE IF EXISTS ReservationBranches;"  | $MYSQL
 # Don't confuse Isses"${TABLEEXT}", which corresponds to issues of a serial, with issues,
 # as in outstanding loans (in issues.sql).
 echo "DROP TABLE IF EXISTS Issues              ;" | $MYSQL

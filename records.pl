@@ -184,7 +184,7 @@ unless ($explicit_record_id) {
                    LEFT OUTER JOIN StatusCodes USING(IdStatusCode)
 	           LEFT OUTER JOIN LoanPeriods USING(IdLoanInfo)
                    LEFT OUTER JOIN BarCodes USING (IdItem)
-        WHERE TITLE_NO = ?
+        WHERE TITLE_NO = ? OR IdCat = ?
 EOF
 #	$sth = $dbh->prepare( <<'EOF' );
 #	SELECT Items.*, BarCodes.BarCode, CA_CATALOG_LINK_TYPE_ID
@@ -265,14 +265,19 @@ L<http://wiki.koha-community.org/wiki/Holdings_data_fields_%289xx%29>
     my $recordid;
 
     unless ($explicit_record_id) {
-	my $catid = $mmc->get('catid');
-	$catid =~ s/\((.*)\)//;
+	my $catid;
+	for $catid (@{$mmc->get('catid')}) {
+	    if ($catid =~/^\(LibraSE\)/) {
+		$catid =~ s/\((.*)\)//;
+		last;
+	    }
+	}
         # Get the record ID from 001 and 003
         my $f001 = $record->field( '001' )->data();
         my $f003;
 	unless ($record->field( '003' )) {
-	    warn 'Record does not have 003! catid: ' . $catid . ' default to tida';
-	    $f003 = 'tida';
+	    warn 'Record does not have 003! catid: ' . $catid . ' default to Sksb';
+	    $f003 = 'Sksb';
 	} else {
 	    $f003 = lc $record->field( '003' )->data();
 	}
@@ -284,7 +289,7 @@ L<http://wiki.koha-community.org/wiki/Holdings_data_fields_%289xx%29>
 	say "catid: $catid" if $verbose;
 	add_catitem_stat($catid);
         # Look up items by recordid in the DB and add them to our record
-        $sth->execute( $recordid ) or die "Failed to query items for $recordid";
+        $sth->execute( $recordid, $catid ) or die "Failed to query items for $recordid";
         $items = $sth->fetchall_arrayref({});
     } else {
         my $f = $record->field( $ExplicitRecordNrField::RECORD_NR_FIELD );
@@ -437,7 +442,7 @@ We base this on the Departments table and the value of Items.IdDepartment value.
 
 =cut
 	my $iddepartment;
-	if ($item->{'IdBranchCode'} eq '009') {
+	if ($item->{'IdBranchCode'} eq '010') {
 	    $iddepartment = 'Magasin';
 	} else {
 	    $iddepartment = $ccode->{ $item->{'IdDepartment'} };

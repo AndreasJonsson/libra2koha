@@ -187,16 +187,25 @@ my $ttconfig = {
 # create Template object
 my $tt2 = Template->new( $ttconfig ) || die Template->error(), "\n";
 
-my $sth = $dbh->prepare( 'SELECT ISBN_ISSN, TITLE_NO, Reservations.*, ReservationBranches.IdBranchCode, ReservationBranches.Priority, BorrowerBarCodes.BarCode as BarCode, ItemBarCodes.BarCode AS ItemBarCode, FirstName, LastName, Title, Author FROM Reservations JOIN ReservationBranches USING (IdReservation) JOIN BorrowerBarCodes USING (IdBorrower) JOIN Borrowers USING(IdBorrower) JOIN CA_CATALOG ON CA_CATALOG_ID=Reservations.IdCat LEFT OUTER JOIN Items ON (Items.IdItem = Reservations.IdItem) LEFT OUTER JOIN ItemBarCodes ON (ItemBarCodes.IdItem = Items.IdItem)' );
+my $sth = $dbh->prepare( 'SELECT ISBN_ISSN, TITLE_NO, Reservations.*, BorrowerBarCodes.BarCode as BarCode, ItemBarCodes.BarCode AS ItemBarCode, FirstName, LastName, Title, Author FROM Reservations JOIN BorrowerBarCodes USING (IdBorrower) JOIN Borrowers USING(IdBorrower) JOIN CA_CATALOG ON CA_CATALOG_ID=Reservations.IdCat LEFT OUTER JOIN Items ON (Items.IdItem = Reservations.IdItem) LEFT OUTER JOIN ItemBarCodes ON (ItemBarCodes.IdItem = Items.IdItem) ORDER BY IdCat, RegDate ASC, RegTime ASC' );
 
 my $ret = $sth->execute();
 die "Failed to execute sql query." unless $ret;
 
 #print "LOCK TABLES reserves,  WRITE, tmp_holdsqueue WRITE, hold_fill_targets WRITE, bm_biblio_identification READ, bm_merged_records READ, items READ, borrowers READ;\n";
 
+my %priorities = ();
+
 while (my $row = $sth->fetchrow_hashref()) {
 
-    my $priority = int($row->{Priority});
+    if (!defined($priorities{$row->{IdCat}})) {
+	$priorities{$row->{IdCat}} = 1;
+    } else {
+	$priorities{$row->{IdCat}}++;
+    }
+
+    my $priority = $priorities{$row->{IdCat}};
+    
     my $status_str;
     if ($row->{Status} eq 'A') {
 	$status_str = "'W'";
