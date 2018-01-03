@@ -53,8 +53,16 @@ our $dbh = DBI->connect( $config->{'db_dsn'},
                         $config->{'db_pass'},
                         { RaiseError => 1, AutoCommit => 1 } );
 
-our $time_parser = DateTime::Format::Builder->new()->parser( regex => qr/^(\d{4})(\d\d)(\d\d) (\d+):(\d+):(\d+)$/,
-							     params => [qw(year month day hour minute second)] );
+our $time_parser = DateTime::Format::Builder->new()->parser( regex => qr/^(\d{4})(\d\d)(\d\d) (\d+):(\d+)(?::(\d+))?$/,
+							     params => [qw(year month day hour minute second)],
+							     postprocess => sub {
+								 my ($date, $p) = @_;
+								 unless (defined $p->{second}) {
+								     $p->{second} = 0;
+								 }
+								 return 1;
+							     }
+    );
 sub dp {
     my $ds = shift;
     if (!defined($ds) || $ds =~ /^ *$/) {
@@ -108,7 +116,7 @@ my $ttconfig = {
 # create Template object
 my $tt2 = Template->new( $ttconfig ) || die Template->error(), "\n";
 
-my $sth = $dbh->prepare( 'SELECT * FROM TransactionsSaved JOIN CA_CATALOG ON IdCat = CA_CATALOG_ID LEFT OUTER JOIN Borrowers USING (IdBorrower) LEFT OUTER JOIN BorrowerBarCodes USING (IdBorrower) ' );
+my $sth = $dbh->prepare( 'SELECT TransactionsSaved.*, BorrowerBarCodes.BarCode, Borrowers.RegDate AS DateEnrolled, Borrowers.FirstName, Borrowers.LastName, CA_CATALOG.TITLE_NO FROM TransactionsSaved JOIN CA_CATALOG ON IdCat = CA_CATALOG_ID LEFT OUTER JOIN Borrowers USING (IdBorrower) LEFT OUTER JOIN BorrowerBarCodes USING (IdBorrower) ' );
 
 my $ret = $sth->execute();
 die "Failed to execute sql query." unless $ret;
@@ -118,18 +126,16 @@ while (my $row = $sth->fetchrow_hashref()) {
     my $params = {
 	title_no => $dbh->quote($row->{TITLE_NO}),
 	cardnumber => $dbh->quote($row->{BarCode}),
-	branchcode => $dbh->quote($opt->branchcode),
 	callnumber => $dbh->quote($row->{Location_Marc}),
 	returndate => ds($row->{RegDate}),
 	timestamp  => ts($row->{RegDate}, $row->{RegTime}),
+	branchcode => $dbh->quote($opt->branchcode),
 	surname =>    $dbh->quote($row->{LastName}),
 	firstname =>  $dbh->quote($row->{FirstName}),
-	dateenrolled => ds( $row->{RegDate} )
+	dateenrolled => ds( $row->{DateEnrolled} )
     };
 
-    if (!$row->{BarCode}) {
-	$tt2->process( 'old_issues.tt', $params, \*STDOUT, {binmode => ':utf8'}) || die $tt2->error();
-    }
+    $tt2->process( 'old_issues.tt', $params, \*STDOUT, {binmode => ':utf8'}) || die $tt2->error();
 }
 
 

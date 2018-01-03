@@ -13,7 +13,7 @@ if [[ -e "$dir"/config.inc ]]; then
     . "$dir"/config.inc
 fi
 
-TABLEEXT=.txt
+TABLEEXT=.csv
 TABLEENC=utf16
 INSTANCE="$3"
 EXPORTCAT="$DIR/exportCat.txt"
