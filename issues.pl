@@ -82,7 +82,7 @@ my $dbh = DBI->connect( $config->{'db_dsn'}, $config->{'db_user'}, $config->{'db
 
 # Query for selecting all issues, with relevant data
 my $sth = $dbh->prepare("
-    SELECT t.*, bbc.BarCode AS BorrowerBarcode, ibc.BarCode as ItemBarcode, b.FirstName, b.LastName
+    SELECT t.*, bbc.BarCode AS BorrowerBarcode, ibc.BarCode as ItemBarcode, b.FirstName, b.LastName, b.IdBranchCode as BorrowerIdBranchCode, b.RegDate as dateenrolled
     FROM Transactions as t JOIN Borrowers AS b USING (IdBorrower) LEFT OUTER JOIN BorrowerBarCodes as bbc USING (IdBorrower) LEFT OUTER JOIN ItemBarCodes as ibc USING (IdItem)
 ");
 
@@ -117,8 +117,10 @@ while ( my $issue = $sth->fetchrow_hashref() ) {
 
     # Massage data
     $issue->{'branchcode'} = $branchcodes->{ $issue->{'IdBranchCode'} };
+    $issue->{'borrower_branchcode'} = $branchcodes->{ $issue->{'BorrowerIdBranchCode'} };
     $issue->{'issuedate'} = _fix_date( $issue->{'RegDate'} );
     $issue->{'date_due'} = _fix_date( $issue->{'EstReturnDate'} );
+    $issue->{'dateenrolled'} = _fix_date( $issue->{'dateenrolled'} );
     $issue->{'surname_str'} = $dbh->quote($issue->{'LastName'});
     $issue->{'firstname_str'} = $dbh->quote($issue->{'FirstName'});
 
