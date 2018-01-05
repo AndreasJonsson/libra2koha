@@ -152,6 +152,8 @@ RECORD: while ( my $borrower = $sth->fetchrow_hashref() ) {
     # Do transformations
     # Add a branchcode
     $borrower->{'branchcode'} = $branchcodes->{ $borrower->{'IdBranchCode'} };
+    next RECORD if (!defined($borrower->{'branchcode'}) or $borrower->{'branchcode'} eq '');
+    _quoten(\$borrower->{'branchcode'});
     # Fix the format of dates
     $borrower->{'dateofbirth'} = _fix_date( $borrower->{'BirthDate'} );
     $borrower->{'dateenrolled'} = _fix_date( $borrower->{'RegDate'} );
@@ -162,7 +164,8 @@ RECORD: while ( my $borrower = $sth->fetchrow_hashref() ) {
     }
     # Tranlsate patron categories
     $borrower->{'categorycode'} = $patroncategories->{ $borrower->{'IdBorrowerCategory'} };
-    next if ($borrower->{'categorycode'} eq '');
+    next if (!defined($borrower->{'categorycode'}) or $borrower->{'categorycode'} eq '');
+    _quoten(\$borrower->{'categorycode'});
 
     $borrower->{'userid_str'} = 'NULL';
 
@@ -172,6 +175,9 @@ RECORD: while ( my $borrower = $sth->fetchrow_hashref() ) {
     if (defined($borrower->{RegId}) && $borrower->{RegId} ne '') {
 	$borrower->{'userid_str'} = $dbh->quote($borrower->{RegId});
     }
+
+    _quote(\$borrower->{'FirstName'});
+    _quote(\$borrower->{'LastName'});
 
     $tt2->process( 'borrowers.tt', $borrower, \*STDOUT,  {binmode => ':utf8'} ) || die $tt2->error();
 
@@ -311,6 +317,26 @@ sub fix_date {
 
 }
 
+sub _quote {
+    my $s = shift;
+
+    if (defined($$s)) {
+	$$s = $dbh->quote($$s);
+    } else {
+	$$s = 'NULL';
+    }
+}
+
+sub _quoten {
+    my $s = shift;
+
+    if (defined($$s)) {
+	$$s = $dbh->quote($$s);
+    } else {
+	$$s = "''";
+    }
+}
+
 #
 # Fill out converted address fields.
 sub set_address {
@@ -365,6 +391,20 @@ sub set_address {
         $borrower->{"${pre}country"} = clean_control($addr->{Country}) if (defined($addr->{Country}));
         $borrower->{"${pre}city"}    = clean_control($addr->{City})    if (defined($addr->{City}));
     }
+
+
+    _quoten(\$borrower->{"address"});
+    _quote(\$borrower->{"address2"});
+    _quote(\$borrower->{"country"});
+    _quote(\$borrower->{"zipcode"});
+    _quote(\$borrower->{"streetnumber"});
+    _quoten(\$borrower->{"city"});
+    _quote(\$borrower->{"B_address"});
+    _quote(\$borrower->{"B_address2"});
+    _quote(\$borrower->{"B_country"});
+    _quote(\$borrower->{"B_zipcode"});
+    _quote(\$borrower->{"B_city"});
+    _quote(\$borrower->{"B_streetnumber"});
 
     $phone_sth->execute( $borrower->{IdBorrower} );
 
@@ -427,6 +467,11 @@ sub set_address {
 	  last RETRY;
       }
     }
+    _quote(\$borrower->{phone});
+    _quote(\$borrower->{B_phone});
+    _quote(\$borrower->{email});
+    _quote(\$borrower->{B_email});
+    _quote(\$borrower->{mobile});
 }
 
 sub clean_control {
