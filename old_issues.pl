@@ -138,4 +138,3 @@ while (my $row = $sth->fetchrow_hashref()) {
     $tt2->process( 'old_issues.tt', $params, \*STDOUT, {binmode => ':utf8'}) || die $tt2->error();
 }
 
-

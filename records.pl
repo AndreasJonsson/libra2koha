@@ -266,8 +266,8 @@ L<http://wiki.koha-community.org/wiki/Holdings_data_fields_%289xx%29>
 
     unless ($explicit_record_id) {
 	my $catid;
-	for $catid (@{$mmc->get('catid')}) {
-	    if ($catid =~/^\(LibraSE\)/) {
+	for $catid ($mmc->get('catid')) {
+	    if ($catid =~ /^\(LibraSE\)/) {
 		$catid =~ s/\((.*)\)//;
 		last;
 	    }
@@ -287,7 +287,7 @@ L<http://wiki.koha-community.org/wiki/Holdings_data_fields_%289xx%29>
         $recordid =~ s/[^a-zæøåöA-ZÆØÅÖ\d]//g;
         say "recordid: $f003 + $f001 = $recordid" if $verbose;
 	say "catid: $catid" if $verbose;
-	add_catitem_stat($catid);
+	# add_catitem_stat($catid);
         # Look up items by recordid in the DB and add them to our record
         $sth->execute( $recordid, $catid ) or die "Failed to query items for $recordid";
         $items = $sth->fetchall_arrayref({});
@@ -513,6 +513,18 @@ FIXME This should be done with a mapping file!
 	    }
 	    elsif ( $item->{'StatusName'} eq 'Status med borttag') {
 		$mmc->set('lost_status', '1');
+	    }
+	    elsif ( $item->{'StatusName'} eq 'Status utan borttag') {
+		$mmc->set('lost_status', '1');
+	    }
+	    elsif ( $item->{'StatusName'} eq 'Räkning') {
+		$mmc->set('lost_status', '1');
+	    }
+	    elsif ( $item->{'StatusName'} eq 'Inbindning') {
+		$mmc->set('damaged_status', '1');
+	    }
+	    elsif ( $item->{'StatusName'} eq 'Under arbete') {
+		$mmc->set('damaged_status', '1');
 	    }
 	}
 
