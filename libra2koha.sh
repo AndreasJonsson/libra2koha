@@ -13,7 +13,7 @@ if [[ -e "$dir"/config.inc ]]; then
     . "$dir"/config.inc
 fi
 
-TABLEEXT=.csv
+TABLEEXT=.txt
 TABLEENC=utf16
 INSTANCE="$3"
 EXPORTCAT="$DIR/exportCat.txt"
@@ -152,6 +152,22 @@ tabledir="$utf8dir"
 #tabledir="$DIR"
 
 ## Clean up the database
+echo <<'EOF' | $MYSQL;
+SET FOREIGN_KEY_CHECKS = 0;
+SET GROUP_CONCAT_MAX_LEN=32768;
+SET @tables = NULL;
+SELECT GROUP_CONCAT('`', table_name, '`') INTO @tables
+  FROM information_schema.tables
+  WHERE table_schema = (SELECT DATABASE());
+SELECT IFNULL(@tables,'dummy') INTO @tables;
+
+SET @tables = CONCAT('DROP TABLE IF EXISTS ', @tables);
+PREPARE stmt FROM @tables;
+EXECUTE stmt;
+DEALLOCATE PREPARE stmt;
+SET FOREIGN_KEY_CHECKS = 1;
+EOF
+
 echo "DROP TABLE IF EXISTS exportCatMatch;" | $MYSQL
 echo "DROP TABLE IF EXISTS Items         ;" | $MYSQL
 echo "DROP TABLE IF EXISTS BarCodes      ;" | $MYSQL
@@ -162,6 +178,11 @@ echo "DROP TABLE IF EXISTS BorrowerPhoneNumbers;" | $MYSQL
 echo "DROP TABLE IF EXISTS BorrowerRegId;" | $MYSQL
 echo "DROP TABLE IF EXISTS ILL;" | $MYSQL
 echo "DROP TABLE IF EXISTS ILL_Libraries;" | $MYSQL
+echo "DROP TABLE IF EXISTS BorrowerDebts;" | $MYSQL
+echo "DROP TABLE IF EXISTS BorrowerDebtsRows;" | $MYSQL
+echo "DROP TABLE IF EXISTS FeeTypes;" | $MYSQL
+echo "DROP TABLE IF EXISTS BorrowerBlocked;" | $MYSQL
+
 
 ## Create tables and load the datafiles
 echo -n "Going to create tables for records and items, and load data into MySQL... "
@@ -188,7 +209,7 @@ echo "done"
 
 ## Create tables and load the datafiles
 echo -n "Going to create tables for borrowers, and load data into MySQL... "
-create_tables.pl  --quote='"' --headerrows=2 --encoding=utf8 --ext=$TABLEEXT  --spec "$SPECDIR" --columndelimiter='	' --rowdelimiter='\r\n' --dir "$tabledir" --table "Borrowers" --table "BorrowerPhoneNumbers" --table "BarCodes" --table "BorrowerAddresses" --table "BorrowerRegId" --table ILL --table ILL_Libraries | eval $MYSQL_LOAD
+create_tables.pl  --quote='"' --headerrows=2 --encoding=utf8 --ext=$TABLEEXT  --spec "$SPECDIR" --columndelimiter='	' --rowdelimiter='\r\n' --dir "$tabledir" --table "Borrowers" --table "BorrowerPhoneNumbers" --table "BarCodes" --table "BorrowerAddresses" --table "BorrowerRegId" --table ILL --table ILL_Libraries --table BorrowerDebts --table BorrowerDebtsRows --table FeeTypes  --table "BorrowerBlocked" | eval $MYSQL_LOAD
 echo "DELETE FROM BarCodes WHERE IdBorrower = 0;" | $MYSQL
 eval $MYSQL_LOAD <<EOF 
 CREATE INDEX Borrowers_Id ON Borrowers(IdBorrower);
@@ -196,6 +217,12 @@ CREATE INDEX BorrowerRegId_Id ON BorrowerRegId(IdBorrower);
 CREATE INDEX BorrowerAddress_Id ON BorrowerAddresses(IdBorrower);
 CREATE INDEX BorrowerPhoneNumbers_Id ON BorrowerPhoneNumbers(IdBorrower);
 CREATE INDEX Borrower_BarCode_Id ON BarCodes(IdBorrower);
+CREATE INDEX BorrowerDebts_Id ON BorrowerDebts(IdDebt);
+CREATE INDEX BorrowerDebts_Borrower_Id ON BorrowerDebts(IdBorrower);
+CREATE INDEX BorrowerDebtsRows_Id ON BorrowerDebtsRows(IdDebt);
+CREATE INDEX BorrowerDebtsRows_DebtRow_Id ON BorrowerDebtsRows(IdDebtRow);
+CREATE INDEX FeeTypes_Id On FeeTypes(IdFeeType);
+CREATE INDEX BorrowerBlocked_Id ON BorrowerBlocked(IdBorrower);
 EOF
 
 echo "done"
@@ -240,10 +267,14 @@ ALTER TABLE BorrowerBarCodes ADD PRIMARY KEY (IdBorrower);
 ALTER TABLE ItemBarCodes ADD PRIMARY KEY (IdItem);
 CREATE INDEX transaction_idborrower_index ON Transactions (IdBorrower);
 CREATE INDEX transaction_iditem_index ON Transactions (IdItem);
+CREATE INDEX transaction_idtransaction_index ON Transactions (IdTransaction);
 CREATE INDEX ILL_ActiveLibrary ON ILL(ActiveLibrary);
 CREATE INDEX ILL_Library_Id ON ILL_Libraries(IdLibrary);
 CREATE INDEX Issues_Cat_Id ON Issues(IdCat);
 CREATE INDEX Item_Issue_Id ON Items(IdIssue);
+CREATE INDEX BorrowerDebtsRows_RegDate ON BorrowerDebtsRows(RegDate);
+CREATE INDEX BorrowerDebtsRows_RegTime ON BorrowerDebtsRows(RegTime);
+
 EOF
 echo "done"
 
@@ -262,6 +293,8 @@ echo "Reservations"
 reservations.pl --configdir "$CONFIG" > "$OUTPUTDIR"/reservations.sql
 echo "Old issues"
 old_issues.pl --configdir "$CONFIG" --branchcode "$BRANCHCODE" > "$OUTPUTDIR"/old_issues.sql
+echo "Account lines"
+accountlines.pl --configdir "$CONFIG" > "$OUTPUTDIR"/accountlines.sql
 
 if [[ $LIBRA2KOHA_NOCONFIRM != '1' ]]; then
     confirm="no"
