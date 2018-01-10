@@ -41,8 +41,8 @@ VALUES (
     [% dateexpiry %], -- dateexpiry
     NULL, -- gonenoaddress
     NULL, -- lost
-    NULL, -- debarred
-    NULL, -- debarredcomment
+    [% debarred %], -- debarred
+    [% debarredcomment %], -- debarredcomment
     NULL, -- contactname
     NULL, -- contactfirstname
     NULL, -- contacttitle
@@ -73,6 +73,10 @@ SELECT LAST_INSERT_ID() INTO @BORROWERNUMBER;
 [% FOREACH message IN messages -%]
 INSERT INTO messages (borrowernumber,     branchcode,         message_type, message,       message_date,       manager_id)
 VALUES               (@BORROWERNUMBER, [% branchcode %], 'L',          [% message %], CURDATE(), 1);
+[% END -%]
+[% FOREACH d IN debarments -%]
+INSERT INTO borrower_debarments (borrowernumber,  expiration, type, comment, created, updated)
+VALUES                          (@BORROWERNUMBER, [% d.expiration %], [% d.type %], [% d.comment %], [% d.created %], [% d.updated %]); 
 [% END -%]
 
 INSERT INTO borrower_attributes (borrowernumber, code, attribute)

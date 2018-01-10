@@ -1,4 +1,4 @@
-#!/usr/bin/env perl 
+#!/usr/bin/env perl
  
 # Copyright 2015 Magnus Enger Libriotech
  
@@ -18,12 +18,29 @@ use YAML::Syck qw( LoadFile );
 use Term::ProgressBar;
 use Template;
 use DateTime;
+use DateTime::Format::Builder;
 use Pod::Usage;
 use Modern::Perl;
 use Data::Dumper;
 use Email::Valid;
 
 $|=1; # Flush output
+
+
+our $date_parser = DateTime::Format::Builder->new()->parser( regex => qr/^(\d{4})(\d\d)(\d\d)$/,
+                                                            params => [qw(year month day)] );
+
+our $time_parser = DateTime::Format::Builder->new()->parser( regex => qr/^(\d{4})(\d\d)(\d\d) (\d+):(\d+)(?::(\d+))?$/,
+							     params => [qw(year month day hour minute second)],
+							     postprocess => sub {
+								 my ($date, $p) = @_;
+								 unless (defined $p->{second}) {
+								     $p->{second} = 0;
+								 }
+								 return 1;
+							     }
+    );
+
 
 # Get options
 my ( $config_dir, $limit, $every, $verbose, $debug ) = get_options();
@@ -90,9 +107,10 @@ my $progress = Term::ProgressBar->new( $limit );
 # Query for selecting all borrowers, with relevant data
 my $sth = $dbh->prepare("
     SELECT Borrowers.*, BarCodes.BarCode, BorrowerRegId.RegId
-    FROM (Borrowers LEFT OUTER JOIN BarCodes USING (IdBorrower)) LEFT OUTER JOIN BorrowerRegId USING (IdBorrower)
-");
+    FROM Borrowers LEFT OUTER JOIN BarCodes USING (IdBorrower) LEFT OUTER JOIN BorrowerRegId USING (IdBorrower)
+			");
 
+my $blocked_sth = $dbh->prepare('SELECT * FROM BorrowerBlocked WHERE IdBorrower = ?');
 my $addresses_sth = $dbh->prepare("SELECT * FROM BorrowerAddresses WHERE IdBorrower = ?");
 my $phone_sth = $dbh->prepare("SELECT * FROM BorrowerPhoneNumbers WHERE IdBorrower = ?");
 
@@ -136,6 +154,7 @@ RECORD: while ( my $borrower = $sth->fetchrow_hashref() ) {
     }
 
     set_address( $borrower );
+    set_debarments( $borrower );
 
     my $isKohaMarked = 0;
     my @messages = ();
@@ -472,6 +491,55 @@ sub set_address {
     _quote(\$borrower->{email});
     _quote(\$borrower->{B_email});
     _quote(\$borrower->{mobile});
+
+}
+
+sub set_debarments {
+    my $borrower = shift;
+
+    $blocked_sth->execute( $borrower->{IdBorrower} );
+    my @debarments = ();
+
+    while (my $blocked = $blocked_sth->fetchrow_hashref()) {
+	my $debarment = {
+	    expiration_date => $blocked->{BlockedUntil},
+	    expiration => ds($blocked->{BlockedUntil}),
+	    type => "'MANUAL'",
+	    comment => $blocked->{Reason},
+	    created => ts($blocked->{RegDate}, $blocked->{RegTime}),
+	    debarred => ds($blocked->{RegDate}),
+	    updated => ts($blocked->{UpdatedDate})
+	};
+	_quote(\$debarment->{comment});
+	push @debarments, $debarment;
+    }
+
+    if (scalar(@debarments) > 0) {
+	$borrower->{debarments} = \@debarments;
+	my $d = $debarments[0];
+	$borrower->{debarredcomment} = join "\n", map { $_->{comment} } @debarments;
+	my $max;
+	my $max_ds;
+	for my $d (@debarments) {
+	    if (!defined($max)) {
+		$max = $d->{expiration_date};
+		$max_ds = $d->{expiration};
+	    } else {
+		if (DateTime->compare($max, $d->{expiration_date}) < 0) {
+		    $max = $d->{expiration_date};
+		    $max_ds = $d->{expiration};
+		}
+	    }
+	}
+	if (defined($max)) {
+	    $borrower->{debarred} = $max_ds;
+	} else {
+	    $borrower->{debarred} = ds('99991231');
+	}
+    } else {
+	$borrower->{debarredcomment} = 'NULL';
+	$borrower->{debarred} = 'NULL';
+    }
 }
 
 sub clean_control {
@@ -481,6 +549,50 @@ sub clean_control {
     
     return $s;
 }
+
+sub dp {
+    my $ds = shift;
+    if (!defined($ds) || $ds =~ /^ *$/) {
+        return undef;
+    }
+    return $date_parser->parse_datetime($ds);
+}
+
+sub ds {
+    my $d = shift;
+    $d = dp($d);
+    if (defined($d)) {
+       return $dbh->quote($d->strftime( '%F' ));
+    } else {
+       return "NULL";
+    }
+}
+
+sub tp {
+    my $ds = shift;
+    my $ts = shift;
+    if (!defined($ds) || $ds =~ /^ *$/) {
+        return undef;
+    }
+    if (defined($ts) && !$ds =~ /^ *$/) {
+	$ds .= " $ts";
+    } else {
+	$ds .= ' 0:00:00';
+    }
+    return $time_parser->parse_datetime($ds);
+}
+
+sub ts {
+    my $d = shift;
+    my $t = shift;
+    $d = tp($d, $t);
+    if (defined($d)) {
+       return $dbh->quote($d->strftime( '%F %T' ));
+    } else {
+       return "NULL";
+    }
+}
+
 
 =head1 AUTHOR
 
