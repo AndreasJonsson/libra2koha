@@ -24,19 +24,19 @@ SELECT [% IF item_barcode != 'NULL' %] count(*) > 0 FROM items JOIN hold_fill_ta
 SELECT borrowernumber FROM borrowers WHERE cardnumber = [% borrower_barcode %] INTO @BORROWERNUMBER;
 
 INSERT INTO reserves (borrowernumber, reservedate, biblionumber, branchcode,  reservenotes, priority, found, timestamp, itemnumber, expirationdate)
-   SELECT @BORROWERNUMBER, [% reservedate %], @BIBLIONUMBER, [% pickbranch %], [% reservenotes %], [% priority %], (@FOUND := [% found %]), [% timestamp %], @ITEMNUMBER, [% expirationdate %] WHERE @BIBLIONUMBER IS NOT NULL;
+   SELECT @BORROWERNUMBER, [% reservedate %], @BIBLIONUMBER, [% pickbranch %], [% reservenotes %], [% priority %], (@FOUND := [% found %]), [% timestamp %], @ITEMNUMBER, [% expirationdate %] WHERE @BIBLIONUMBER IS NOT NULL AND @BORROWERNUMBER IS NOT NULL;
 
 SET @BIBLIONUMBER = IF(@BIBLIONUMBER IS NULL AND @ITEMNUMBER IS NOT NULL, (SELECT biblionumber FROM items WHERE itemnumber = @ITEMNUMBER), @BIBLIONUMBER);
 
 INSERT INTO tmp_holdsqueue (biblionumber, itemnumber, barcode, surname, firstname, phone, borrowernumber, cardnumber, reservedate, title, itemcallnumber, holdingbranch, pickbranch, notes, item_level_request)
-SELECT @BIBLIONUMBER, @ITEMNUMBER, [% item_barcode %], [% surname %], [% firstname %], (SELECT phone FROM borrowers WHERE borrowernumber = @BORROWERNUMBER), @BORROWERNUMBER, [% borrower_barcode %], [% reservedate %], [% title %], @ITEMCALLNUMBER, [% holdingbranch %], [% pickbranch %], '', IF([% found %] = 'W', 1, 0)
+SELECT @BIBLIONUMBER, @ITEMNUMBER, [% item_barcode %], [% surname %], [% firstname %], (SELECT phone FROM borrowers WHERE borrowernumber = @BORROWERNUMBER), @BORROWERNUMBER, [% borrower_barcode %], [% reservedate %], [% title %], @ITEMCALLNUMBER, [% holdingbranch %], [% pickbranch %], '', IF([% found %] = 'W' OR [% found %] = 'T', 1, 0)
 FROM DUAL
-WHERE @ITEMNUMBER IS NOT NULL AND NOT @ALREADYRESERVED;
+WHERE @ITEMNUMBER IS NOT NULL AND NOT @ALREADYRESERVED AND @BORROWERNUMBER IS NOT NULL;
 
 INSERT INTO hold_fill_targets (borrowernumber, biblionumber, itemnumber, source_branchcode, item_level_request)
-SELECT @BORROWERNUMBER, @BIBLIONUMBER, @ITEMNUMBER, [% holdingbranch %], IF([% found %] = 'W', 1, 0)
+SELECT @BORROWERNUMBER, @BIBLIONUMBER, @ITEMNUMBER, [% holdingbranch %], IF([% found %] = 'W' OR [% found %]  = 'T', 1, 0)
 FROM DUAL
-WHERE @ITEMNUMBER IS NOT NULL AND NOT @ALREADYRESERVED;
+WHERE @ITEMNUMBER IS NOT NULL AND NOT @ALREADYRESERVED AND @BORROWERNUMBER IS NOT NULL;
 
 SELECT 'Exemplar redan reserverat', 'Låntagare kortnummer', 'Bibliografisk post' FROM DUAL WHERE @ALREADYRESERVED UNION
 SELECT @ITEMNUMBER, [% borrower_barcode %], @BIBLIONUMBER FROM DUAL WHERE @ALREADYRESERVED;

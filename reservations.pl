@@ -214,7 +214,7 @@ while (my $row = $sth->fetchrow_hashref()) {
 	    $status_str = "'W'";
 	}
     } elsif ($row->{Status} eq 'S') {
-	next;
+	$status_str = "'T'";
     }
     
     my $params = {
