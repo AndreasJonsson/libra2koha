@@ -276,8 +276,8 @@ L<http://wiki.koha-community.org/wiki/Holdings_data_fields_%289xx%29>
         my $f001 = $record->field( '001' )->data();
         my $f003;
 	unless ($record->field( '003' )) {
-	    warn 'Record does not have 003! catid: ' . $catid . ' default to Sksb';
-	    $f003 = 'Sksb';
+	    warn 'Record does not have 003! catid: ' . $catid . ' default to Mari';
+	    $f003 = 'Mari';
 	} else {
 	    $f003 = lc $record->field( '003' )->data();
 	}
@@ -442,7 +442,7 @@ We base this on the Departments table and the value of Items.IdDepartment value.
 
 =cut
 	my $iddepartment;
-	if ($item->{'IdBranchCode'} eq '010') {
+	if ($item->{'IdBranchCode'} eq '022') {
 	    $iddepartment = 'Magasin';
 	} else {
 	    $iddepartment = $ccode->{ $item->{'IdDepartment'} };
@@ -466,6 +466,10 @@ debug output. Run C<perldoc itemtypes.pl> for more documentation.
         my $itemtype;
 	if ($item->{'IdBranchCode'} eq '088') {
 	    $itemtype = 'FJARRLAN';
+	} elsif ($item->{'IdDepartment'} eq '3') {
+	    $itemtype = 'DAISY'
+	} elsif ($item->{'IdDepartment'} eq '4') {
+	    $itemtype = 'FILM';
 	} else {
 	    $itemtype = get_itemtype( $record );
 	    $itemtype = refine_itemtype( $mmc, $record, $item, $itemtype );
@@ -506,16 +510,16 @@ FIXME This should be done with a mapping file!
 
 	if (defined($item->{'StatusName'})) {
 	    if ( $item->{'StatusName'} eq 'Försvunnen' ) {
-		$mmc->set('lost_status', '1');
+		$mmc->set('lost_status', '4');
 	    }
 	    elsif ( $item->{'StatusName'} eq 'Gallras' ) {
-		$mmc->set('lost_status', '1');
+		$mmc->set('lost_status', '4');
 	    }
 	    elsif ( $item->{'StatusName'} eq 'Status med borttag') {
-		$mmc->set('lost_status', '1');
+		$mmc->set('lost_status', '4');
 	    }
 	    elsif ( $item->{'StatusName'} eq 'Status utan borttag') {
-		$mmc->set('lost_status', '1');
+		$mmc->set('lost_status', '4');
 	    }
 	    elsif ( $item->{'StatusName'} eq 'Räkning') {
 		$mmc->set('lost_status', '1');
@@ -531,7 +535,7 @@ FIXME This should be done with a mapping file!
 
 =head3 952$7 Not for loan
 
-We assume 1 is normal and subtract 1.  Add Authorized values in Koha accordingly.
+
 
 =cut
 	if ($item->{'Hidden'}) {
@@ -543,9 +547,9 @@ We assume 1 is normal and subtract 1.  Add Authorized values in Koha accordingly
 		$mmc->set('not_for_loan', 3);
 	    } elsif ($item->{'LoanPeriodName'} eq 'Tidskrifter') {
 		$mmc->set('not_for_loan', 2);
-	    } elsif ($item->{'LoanPeriodName'} eq 'Referenslån') {
+	    } elsif ($item->{'LoanPeriodName'} eq 'Referenslån' || $item->{'LoanPeriodName'} eq 'Referens') {
 		$mmc->set('not_for_loan', 1);
-	    } elsif (defined($item->{'StatusName'}) and $item->{'StatusName'} eq 'Inköp') {
+	    } elsif (defined($item->{'StatusName'}) and ($item->{'StatusName'} eq 'Inköp')) {
 		$mmc->set('not_for_loan', 5);
 	    }
 	}
