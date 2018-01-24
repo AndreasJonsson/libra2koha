@@ -116,12 +116,17 @@ my $ttconfig = {
 # create Template object
 my $tt2 = Template->new( $ttconfig ) || die Template->error(), "\n";
 
-my $sth = $dbh->prepare( 'SELECT TransactionsSaved.*, BorrowerBarCodes.BarCode, Borrowers.RegDate AS DateEnrolled, Borrowers.FirstName, Borrowers.LastName, CA_CATALOG.TITLE_NO FROM TransactionsSaved JOIN CA_CATALOG ON IdCat = CA_CATALOG_ID LEFT OUTER JOIN Borrowers USING (IdBorrower) LEFT OUTER JOIN BorrowerBarCodes USING (IdBorrower) ' );
+my $sth = $dbh->prepare( 'SELECT TransactionsSaved.*, BorrowerBarCodes.BarCode, Borrowers.RegDate AS DateEnrolled, Borrowers.FirstName, Borrowers.LastName, Borrowers.IdBranchCode, CA_CATALOG.TITLE_NO FROM TransactionsSaved JOIN CA_CATALOG ON IdCat = CA_CATALOG_ID LEFT OUTER JOIN Borrowers USING (IdBorrower) LEFT OUTER JOIN BorrowerBarCodes USING (IdBorrower) ' );
 
 my $ret = $sth->execute();
 die "Failed to execute sql query." unless $ret;
 
 while (my $row = $sth->fetchrow_hashref()) {
+
+    my $branchcode = $branchcodes->{$row->{IdBranchCode}};
+    if (!defined($branchcode)) {
+	$branchcode = $opt->branchcode;
+    }
     
     my $params = {
 	title_no => $dbh->quote($row->{TITLE_NO}),
@@ -129,7 +134,7 @@ while (my $row = $sth->fetchrow_hashref()) {
 	callnumber => $dbh->quote($row->{Location_Marc}),
 	returndate => ds($row->{RegDate}),
 	timestamp  => ts($row->{RegDate}, $row->{RegTime}),
-	branchcode => $dbh->quote($opt->branchcode),
+	branchcode => $dbh->quote($branchcode),
 	surname =>    $dbh->quote($row->{LastName}),
 	firstname =>  $dbh->quote($row->{FirstName}),
 	dateenrolled => ds( $row->{DateEnrolled} )
