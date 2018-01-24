@@ -132,8 +132,9 @@ for file in "$DIR"/*"${TABLEEXT}"  ; do
 		 # Skip, due to a bug in the GHC IO library that generates an error on a file containing
 		 # only the unicode byte order marker.  The bug exists in ghc 7.6.3-21 (Debian jessie) but appears to
 		 # have been fixed in ghc 7.10.3-7 (Ubuntu xenial)
- 		touch "$utf8dir"/"$name""${TABLEEXT}"
+ 		 touch "$utf8dir"/"$name""${TABLEEXT}"
 	     else
+		 echo "Converting table ${name}"
 		 delimtabletransform  --encoding=$TABLEENC               \
                                    --column-delimiter='\t'            \
                                    --row-delimiter='\n'               \

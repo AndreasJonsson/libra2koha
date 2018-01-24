@@ -263,7 +263,6 @@ while (next_borrower()) {
 	_quote(\$account->{note});
 	_quote(\$account->{dispute});
 	_quote(\$account->{branchcode});
-	$account->{DebtName};
 
 	$account->{accountno} = $accountno;
 	$accountno++;

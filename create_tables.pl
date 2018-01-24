@@ -64,6 +64,10 @@ my $tt2 = Template->new( $ttconfig ) || die Template->error(), "\n";
 
 foreach my $table (@{$opt->tables}) {
 
+    if ($opt->verbose) {
+	print STDERR "Creating table $table\n";
+    }
+    
     die "No spec file for $table" unless defined($specfiles->{$table});
     my $specfile = $opt->spec . '/' . $specfiles->{$table}->{filename};
 
