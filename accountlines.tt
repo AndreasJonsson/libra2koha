@@ -1,12 +1,20 @@
 
-SET @BORROWERNUMBER=NULL;
-SELECT borrowernumber FROM borrowers WHERE [% cardnumber %] IS NOT NULL AND cardnumber = [% cardnumber %] OR [% cardnumber %] IS NULL AND cardnumber IS NULL AND surname = [% surname %] AND firstname = [% firstname %] AND branchcode = [% branchcode %] AND dateenrolled = [% dateenrolled %] INTO @BORROWERNUMBER;
+SET @BORROWERNUMBER = NULL;
+SET @ITEMNUMBER = NULL;
+SET @ISSUE_ID = NULL;
 
-SELECT @ISSUE_ID := issue_id, @ITEMNUMBER := itemnumber FROM
+SELECT borrowernumber FROM borrowers WHERE [% cardnumber %] IS NOT NULL AND cardnumber = [% cardnumber %] OR [% cardnumber %] IS NULL AND cardnumber IS NULL AND surname = [% surname %] AND firstname = [% firstname %] AND branchcode = [% branchcode %] AND dateenrolled = [% dateenrolled %] LIMIT 1 INTO @BORROWERNUMBER;
+
+SELECT count(borrowernumber) > 1 FROM borrowers WHERE [% cardnumber %] IS NOT NULL AND cardnumber = [% cardnumber %] OR [% cardnumber %] IS NULL AND cardnumber IS NULL AND surname = [% surname %] AND firstname = [% firstname %] AND branchcode = [% branchcode %] AND dateenrolled = [% dateenrolled %];
+
+[% IF DebtName != 'Reservationsavgift' %]
+SELECT @ISSUE_ID := issue_id, itemnumber FROM
  (SELECT issue_id, itemnumber FROM items LEFT OUTER JOIN issues USING (itemnumber) WHERE borrowernumber=@BORROWERNUMBER AND barcode = [% barcode %] AND issuedate = [% issuedate %]
   UNION
-  SELECT issue_id, itemnumber FROM items LEFT OUTER JOIN old_issues USING (itemnumber) WHERE borrowernumber=@BORROWERNUMBER AND barcode = [% barcode %] AND issuedate = [% issuedate %]) AS T
-LIMIT 1;
+  SELECT issue_id, itemnumber FROM items LEFT OUTER JOIN old_issues USING (itemnumber) WHERE borrowernumber=@BORROWERNUMBER AND barcode = [% barcode %] AND issuedate = [% issuedate %]) AS T LIMIT 1;
+[% END %]
+
+SELECT @ITEMNUMBER := itemnumber FROM items WHERE [% barcode %] = barcode;
 
 INSERT INTO accountlines
 (borrowernumber, accountno, itemnumber, date, amount, description, accounttype, amountoutstanding, lastincrement, timestamp)

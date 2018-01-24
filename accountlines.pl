@@ -94,6 +94,7 @@ SELECT
   BorrowerBarCodes.BarCode,
   Transactions.IdItem IS NOT NULL AS has_transaction,
   Transactions.RegDate AS TransactionDate,
+  rbc.BarCode AS ReservationBarCode,
   IFNULL(ibc.BarCode, ItemBarCodes.BarCode) as ItemBarCode,
   bdr.Amount,
   FeeTypes.Name,
@@ -111,6 +112,8 @@ FROM
   LEFT OUTER JOIN FeeTypes USING (IdFeeType)
   LEFT OUTER JOIN ItemBarCodes USING (IdItem)
   LEFT OUTER JOIN Transactions USING (IdTransaction)
+  LEFT OUTER JOIN Reservations USING (IdReservation)
+  LEFT OUTER JOIN ItemBarCodes AS rbc ON Reservations.IdItem = rbc.IdItem
   LEFT OUTER JOIN ItemBarCodes AS ibc ON Transactions.IdItem = ibc.IdItem
 WHERE
   b.IdBorrower IS NOT NULL
@@ -150,8 +153,9 @@ my %borrowers = ();
 
 sub account_idstring {
     my $row = shift;
+    my $barcode = shift;
 
-    return '' . (defined($row->{BarCode}) ? $row->{BarCode} : '|') .
+    return '' . (defined($barcode) ? $barcode : '|') .
            '-' . (defined($row->{ItemBarCode}) ? $row->{ItemBarCode}  : '|') . '-' . $row->{has_transaction} . '-' . $row->{Name}
 }
 
@@ -204,17 +208,24 @@ while (next_borrower()) {
     my %accounts = ();
 
     while (my $row = next_borrower_row()) {
-	my $accountid = account_idstring($row);
+	my $barcode;
+	if (defined($row->{ItemBarCode})) {
+	    $barcode = $row->{ItemBarCode};
+	} elsif (defined($row->{ReservationBarCode})) {
+	    $barcode = $row->{ReservationBarCode};
+	}
+
+	my $accountid = account_idstring($row, $barcode);
 
 	my $account;
-	
+
 	if (!defined($accounts{$accountid})) {
 	    $account = {
 		accounttype => account_type($row),
 		amount => $row->{Amount},
 		amountoutstanding => $row->{Amount},
 		lastincrement => $row->{Amount},
-		barcode => $row->{ItemBarCode},
+		barcode => $barcode,
 		cardnumber => $row->{BarCode},
 		surname => $row->{LastName},
 		firstname => $row->{FirstName},
@@ -225,7 +236,8 @@ while (next_borrower()) {
 		description => $row->{Text},
 		note => 'note',
 		dispute => 'dispute',
-		branchcode => $branchcodes->{ $row->{'IdBranchCode'} }
+		branchcode => $branchcodes->{ $row->{'IdBranchCode'} },
+		DebtName => $row->{Name}
 	    };
 	    $accounts{$accountid} = $account;
 	} else {
@@ -234,7 +246,7 @@ while (next_borrower()) {
 	    $account->{lastincrement} = $row->{Amount};
 
 	    die "accounttype mismatch: '" . $account->{accounttype} . "' ne '" . account_type($row) . "'" unless eq0($account->{accounttype}, account_type($row));
-	    die "barcode mismatch: '" . $account->{barcode} . "' ne '" . $row->{ItemBarCode} . "'" unless eq0($account->{barcode}, $row->{ItemBarCode});
+	    die "barcode mismatch: '" . $account->{barcode} . "' ne '" . $barcode . "'" unless eq0($account->{barcode}, $barcode);
 	    die "cardnumber mismatch: '" . $account->{cardnumber} . "' ne '" . $row->{BarCode} . "'" unless eq0($account->{cardnumber}, $row->{BarCode});
 	    die "surname mismatch: '" . $account->{surname} . "' ne '" . $row->{LastName} . "'"  unless eq0($account->{surname}, $row->{LastName});
 	    die "firstname mismatch: '" . $account->{firstname} . "' ne '" . $row->{FirstName} . "'"  unless eq0($account->{firstname}, $row->{FirstName});
@@ -251,6 +263,7 @@ while (next_borrower()) {
 	_quote(\$account->{note});
 	_quote(\$account->{dispute});
 	_quote(\$account->{branchcode});
+	$account->{DebtName};
 
 	$account->{accountno} = $accountno;
 	$accountno++;
