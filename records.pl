@@ -266,9 +266,10 @@ L<http://wiki.koha-community.org/wiki/Holdings_data_fields_%289xx%29>
 
     unless ($explicit_record_id) {
 	my $catid;
-	for $catid ($mmc->get('catid')) {
-	    if ($catid =~ /^\(LibraSE\)/) {
-		$catid =~ s/\((.*)\)//;
+	for my $cid ($mmc->get('catid')) {
+	    if ($cid =~ /^\(LibraSE\)/) {
+		$cid =~ s/\((.*)\)//;
+		$catid = $cid;
 		last;
 	    }
 	}
