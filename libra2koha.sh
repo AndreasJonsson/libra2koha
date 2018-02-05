@@ -24,6 +24,9 @@ MYSQL_CREDENTIALS="-u libra2koha -ppass libra2koha"
 MYSQL="mysql $MYSQL_CREDENTIALS"
 MYSQL_LOAD="mysql $MYSQL_CREDENTIALS --local-infile=1 --init-command='SET max_heap_table_size=4294967295;'"
 
+COLUMN_DELIMITER='	'
+HEADER_ROWS=2
+
 export PERLIO=:unix:utf8
 
 if [[ -z "$SCRIPTDIR" ]]; then
@@ -82,23 +85,23 @@ fi
 if [ ! -f "$CONFIG/branchcodes.yaml" ]; then
     echo "Missing $CONFIG/branchcodes.yaml"
     MISSING_FILE=1
-    echo table2config.pl --columndelim='	' --headerrows=2 --dir="$DIR" --name='Branches' --key=0 --comment=2 > "$CONFIG/branchcodes.yaml"
-    table2config.pl --columndelim='	' --headerrows=2 --dir="$DIR" --name='Branches' --key=0 --comment=2 > "$CONFIG/branchcodes.yaml"
+    echo table2config.pl --columndelim="$COLUMN_DELIMITER" --headerrows=$HEADER_ROWS --dir="$DIR" --name='Branches' --key=0 --comment=2 > "$CONFIG/branchcodes.yaml"
+    table2config.pl --columndelim="$COLUMN_DELIMITER" --headerrows=$HEADER_ROWS --dir="$DIR" --name='Branches' --key=0 --comment=2 > "$CONFIG/branchcodes.yaml"
 fi
 if [ ! -f "$CONFIG/loc.yaml" ]; then
     echo "Missing $CONFIG/loc.yaml"
     MISSING_FILE=1
-    table2config.pl --columndelim='	' --headerrows=2  --dir="$DIR" --name='LocalShelfs' --key=1 --comment=2 > "$CONFIG/loc.yaml"
+    table2config.pl --columndelim="$COLUMN_DELIMITER" --headerrows=$HEADER_ROWS  --dir="$DIR" --name='LocalShelfs' --key=1 --comment=2 > "$CONFIG/loc.yaml"
 fi
 if [ ! -f "$CONFIG/ccode.yaml" ]; then
     echo "Missing $CONFIG/ccode.yaml"
     MISSING_FILE=1
-    table2config.pl --columndelim='	' --headerrows=2  --dir="$DIR/" --name='Departments' --key=0 --comment=2 > "$CONFIG/ccode.yaml"
+    table2config.pl --columndelim="$COLUMN_DELIMITER" --headerrows=$HEADER_ROWS  --dir="$DIR/" --name='Departments' --key=0 --comment=2 > "$CONFIG/ccode.yaml"
 fi
 if [ ! -f "$CONFIG/patroncategories.yaml" ]; then
     echo "Missing $CONFIG/patroncategories.yaml"
     MISSING_FILE=1
-    table2config.pl --columndelim='	' --headerrows=2  --dir="$DIR" --name='BorrowerCategories' --key=0 --comment=2 > "$CONFIG/patroncategories.yaml"
+    table2config.pl --columndelim="$COLUMN_DELIMITER" --headerrows=$HEADER_ROWS  --dir="$DIR" --name='BorrowerCategories' --key=0 --comment=2 > "$CONFIG/patroncategories.yaml"
 fi
 if [ $MISSING_FILE -eq 1 ]; then
     exit
@@ -136,7 +139,7 @@ for file in "$DIR"/*"${TABLEEXT}"  ; do
 	     else
 		 echo "Converting table ${name}"
 		 delimtabletransform  --encoding=$TABLEENC               \
-                                   --column-delimiter='\t'            \
+                                   --column-delimiter="$COLUMN_DELIMITER" \
                                    --row-delimiter='\n'               \
                                    --row-delimiter='\r\n'             \
                                    --enclosed-by='"'                  \
@@ -188,7 +191,7 @@ echo "DROP TABLE IF EXISTS BorrowerBlocked;" | $MYSQL
 ## Create tables and load the datafiles
 echo -n "Going to create tables for records and items, and load data into MySQL... "
 bib_tables="$(mktemp)"
-create_tables.pl --quote='"' --headerrows=2 --encoding=utf8 --ext=$TABLEEXT --spec "$SPECDIR" --columndelimiter='	' --rowdelimiter='\r\n' --dir "$tabledir" --table 'Items' --table 'BarCodes' --table 'StatusCodes' --table 'CA_CATALOG' --table 'LoanPeriods' > "$bib_tables"
+create_tables.pl --quote='"' --headerrows=$HEADER_ROWS --encoding=utf8 --ext=$TABLEEXT --spec "$SPECDIR" --columndelimiter="$COLUMN_DELIMITER" --rowdelimiter='\r\n' --dir "$tabledir" --table 'Items' --table 'BarCodes' --table 'StatusCodes' --table 'CA_CATALOG' --table 'LoanPeriods' > "$bib_tables"
 eval $MYSQL_LOAD < "$bib_tables"
 eval $MYSQL_LOAD <<EOF 
 ALTER TABLE Items ADD COLUMN done INT(1) DEFAULT 0;
@@ -210,7 +213,7 @@ echo "done"
 
 ## Create tables and load the datafiles
 echo -n "Going to create tables for borrowers, and load data into MySQL... "
-create_tables.pl  --quote='"' --headerrows=2 --encoding=utf8 --ext=$TABLEEXT  --spec "$SPECDIR" --columndelimiter='	' --rowdelimiter='\r\n' --dir "$tabledir" --table "Borrowers" --table "BorrowerPhoneNumbers" --table "BarCodes" --table "BorrowerAddresses" --table "BorrowerRegId" --table ILL --table ILL_Libraries --table BorrowerDebts --table BorrowerDebtsRows --table FeeTypes  --table "BorrowerBlocked" | eval $MYSQL_LOAD
+create_tables.pl  --quote='"' --headerrows=$HEADER_ROWS --encoding=utf8 --ext=$TABLEEXT  --spec "$SPECDIR" --columndelimiter="$COLUMN_DELIMITER" --rowdelimiter='\r\n' --dir "$tabledir" --table "Borrowers" --table "BorrowerPhoneNumbers" --table "BarCodes" --table "BorrowerAddresses" --table "BorrowerRegId" --table ILL --table ILL_Libraries --table BorrowerDebts --table BorrowerDebtsRows --table FeeTypes  --table "BorrowerBlocked" | eval $MYSQL_LOAD
 echo "DELETE FROM BarCodes WHERE IdBorrower = 0;" | $MYSQL
 eval $MYSQL_LOAD <<EOF 
 CREATE INDEX Borrowers_Id ON Borrowers(IdBorrower);
@@ -254,7 +257,7 @@ echo "DROP TABLE IF EXISTS Issues              ;" | $MYSQL
 
 # Create tables and load the datafiles
 echo -n "Going to create tables for active issues, and load data into MySQL... "
-create_tables.pl  --quote='"' --headerrows=2 --encoding=utf8 --ext=$TABLEEXT --spec "$SPECDIR" --columndelimiter='	' --rowdelimiter='\r\n' --dir "$tabledir" --table "Transactions" --table "BarCodes" --table "Issues"  --table "ILL" --table "ILL_Libraries" --table "Reservations" --table "ReservationBranches" --table "TransactionsSaved" | eval $MYSQL_LOAD
+create_tables.pl  --quote='"' --headerrows=$HEADER_ROWS --encoding=utf8 --ext=$TABLEEXT --spec "$SPECDIR" --columndelimiter="$COLUMN_DELIMITER" --rowdelimiter='\r\n' --dir "$tabledir" --table "Transactions" --table "BarCodes" --table "Issues"  --table "ILL" --table "ILL_Libraries" --table "Reservations" --table "ReservationBranches" --table "TransactionsSaved" | eval $MYSQL_LOAD
 # Now copy the BarCodes table so we can have one for items and one for borrowers
 $MYSQL <<EOF
 CREATE TABLE BorrowerBarCodes LIKE BarCodes;
