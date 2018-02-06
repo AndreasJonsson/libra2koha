@@ -14,7 +14,7 @@ if [[ -e "$dir"/config.inc ]]; then
 fi
 
 TABLEEXT=.txt
-TABLEENC=utf16
+TABLEENC=iso-8859-1
 INSTANCE="$3"
 EXPORTCAT="$DIR/exportCat.txt"
 MARC="$DIR/CatalogueExport.dat"
@@ -24,8 +24,12 @@ MYSQL_CREDENTIALS="-u libra2koha -ppass libra2koha"
 MYSQL="mysql $MYSQL_CREDENTIALS"
 MYSQL_LOAD="mysql $MYSQL_CREDENTIALS --local-infile=1 --init-command='SET max_heap_table_size=4294967295;'"
 
-COLUMN_DELIMITER='	'
-HEADER_ROWS=2
+SOURCE_FORMAT=bookit
+
+SPECDIR="$dir/${SOURCE_FORMAT}spec"
+
+COLUMN_DELIMITER='|'
+HEADER_ROWS=1
 
 export PERLIO=:unix:utf8
 
@@ -66,13 +70,6 @@ trap 'rm -rf "$TMPDIR"' EXIT INT TERM HUP
 
 set -o errexit
 
-### PREPARE FILES ###
-
-if [ ! -d "$DIR/bib/" ]; then
-    mkdir "$DIR/bib/"
-fi
-
-
 ### CHECK FOR CONFIG FILES ###
 
 # Force the user to create necessary config files, and provide skeletons
@@ -85,23 +82,22 @@ fi
 if [ ! -f "$CONFIG/branchcodes.yaml" ]; then
     echo "Missing $CONFIG/branchcodes.yaml"
     MISSING_FILE=1
-    echo table2config.pl --columndelim="$COLUMN_DELIMITER" --headerrows=$HEADER_ROWS --dir="$DIR" --name='Branches' --key=0 --comment=2 > "$CONFIG/branchcodes.yaml"
-    table2config.pl --columndelim="$COLUMN_DELIMITER" --headerrows=$HEADER_ROWS --dir="$DIR" --name='Branches' --key=0 --comment=2 > "$CONFIG/branchcodes.yaml"
+    table2config.pl --encoding=$TABLEENC --columndelim="$COLUMN_DELIMITER" --headerrows=$HEADER_ROWS --dir="$DIR" --name='CI_INSTITUTION' --key=0 --comment=1 > "$CONFIG/branchcodes.yaml"
 fi
 if [ ! -f "$CONFIG/loc.yaml" ]; then
     echo "Missing $CONFIG/loc.yaml"
     MISSING_FILE=1
-    table2config.pl --columndelim="$COLUMN_DELIMITER" --headerrows=$HEADER_ROWS  --dir="$DIR" --name='LocalShelfs' --key=1 --comment=2 > "$CONFIG/loc.yaml"
+    table2config.pl --encoding=$TABLEENC --columndelim="$COLUMN_DELIMITER" --headerrows=$HEADER_ROWS  --dir="$DIR" --name='CA_LOC' --key=0 --comment=1 --value=1 > "$CONFIG/loc.yaml"
 fi
 if [ ! -f "$CONFIG/ccode.yaml" ]; then
     echo "Missing $CONFIG/ccode.yaml"
     MISSING_FILE=1
-    table2config.pl --columndelim="$COLUMN_DELIMITER" --headerrows=$HEADER_ROWS  --dir="$DIR/" --name='Departments' --key=0 --comment=2 > "$CONFIG/ccode.yaml"
+    table2config.pl --encoding=$TABLEENC --columndelim="$COLUMN_DELIMITER" --headerrows=$HEADER_ROWS  --dir="$DIR" --name='GE_PREMISES' --key=0 --comment=5 > "$CONFIG/ccode.yaml"
 fi
 if [ ! -f "$CONFIG/patroncategories.yaml" ]; then
     echo "Missing $CONFIG/patroncategories.yaml"
     MISSING_FILE=1
-    table2config.pl --columndelim="$COLUMN_DELIMITER" --headerrows=$HEADER_ROWS  --dir="$DIR" --name='BorrowerCategories' --key=0 --comment=2 > "$CONFIG/patroncategories.yaml"
+    table2config.pl --encoding=$TABLEENC --columndelim="$COLUMN_DELIMITER" --headerrows=$HEADER_ROWS  --dir="$DIR" --name='CI_BORR_CAT' --key=0 --comment=3 > "$CONFIG/patroncategories.yaml"
 fi
 if [ $MISSING_FILE -eq 1 ]; then
     exit
@@ -156,7 +152,7 @@ tabledir="$utf8dir"
 #tabledir="$DIR"
 
 ## Clean up the database
-echo <<'EOF' | $MYSQL;
+cat <<'EOF' | $MYSQL;
 SET FOREIGN_KEY_CHECKS = 0;
 SET GROUP_CONCAT_MAX_LEN=32768;
 SET @tables = NULL;
@@ -172,35 +168,8 @@ DEALLOCATE PREPARE stmt;
 SET FOREIGN_KEY_CHECKS = 1;
 EOF
 
-echo "DROP TABLE IF EXISTS exportCatMatch;" | $MYSQL
-echo "DROP TABLE IF EXISTS Items         ;" | $MYSQL
-echo "DROP TABLE IF EXISTS BarCodes      ;" | $MYSQL
-echo "DROP TABLE IF EXISTS StatusCodes   ;" | $MYSQL
-echo "DROP TABLE IF EXISTS Borrowers           ;" | $MYSQL
-echo "DROP TABLE IF EXISTS BorrowerAddresses     ;" | $MYSQL
-echo "DROP TABLE IF EXISTS BorrowerPhoneNumbers;" | $MYSQL
-echo "DROP TABLE IF EXISTS BorrowerRegId;" | $MYSQL
-echo "DROP TABLE IF EXISTS ILL;" | $MYSQL
-echo "DROP TABLE IF EXISTS ILL_Libraries;" | $MYSQL
-echo "DROP TABLE IF EXISTS BorrowerDebts;" | $MYSQL
-echo "DROP TABLE IF EXISTS BorrowerDebtsRows;" | $MYSQL
-echo "DROP TABLE IF EXISTS FeeTypes;" | $MYSQL
-echo "DROP TABLE IF EXISTS BorrowerBlocked;" | $MYSQL
-
-
 ## Create tables and load the datafiles
 echo -n "Going to create tables for records and items, and load data into MySQL... "
-bib_tables="$(mktemp)"
-create_tables.pl --quote='"' --headerrows=$HEADER_ROWS --encoding=utf8 --ext=$TABLEEXT --spec "$SPECDIR" --columndelimiter="$COLUMN_DELIMITER" --rowdelimiter='\r\n' --dir "$tabledir" --table 'Items' --table 'BarCodes' --table 'StatusCodes' --table 'CA_CATALOG' --table 'LoanPeriods' > "$bib_tables"
-eval $MYSQL_LOAD < "$bib_tables"
-eval $MYSQL_LOAD <<EOF 
-ALTER TABLE Items ADD COLUMN done INT(1) DEFAULT 0;
-CREATE UNIQUE INDEX ca_catalog_title_no_index  ON CA_CATALOG (TITLE_NO);
-CREATE UNIQUE INDEX items_itemid_index ON Items (IdItem);
-CREATE INDEX barcode_iditem_index ON BarCodes (IdItem);
-CREATE INDEX items_catid_index ON Items (IdCat);
-CREATE INDEX CA_CATALOG_ID_index ON CA_CATALOG (CA_CATALOG_ID);
-EOF
 
 ## Get the relevant info out of the database and into a .marcxml file
 echo "Going to transform records... "
@@ -213,21 +182,7 @@ echo "done"
 
 ## Create tables and load the datafiles
 echo -n "Going to create tables for borrowers, and load data into MySQL... "
-create_tables.pl  --quote='"' --headerrows=$HEADER_ROWS --encoding=utf8 --ext=$TABLEEXT  --spec "$SPECDIR" --columndelimiter="$COLUMN_DELIMITER" --rowdelimiter='\r\n' --dir "$tabledir" --table "Borrowers" --table "BorrowerPhoneNumbers" --table "BarCodes" --table "BorrowerAddresses" --table "BorrowerRegId" --table ILL --table ILL_Libraries --table BorrowerDebts --table BorrowerDebtsRows --table FeeTypes  --table "BorrowerBlocked" | eval $MYSQL_LOAD
-echo "DELETE FROM BarCodes WHERE IdBorrower = 0;" | $MYSQL
-eval $MYSQL_LOAD <<EOF 
-CREATE INDEX Borrowers_Id ON Borrowers(IdBorrower);
-CREATE INDEX BorrowerRegId_Id ON BorrowerRegId(IdBorrower);
-CREATE INDEX BorrowerAddress_Id ON BorrowerAddresses(IdBorrower);
-CREATE INDEX BorrowerPhoneNumbers_Id ON BorrowerPhoneNumbers(IdBorrower);
-CREATE INDEX Borrower_BarCode_Id ON BarCodes(IdBorrower);
-CREATE INDEX BorrowerDebts_Id ON BorrowerDebts(IdDebt);
-CREATE INDEX BorrowerDebts_Borrower_Id ON BorrowerDebts(IdBorrower);
-CREATE INDEX BorrowerDebtsRows_Id ON BorrowerDebtsRows(IdDebt);
-CREATE INDEX BorrowerDebtsRows_DebtRow_Id ON BorrowerDebtsRows(IdDebtRow);
-CREATE INDEX FeeTypes_Id On FeeTypes(IdFeeType);
-CREATE INDEX BorrowerBlocked_Id ON BorrowerBlocked(IdBorrower);
-EOF
+. "$SOURCE_FORMAT"/create_item_tables.sh
 
 echo "done"
 

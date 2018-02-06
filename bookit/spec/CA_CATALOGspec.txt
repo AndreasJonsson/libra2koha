@@ -1,0 +1,6 @@
+ca_catalog.ca_catalog_id	int
+ca_catalog.ca_catalog_type_id	int
+ca_catalog.ca_supplier_id	int
+ca_catalog.title_no	varchar	256
+ca_catalog.author_lat1	varchar	1024
+ca_catalog.title_lat1	varchar	1024

@@ -1,0 +1,4 @@
+IL_STATUS_ID	varchar	1024
+LA_KEY_ID	varchar	1024
+SEQUENCE	varchar	1024
+DESCR	varchar	1024

@@ -1,0 +1,4 @@
+PE_FREQ_TYPE_ID	varchar	1024
+LA_KEY_ID	varchar	1024
+DESCR	varchar	1024
+GROUP_NO	varchar	1024

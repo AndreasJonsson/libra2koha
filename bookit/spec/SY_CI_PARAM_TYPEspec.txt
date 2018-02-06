@@ -1,0 +1,2 @@
+SY_CI_PARAM_TYPE_ID	varchar	1024
+DESCR	varchar	1024

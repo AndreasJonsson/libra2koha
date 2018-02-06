@@ -1,0 +1,3 @@
+SY_CI_PARAM_UNIT_ID	varchar	1024
+LA_KEY_ID	varchar	1024
+DESCR	varchar	1024

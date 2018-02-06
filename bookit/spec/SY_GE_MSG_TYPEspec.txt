@@ -1,0 +1,5 @@
+SY_GE_MSG_TYPE_ID	varchar	1024
+SY_GE_MSG_AREA_ID	varchar	1024
+LA_KEY_ID	varchar	1024
+DESCR	varchar	1024
+REPORT	varchar	1024

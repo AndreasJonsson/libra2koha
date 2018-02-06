@@ -710,6 +710,7 @@ sub fix_date {
 
 }
 
+
 sub num_records_ {
     $input_file = shift;
     my $batch = MARC::File::USMARC->in( $input_file );

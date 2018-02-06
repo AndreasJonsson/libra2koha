@@ -1,0 +1,3 @@
+PE_FREQ_TYPE_ID	varchar	1024
+PE_TITLE_ID	varchar	1024
+FREQ_RULE	varchar	1024

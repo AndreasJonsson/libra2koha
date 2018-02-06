@@ -1,0 +1,3 @@
+IL_LIBRARY_ID	varchar	1024
+GE_LIBRARY_ID	varchar	1024
+GE_ORG_ID	varchar	1024

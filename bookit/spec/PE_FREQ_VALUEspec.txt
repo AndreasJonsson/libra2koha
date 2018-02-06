@@ -1,0 +1,4 @@
+PE_FREQ_VALUE_ID	varchar	1024
+PE_FREQ_TYPE_ID	varchar	1024
+LA_KEY_ID	varchar	1024
+VALUE	varchar	1024

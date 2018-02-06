@@ -1,0 +1,5 @@
+SY_GE_MSG_FORM_ID	varchar	1024
+SY_GE_MSG_TYPE_ID	varchar	1024
+SY_GE_FORMAT_ID	varchar	1024
+DESCR	varchar	1024
+REPORT_NAME	varchar	1024

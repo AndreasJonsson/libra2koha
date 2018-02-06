@@ -44,30 +44,32 @@ sub build_table_info {
 	$csvfiles->{$_}->{missingspec} = !defined($specfiles->{$_});
 	if ($csvfiles->{$_}->{missingspec}) {
 	    push @missingspecs, $_;
-	} else {
-	    my $base = $_;
-	    my $fh;
-	    my $csvfile = $opt->dir . "/" . $csvfiles->{$base}->{filename};
-	    open $fh, ("<:encoding(" . $opt->encoding . ")"), $csvfile or die ($csvfile . ": $!");
-	    my $csv = Text::CSV->new({
-		quote_char => $opt->quote,
-		sep_char => $opt->columndelimiter,
-		eol => $opt->rowdelimiter,
-		escape_char => "\\"
-				     });
-	    my $columns = $csv->getline( $fh );
-	    my %columns = ();
-	    my $i = 0;
-	    for my $c (@$columns) {
-		$columns{$c} = {
-		    'position' => $i,
-		};
-		$i++;
-	    }
-	    $csvfiles->{$base}->{columns} = \%columns;
-	    $csvfiles->{$base}->{columnlist} = $columns;
-	    $csvfiles->{$base}->{missingspecs} = [];
-	    close $fh;
+	} 
+	my $base = $_;
+	my $fh;
+	my $csvfile = $opt->dir . "/" . $csvfiles->{$base}->{filename};
+	open $fh, ("<:encoding(" . $opt->encoding . ")"), $csvfile or die ($csvfile . ": $!");
+	my $csv = Text::CSV->new({
+	    quote_char => $opt->quote,
+	    sep_char => $opt->columndelimiter,
+	    eol => $opt->rowdelimiter,
+	    escape_char => "\\"
+				 });
+	my $columns = $csv->getline( $fh );
+	
+	my %columns = ();
+	my $i = 0;
+	for my $c (@$columns) {
+	    $columns{$c} = {
+		'position' => $i,
+	    };
+	    $i++;
+	}
+	$csvfiles->{$base}->{columns} = \%columns;
+	$csvfiles->{$base}->{columnlist} = $columns;
+	$csvfiles->{$base}->{missingspecs} = [];
+	close $fh;
+	if (!$csvfiles->{$_}->{missingspec}) {
 	    my $specfile = $opt->spec . "/" . $specfiles->{$base}->{filename};
 	    open $fh, ("<:encoding(" . $opt->specencoding . ")"), $specfile;
 	    my %columns_spec = ();
