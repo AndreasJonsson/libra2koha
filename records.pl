@@ -32,7 +32,7 @@ binmode STDOUT, ":utf8";
 $|=1; # Flush output
 
 # Get options
-my ( $config_dir, $input_file, $flag_done, $limit, $every, $output_dir, $verbose, $debug, $explicit_record_id ) = get_options();
+my ( $config_dir, $input_file, $flag_done, $limit, $every, $output_dir, $verbose, $debug, $explicit_record_id, $format ) = get_options();
 
 sub add_stat {
     my ($stat, $item, $extra) = @_;
@@ -63,6 +63,8 @@ sub add_catitem_stat {
 }
 
 my $mmc = MarcUtil::MarcMappingCollection::marc_mappings(
+    'isbn'                             => { map => { '020' => 'a' } },
+    'issn'                             => { map => { '022' => 'a' } },
     'catid'                            => { map => { '035' => 'a' } },
     'klassifikationskod'               => { map => { '084' => 'a' } },
     'klassifikationsdel_av_uppställningssignum' => { map => { '852' => 'h' } },
@@ -152,8 +154,9 @@ if ( -f $config_dir . '/ccode.yaml' ) {
     $ccode = LoadFile( $config_dir . '/ccode.yaml' );
 }
 
+my @input_files = glob $input_file;
 # Check that the input file exists
-if ( !-e $input_file ) {
+if (  scalar(@input_files) < 1 ) {
     print "The file $input_file does not exist...\n";
     exit;
 }
@@ -178,19 +181,8 @@ my $has_ca_catalog = +@{$ca_catalog_table} != 0;
 
 unless ($explicit_record_id) {
     if ($has_ca_catalog) {
-	$sth = $dbh->prepare( <<'EOF' );
-	SELECT Items.*, BarCodes.BarCode, StatusCodes.Name AS StatusName, LoanPeriods.Name AS LoanPeriodName
-        FROM Items JOIN CA_CATALOG ON Items.IdCat = CA_CATALOG_ID
-                   LEFT OUTER JOIN StatusCodes USING(IdStatusCode)
-	           LEFT OUTER JOIN LoanPeriods USING(IdLoanInfo)
-                   LEFT OUTER JOIN BarCodes USING (IdItem)
-        WHERE TITLE_NO = ? OR IdCat = ?
-EOF
-#	$sth = $dbh->prepare( <<'EOF' );
-#	SELECT Items.*, BarCodes.BarCode, CA_CATALOG_LINK_TYPE_ID
-#        FROM Items JOIN CA_CATALOG ON CA_CATALOG_ID = Items.IdCat LEFT OUTER JOIN BarCodes USING (IdItem)
-#        WHERE IdCat = ?
-#EOF
+	open ITEMS, "<", "$format/items_ca.sql" or die "Failed to open $format/items_ca.sql: $!";
+	$sth = $dbh->prepare(join "\n", <ITEMS>);
     } else {
 	$sth = $dbh->prepare( <<'EOF' );
     SELECT Items.*, BarCodes.BarCode
@@ -210,9 +202,9 @@ EOF
 }
 
 # Query for setting done = 1 if --flag_done is set
-my $sth_done = $dbh->prepare("
-    UPDATE Items SET done = 1 WHERE IdItem = ?
-");
+#my $sth_done = $dbh->prepare("
+#    UPDATE Items SET done = 1 WHERE IdItem = ?
+#");
 
 # Create a file output object
 my $file = MARC::File::XML->out( $output_file );
@@ -223,34 +215,58 @@ Record level actions
 
 =cut
 
-say "Starting record iteration" if $verbose;
-my $batch = MARC::File::USMARC->in( $input_file );
 my $count = 0;
 my $count_items = 0;
-RECORD: while (my $record = $batch->next()) {
+say "Starting record iteration" if $verbose;
+for my $marc_file (glob $input_file) {
+    my $batch = MARC::File::USMARC->in( $marc_file );
+  RECORD: while (my $record = $batch->next()) {
 
-    # Only do every x record
-    if ( $every && ( $count % $every != 0 ) ) {
-        $count++;
-        next RECORD;
-    }
+      # Only do every x record
+      if ( $every && ( $count % $every != 0 ) ) {
+	  $count++;
+	  next RECORD;
+      }
 
-    $mmc->record($record);
+      $mmc->record($record);
 
-    my $last_itemtype;
+      my $last_itemtype;
 
-    $record->encoding( 'UTF-8' );
-    say '* ' . $record->title() if $verbose;
+      $record->encoding( 'UTF-8' );
+      say '* ' . $record->title() if $verbose;
 
 =head2 Record level changes
+
+=head3 ISBN and ISSN
+
+Bookit format ISBN is in  350 00 c and ISSN in 350 10 c
+
+=cut
+      if ($format eq 'bookit') {
+	  for my $f350 ($record->field('350')) {
+	      if ($f350->indicator(1) == 0) {
+		  my $isbn = $f350->subfield('c');
+		  if (defined($isbn)) {
+		      $mmc->set('isbn', $isbn);
+		      $record->delete_fields( $f350 );
+		  }
+	      } elsif ($f350->indicator(1) == 1) {
+		  my $issn = $f350->subfield('c');
+		  if (defined($issn)) {
+		      $mmc->set('issn', $issn);
+		      $record->delete_fields( $f350 );
+		  }
+	      }
+	  }
+      }
 
 =head3 Move 976b to 653
 
 The records from Libra.se have subjects in 976b, we'll move them to 653
 
 =cut
-    $mmc->set('subjects', $mmc->get('libra_subjects'));
-    $mmc->delete('libra_subjects');
+      $mmc->set('subjects', $mmc->get('libra_subjects'));
+      $mmc->delete('libra_subjects');
 
 =head2 Add item level information in 952
 
@@ -261,51 +277,56 @@ L<http://wiki.koha-community.org/wiki/Holdings_data_fields_%289xx%29>
 
 =cut
 
-    my $items;
-    my $recordid;
+      my $items;
+      my $recordid;
 
-    unless ($explicit_record_id) {
-	my $catid;
-	for my $cid ($mmc->get('catid')) {
-	    if ($cid =~ /^\(LibraSE\)/) {
-		$cid =~ s/\((.*)\)//;
-		$catid = $cid;
-		last;
-	    }
-	}
-        # Get the record ID from 001 and 003
-        my $f001 = $record->field( '001' )->data();
-        my $f003;
-	unless ($record->field( '003' )) {
-	    warn 'Record does not have 003! catid: ' . $catid . ' default to Mari';
-	    $f003 = 'Mari';
-	} else {
-	    $f003 = lc $record->field( '003' )->data();
-	}
-        die "Record does not have 001 and 003!" unless $f001 && $f003;
-        my $recordid = lc "$f003$f001";
-        # Remove any non alphanumerics
-        $recordid =~ s/[^a-zæøåöA-ZÆØÅÖ\d]//g;
-        say "recordid: $f003 + $f001 = $recordid" if $verbose;
-	say "catid: $catid" if $verbose;
-	# add_catitem_stat($catid);
-        # Look up items by recordid in the DB and add them to our record
-        $sth->execute( $recordid, $catid ) or die "Failed to query items for $recordid";
-        $items = $sth->fetchall_arrayref({});
-    } else {
-        my $f = $record->field( $ExplicitRecordNrField::RECORD_NR_FIELD );
+      unless ($explicit_record_id) {
+	  my $catid;
+	  for my $cid ($mmc->get('catid')) {
+	      if ($cid =~ /^\(LibraSE\)/) {
+		  $cid =~ s/\((.*)\)//;
+		  $catid = $cid;
+		  last;
+	      }
+	  }
+	  # Get the record ID from 001 and 003
+	  my $f001 = $record->field( '001' )->data();
+	  my $recordid;
+	  if ($format eq 'libra') {
+	      my $f003;
+	      unless ($record->field( '003' )) {
+		  warn 'Record does not have 003! catid: ' . $catid . ' default to ';
+		  $f003 = '';
+	      } else {
+		  $f003 = lc $record->field( '003' )->data();
+	      }
+	      die "Record does not have 001 and 003!" unless $f001 && $f003;
+	      $recordid = lc "$f003$f001";
+	  } else {
+	      die "Record does not have 001!" unless $f001;
+	      $recordid = $f001;
+	  }
+	  # Remove any non alphanumerics
+	  $recordid =~ s/[^a-zæøåöA-ZÆØÅÖ\d]//g;
+	  say "catid: $catid" if $verbose;
+	  # add_catitem_stat($catid);
+	  # Look up items by recordid in the DB and add them to our record
+	  $sth->execute( $recordid, $catid ) or die "Failed to query items for $recordid";
+	  $items = $sth->fetchall_arrayref({});
+      } else {
+	  my $f = $record->field( $ExplicitRecordNrField::RECORD_NR_FIELD );
 
-        die "Explicit record nr field is missing!" unless defined $f;
+	  die "Explicit record nr field is missing!" unless defined $f;
 
-        $recordid = $f->subfield( $ExplicitRecordNrField::RECORD_NR_SUBFIELD );
+	  $recordid = $f->subfield( $ExplicitRecordNrField::RECORD_NR_SUBFIELD );
 
-        die "Explicit record nr subfield is missing!" unless defined $recordid;
+	  die "Explicit record nr subfield is missing!" unless defined $recordid;
 
-        $sth->execute( $recordid );
+	  $sth->execute( $recordid );
 
-        $items = $sth->fetchall_arrayref({});
+	  $items = $sth->fetchall_arrayref({});
 
-    }
+      }
     ITEM: foreach my $item ( @{ $items } ) {
 
         say Dumper $item if $debug;
@@ -557,14 +578,14 @@ FIXME This should be done with a mapping file!
 
 
         # Mark the item as done, if we are told to do so
-        if ( $flag_done ) {
-            $sth_done->execute( $item->{'IdItem'} );
-        }
+        #if ( $flag_done ) {
+	#   $sth_done->execute( $item->{'IdItem'} );
+        #}
 
 	$mmc->reset();
         $count_items++;
 
-    } # end foreach items
+      } # end foreach items
 
 =head2 Add 942
 
@@ -572,19 +593,21 @@ Just add the itemtype in 942$c.
 
 =cut
 
-    if ( $last_itemtype ) {
-      $mmc->set('last_itemtype', $last_itemtype);
-    }
+      if ( $last_itemtype ) {
+	  $mmc->set('last_itemtype', $last_itemtype);
+      }
 
-    $file->write( $record );
-    say MARC::File::XML::record( $record ) if $debug;
+      $file->write( $record );
+      say MARC::File::XML::record( $record ) if $debug;
 
-    # Count and cut off at the limit if one is given
-    $count++;
-    $progress->update( $count );
-    last if $limit && $limit == $count;
+      # Count and cut off at the limit if one is given
+      $count++;
+      $progress->update( $count );
+      last if $limit && $limit == $count;
 
-} # end foreach record
+    } # end foreach record
+    $batch->close();
+}
 
 $progress->update( $limit );
 
@@ -668,6 +691,7 @@ sub get_options {
     my $limit              = 0;
     my $every              = '';
     my $output_dir         = '';
+    my $format             = 'libra';
     my $verbose            = '';
     my $debug              = '';
     my $help               = '';
@@ -680,6 +704,7 @@ sub get_options {
         'e|every=i'            => \$every,
         'o|outputdir=s'        => \$output_dir,
         'E|explicit-record-id' => \$explicit_record_id,
+	'F|format=s'           => \$format,
         'v|verbose'            => \$verbose,
         'd|debug'              => \$debug,
         'h|?|help'             => \$help
@@ -689,7 +714,7 @@ sub get_options {
     pod2usage( -msg => "\nMissing Argument: -c, --config required\n",  -exitval => 1 ) if !$config_dir;
     pod2usage( -msg => "\nMissing Argument: -i, --infile required\n",  -exitval => 1 ) if !$input_file;
 
-    return ( $config_dir, $input_file, $flag_done, $limit, $every, $output_dir, $verbose, $debug, $explicit_record_id );
+    return ( $config_dir, $input_file, $flag_done, $limit, $every, $output_dir, $verbose, $debug, $explicit_record_id, $format );
 
 }
 
@@ -713,10 +738,13 @@ sub fix_date {
 
 sub num_records_ {
     $input_file = shift;
-    my $batch = MARC::File::USMARC->in( $input_file );
     my $n = 0;
-    while ($batch->next()) {
-        $n++;
+    foreach my $f (glob $input_file) {
+	my $batch = MARC::File::USMARC->in( $f );
+	while ($batch->next()) {
+	    $n++;
+	}
+	$batch->close();
     }
     return $n;
 }

@@ -15,5 +15,29 @@ LOAD DATA LOCAL INFILE '[% dirs %]/[% tablename %][% ext %]'
     CHARACTER SET [% enc %]
     FIELDS TERMINATED BY '[% sep %]' ENCLOSED BY '"' ESCAPED BY '\\'
     LINES TERMINATED BY '[% rowsep %]'
-    IGNORE [% headerrows %] LINES;
+    IGNORE [% headerrows %] LINES
+(
+[% first_column = 1 -%]
+[% FOREACH col IN columns -%]
+   [% IF first_column -%]
+      [% first_column = 0 -%]
+   [% ELSE %],  [% END -%]
+   [% IF col.defined('tmpname') -%]
+       [% col.tmpname -%]
+   [% ELSE -%]
+       `[% col.name %]`
+   [% END -%]
+[% END -%]
+)
+[% first_column = 1 -%]
+[% FOREACH col IN columns -%]
+   [% IF col.conversion -%]
+     [% IF first_column -%]
+       [% first_column = 0 -%]
+SET 
+     [% ELSE %],  [% END -%]
+`[% col.name %]` = [% col.conversion %]
+   [% END -%]
+[% END -%]
+;
 

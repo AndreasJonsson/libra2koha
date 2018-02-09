@@ -17,7 +17,6 @@ TABLEEXT=.txt
 TABLEENC=iso-8859-1
 INSTANCE="$3"
 EXPORTCAT="$DIR/exportCat.txt"
-MARC="$DIR/CatalogueExport.dat"
 OUTPUTDIR="$DIR/out"
 IDMAP="$OUTPUTDIR/IdMap.txt"
 MYSQL_CREDENTIALS="-u libra2koha -ppass libra2koha"
@@ -26,7 +25,13 @@ MYSQL_LOAD="mysql $MYSQL_CREDENTIALS --local-infile=1 --init-command='SET max_he
 
 SOURCE_FORMAT=bookit
 
-SPECDIR="$dir/${SOURCE_FORMAT}spec"
+if [[ $SOURCE_FORMAT == bookit ]]; then
+    MARC="$DIR/*.iso2709"
+else
+    MARC="$DIR/CatalogueExport.dat"
+fi
+
+SPECDIR="$dir/${SOURCE_FORMAT}/spec"
 
 COLUMN_DELIMITER='|'
 HEADER_ROWS=1
@@ -170,12 +175,13 @@ EOF
 
 ## Create tables and load the datafiles
 echo -n "Going to create tables for records and items, and load data into MySQL... "
+. "$SOURCE_FORMAT"/create_item_tables.sh
 
-## Get the relevant info out of the database and into a .marcxml file
-echo "Going to transform records... "
-if [[ ! -e "$OUTPUTDIR"/records.marc ]]; then
-    records.pl --config $CONFIG --infile $MARC --outputdir "$OUTPUTDIR" --flag_done $RECORDS_PARAMS
-fi
+#if [[ ! -e "$OUTPUTDIR"/records.marc ]]; then
+    ## Get the relevant info out of the database and into a .marcxml file
+    echo "Going to transform records... "
+    records.pl --config $CONFIG --format $SOURCE_FORMAT --infile "$MARC" --outputdir "$OUTPUTDIR" --flag_done $RECORDS_PARAMS
+#fi
 echo "done"
 
 ### BORROWERS ###
@@ -212,7 +218,7 @@ echo "DROP TABLE IF EXISTS Issues              ;" | $MYSQL
 
 # Create tables and load the datafiles
 echo -n "Going to create tables for active issues, and load data into MySQL... "
-create_tables.pl  --quote='"' --headerrows=$HEADER_ROWS --encoding=utf8 --ext=$TABLEEXT --spec "$SPECDIR" --columndelimiter="$COLUMN_DELIMITER" --rowdelimiter='\r\n' --dir "$tabledir" --table "Transactions" --table "BarCodes" --table "Issues"  --table "ILL" --table "ILL_Libraries" --table "Reservations" --table "ReservationBranches" --table "TransactionsSaved" | eval $MYSQL_LOAD
+create_tables.pl --format="$SOURCE_FORMAT" --quote='"' --headerrows=$HEADER_ROWS --encoding=utf8 --ext=$TABLEEXT --spec "$SPECDIR" --columndelimiter="$COLUMN_DELIMITER" --rowdelimiter='\r\n' --dir "$tabledir" --table "Transactions" --table "BarCodes" --table "Issues"  --table "ILL" --table "ILL_Libraries" --table "Reservations" --table "ReservationBranches" --table "TransactionsSaved" | eval $MYSQL_LOAD
 # Now copy the BarCodes table so we can have one for items and one for borrowers
 $MYSQL <<EOF
 CREATE TABLE BorrowerBarCodes LIKE BarCodes;

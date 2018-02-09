@@ -27,9 +27,25 @@ use Pod::Usage;
 use Modern::Perl;
 use BuildTableInfo;
 
+my %DATE_FORMATS = (
+    bookit => '%d-%b-%y',
+    libra  => '%Y%m%d'
+    );
+
+my %DATETIME_FORMATS = (
+    bookit => '%d-%b-%y %T',
+    libra  => '%Y%m%d %T'
+    );
+
+my %TIME_FORMATS = (
+    bookit => '%T',
+    libra  => '%T'
+    );
+
 my ($opt, $usage) = describe_options(
     '%c %o <some-arg>',
     [ 'tables=s@', "tables to create", { required => 1  } ],
+    [ 'format=s', 'Source format', { default => 'libra' } ],
     [ 'spec=s',    'spec directory',   { required => 1 } ],
     [ 'dir=s',     'tables directory', { required => 1 } ],
     [ 'ext=s',     'table filename extension', { default => '.txt' } ],
@@ -71,10 +87,12 @@ foreach my $table (@{$opt->tables}) {
     die "No spec file for $table" unless defined($specfiles->{$table});
     my $specfile = $opt->spec . '/' . $specfiles->{$table}->{filename};
 
+    my $count = 0;
     my @columns = ();
     for my $c (@{$csvfiles->{$table}->{columnlist}}) {
 	my $s = $specfiles->{$table}->{columns}->{$c};
 	my $type = $s->{type};
+	chomp $type;
 	my $size;
 	if (defined($s->{typeextra}) and $s->{typeextra} ne '') {
 	    $size = $s->{typeextra};
@@ -98,10 +116,21 @@ foreach my $table (@{$opt->tables}) {
 		'type' => $type,
 		'size' => $size
 	};
+	if ($type eq 'date') {
+	    $coldecl->{tmpname} = "\@tmp_date_$count";
+	    $coldecl->{conversion} = "STR_TO_DATE($coldecl->{tmpname}, '" . $DATE_FORMATS{$opt->format} . "')";
+	} elsif ($type eq 'datetime') {
+	    $coldecl->{tmpname} = "\@tmp_datetime_$count";
+	    $coldecl->{conversion} = "STR_TO_DATE($coldecl->{tmpname}, '" . $DATETIME_FORMATS{$opt->format} . "')";
+	} elsif ($type eq 'time') {
+	    $coldecl->{tmpname} = "\@tmp_datetime_$count";
+	    $coldecl->{conversion} = "STR_TO_DATE($coldecl->{tmpname}, '" . $TIME_FORMATS{$opt->format} . "')";
+	}
 	if (defined($size)) {
 	    $coldecl->{size} = $size;
 	}
 	push @columns, $coldecl;
+	$count++;
     }
     my $columndelimiter = $opt->columndelimiter;
     $columndelimiter =~ s/	/\\t/g;
