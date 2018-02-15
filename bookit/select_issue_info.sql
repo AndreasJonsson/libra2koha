@@ -1,4 +1,5 @@
 SELECT CI_LOAN.GE_ORG_ID_UNIT AS IdBranchCode
+       LABEL
 FROM CI_LOAN
 
 $issue->{'IdBranchCode'}
