@@ -544,26 +544,26 @@ FIXME This should be done with a mapping file!
         }
 
 	if (defined($item->{'StatusName'})) {
-	    if ( $item->{'StatusName'} eq 'Försvunnen' ) {
+	    if ( $item->{'StatusName'} eq 'Påstås återlämnad' ) {
 		$mmc->set('lost_status', '4');
 	    }
-	    elsif ( $item->{'StatusName'} eq 'Gallras' ) {
-		$mmc->set('lost_status', '4');
-	    }
-	    elsif ( $item->{'StatusName'} eq 'Status med borttag') {
-		$mmc->set('lost_status', '4');
-	    }
-	    elsif ( $item->{'StatusName'} eq 'Status utan borttag') {
-		$mmc->set('lost_status', '4');
-	    }
-	    elsif ( $item->{'StatusName'} eq 'Räkning') {
-		$mmc->set('lost_status', '1');
-	    }
-	    elsif ( $item->{'StatusName'} eq 'Inbindning') {
-		$mmc->set('damaged_status', '1');
+	    elsif ( $item->{'StatusName'} eq 'I väntan på hårdgallring' ) {
+		$mmc->set('lost_status', '2');
 	    }
 	    elsif ( $item->{'StatusName'} eq 'Under arbete') {
-		$mmc->set('damaged_status', '1');
+		$mmc->set('damaged_status', '2');
+	    }
+	    elsif ( $item->{'StatusName'} eq 'Inbindning') {
+		$mmc->set('damaged_status', '2');
+	    }
+	    elsif ( $item->{'StatusName'} eq 'Försvunnen') {
+		$mmc->set('lost_status', '4');
+	    }
+	    elsif ( $item->{'StatusName'} eq 'Betald räkning') {
+		$mmc->set('lost_status', '3');
+	    }
+	    elsif ( $item->{'StatusName'} eq 'På räkning') {
+		$mmc->set('lost_status', '1');
 	    }
 	}
 
