@@ -87,7 +87,7 @@ fi
 if [ ! -f "$CONFIG/branchcodes.yaml" ]; then
     echo "Missing $CONFIG/branchcodes.yaml"
     MISSING_FILE=1
-    table2config.pl --encoding=$TABLEENC --columndelim="$COLUMN_DELIMITER" --headerrows=$HEADER_ROWS --dir="$DIR" --name='CI_INSTITUTION' --key=0 --comment=1 > "$CONFIG/branchcodes.yaml"
+    table2config.pl --encoding=$TABLEENC --columndelim="$COLUMN_DELIMITER" --headerrows=$HEADER_ROWS --dir="$DIR" --name='CI_UNIT' --key=0 --comment=6 > "$CONFIG/branchcodes.yaml"
 fi
 if [ ! -f "$CONFIG/loc.yaml" ]; then
     echo "Missing $CONFIG/loc.yaml"
@@ -177,18 +177,19 @@ EOF
 echo -n "Going to create tables for records and items, and load data into MySQL... "
 . "$SOURCE_FORMAT"/create_item_tables.sh
 
-#if [[ ! -e "$OUTPUTDIR"/records.marc ]]; then
+if [[ ! -e "$OUTPUTDIR"/records.marc ]]; then
     ## Get the relevant info out of the database and into a .marcxml file
     echo "Going to transform records... "
     records.pl --config $CONFIG --format $SOURCE_FORMAT --infile "$MARC" --outputdir "$OUTPUTDIR" --flag_done $RECORDS_PARAMS
-#fi
+fi
 echo "done"
 
 ### BORROWERS ###
 
 ## Create tables and load the datafiles
+$MYSQL < mysql/valid_person_number.sql
 echo -n "Going to create tables for borrowers, and load data into MySQL... "
-. "$SOURCE_FORMAT"/create_item_tables.sh
+. "$SOURCE_FORMAT"/create_borrower_tables.sh
 
 echo "done"
 
@@ -198,7 +199,7 @@ BORROWERSSQL="$OUTPUTDIR/borrowers.sql"
 if [ -f $BORROWERSSQL ]; then
    rm $BORROWERSSQL
 fi
-perl borrowers.pl --config $CONFIG >> $BORROWERSSQL
+perl borrowers.pl --format "$SOURCE_FORMAT" --config "$CONFIG" >> $BORROWERSSQL
 echo "done"
 
 ### ACTIVE ISSUES/LOANS ###

@@ -1,5 +1,5 @@
 SELECT CA_COPY_ID AS IdItem,
-       GE_PREMISES_ID AS IdBranchCode,
+       CI_UNIT_ID AS IdBranchCode,
        CA_LOC_ID AS IdLocalShelf,
        NOTE AS Info,
        LATEST_LOAN_DATETIME AS LatestLoanDate,
@@ -8,7 +8,7 @@ SELECT CA_COPY_ID AS IdItem,
        PURCHASE_PRICE AS Price,
        CA_COPY.CREATE_DATETIME AS RegDate,
        CA_NOT_AVAILABLE_CAUSE.DESCR AS StatusName,
-       CI_UNIT_ID AS IdDepartment,
+       GE_PREMISES_ID AS IdDepartment,
        LATEST_CAUGHT_DATETIME AS LastSeen,
        LABEL AS BarCode
 FROM CA_COPY JOIN CA_CATALOG ON `ca_catalog.ca_catalog_id` = CA_CATALOG_ID

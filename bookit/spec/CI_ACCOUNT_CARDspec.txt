@@ -1,4 +1,4 @@
-CI_BORR_CARD_ID	varchar	1024
-CI_BORR_ID	varchar	1024
-GE_ORG_ID	varchar	1024
-VALID_TO_DATE	varchar	1024
+CI_BORR_CARD_ID	varchar	256
+CI_BORR_ID	int
+GE_ORG_ID	int
+VALID_TO_DATE	date

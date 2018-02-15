@@ -27,6 +27,7 @@ use Modern::Perl;
 use Itemtypes;
 use ExplicitRecordNrField;
 use MarcUtil::MarcMappingCollection;
+use StatementPreparer;
 
 binmode STDOUT, ":utf8";
 $|=1; # Flush output
@@ -179,10 +180,11 @@ $sth->execute() or die "Failed to execute query";
 my $ca_catalog_table = $sth->fetchall_arrayref();
 my $has_ca_catalog = +@{$ca_catalog_table} != 0;
 
+my $preparer = new StatmentPreparer(format => $format, dbh => $dbh);
+
 unless ($explicit_record_id) {
     if ($has_ca_catalog) {
-	open ITEMS, "<", "$format/items_ca.sql" or die "Failed to open $format/items_ca.sql: $!";
-	$sth = $dbh->prepare(join "\n", <ITEMS>);
+	$sth = $preparer->prepare('items_ca');
     } else {
 	$sth = $dbh->prepare( <<'EOF' );
     SELECT Items.*, BarCodes.BarCode

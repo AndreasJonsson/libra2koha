@@ -23,6 +23,7 @@ use Pod::Usage;
 use Modern::Perl;
 use Data::Dumper;
 use Email::Valid;
+use StatementPreparer;
 
 $|=1; # Flush output
 
@@ -43,7 +44,7 @@ our $time_parser = DateTime::Format::Builder->new()->parser( regex => qr/^(\d{4}
 
 
 # Get options
-my ( $config_dir, $limit, $every, $verbose, $debug ) = get_options();
+my ( $config_dir, $limit, $every, $format, $verbose, $debug ) = get_options();
 
 
 =head1 CONFIG FILES
@@ -94,9 +95,10 @@ if ( -f $config_dir . '/patroncategories.yaml' ) {
 
 # Set up the database connection
 my $dbh = DBI->connect( $config->{'db_dsn'}, $config->{'db_user'}, $config->{'db_pass'}, { RaiseError => 1, AutoCommit => 1 } );
+my $preparer = new StatementPreparer(format => $format, dbh => $dbh);
 
 if (!defined($limit) || $limit == 0) {
-    my $count_sth = $dbh->prepare("SELECT count(*) AS n FROM Borrowers;");
+    my $count_sth = $preparer->prepare('count_borrowers');
     $count_sth->execute() or die "Failed to count borrowers!";
     $limit = $count_sth->fetchrow_arrayref()->[0];
 }
@@ -105,14 +107,13 @@ my $progress = Term::ProgressBar->new( $limit );
 
 
 # Query for selecting all borrowers, with relevant data
-my $sth = $dbh->prepare("
-    SELECT Borrowers.*, BarCodes.BarCode, BorrowerRegId.RegId
-    FROM Borrowers LEFT OUTER JOIN BarCodes USING (IdBorrower) LEFT OUTER JOIN BorrowerRegId USING (IdBorrower)
-			");
+my $sth = $preparer->prepare('select_borrower_info');
 
-my $blocked_sth = $dbh->prepare('SELECT * FROM BorrowerBlocked WHERE IdBorrower = ?');
-my $addresses_sth = $dbh->prepare("SELECT * FROM BorrowerAddresses WHERE IdBorrower = ?");
-my $phone_sth = $dbh->prepare("SELECT * FROM BorrowerPhoneNumbers WHERE IdBorrower = ?");
+my $blocked_sth; # = $dbh->prepare('SELECT * FROM BorrowerBlocked WHERE IdBorrower = ?');
+
+my $addresses_sth = $preparer->prepare('select_borrower_addresses');
+
+my $phone_sth = $preparer->prepare('select_borrower_phone');
 
 =head1 PROCESS BORROWERS
 
@@ -147,14 +148,20 @@ RECORD: while ( my $borrower = $sth->fetchrow_hashref() ) {
         next RECORD;
     }
 
+    my @barcodes = ();
+
     if ( !defined($borrower->{'BarCode'}) || $borrower->{'BarCode'} eq '' ) {
         $borrower->{'cardnumber_str'} = "NULL";
     } else {
-	$borrower->{'cardnumber_str'} = $dbh->quote($borrower->{'BarCode'});
+	@barcodes = split ';', $borrower->{'BarCode'};
+	$borrower->{'cardnumber_str'} = $dbh->quote(shift @barcodes);
     }
 
     set_address( $borrower );
-    set_debarments( $borrower );
+    #set_debarments( $borrower );
+    $borrower->{debarredcomment} = 'NULL';
+    $borrower->{debarred} = 'NULL';
+
 
     my $isKohaMarked = 0;
     my @messages = ();
@@ -205,6 +212,11 @@ RECORD: while ( my $borrower = $sth->fetchrow_hashref() ) {
                                                     'attribute' => $borrower->{RegId}
                        }, \*STDOUT, {binmode => ':utf8'}) || die $tt2->error();
     }
+    while (scalar(@barcodes) > 0) {
+        $tt2->process( 'borrower_attributes.tt', {  'code' => 'EXTRA_CARD',
+                                                    'attribute' => shift @barcodes
+                       }, \*STDOUT, {binmode => ':utf8'}) || die $tt2->error();
+    }
 
     $count++;
     if ( $limit && $limit == $count ) {
@@ -214,27 +226,27 @@ RECORD: while ( my $borrower = $sth->fetchrow_hashref() ) {
 
 } # end foreach record
 
-print <<EOF;
-CREATE TEMPORARY TABLE bm_borrower_message_preferences_existing (borrowernumber INT(11) PRIMARY KEY NOT NULL);
-START TRANSACTION;
-INSERT INTO bm_borrower_message_preferences_existing
-SELECT borrowernumber FROM borrower_message_preferences WHERE message_attribute_id=2 AND borrowernumber IS NOT NULL;
+#print <<EOF;
+#CREATE TEMPORARY TABLE bm_borrower_message_preferences_existing (borrowernumber INT(11) PRIMARY KEY NOT NULL);
+#START TRANSACTION;
+#INSERT INTO bm_borrower_message_preferences_existing
+#SELECT borrowernumber FROM borrower_message_preferences WHERE message_attribute_id=2 AND borrowernumber IS NOT NULL;
 
-INSERT INTO borrower_message_preferences (borrowernumber, categorycode, message_attribute_id, days_in_advance, wants_digest)
-SELECT borrowernumber, NULL, 2, 3, 0 FROM borrowers WHERE (SELECT count(*) = 0 FROM bm_borrower_message_preferences_existing AS e WHERE e.borrowernumber=borrowers.borrowernumber);
-COMMIT;
+#INSERT INTO borrower_message_preferences (borrowernumber, categorycode, message_attribute_id, days_in_advance, wants_digest)
+#SELECT borrowernumber, NULL, 2, 3, 0 FROM borrowers WHERE (SELECT count(*) = 0 FROM bm_borrower_message_preferences_existing AS e WHERE e.borrowernumber=borrowers.borrowernumber);
+#COMMIT;
 
-DELETE FROM bm_borrower_message_preferences_existing;
-START TRANSACTION;
-INSERT INTO bm_borrower_message_preferences_existing
-SELECT borrower_message_preference_id FROM borrower_message_transport_preferences;
+#DELETE FROM bm_borrower_message_preferences_existing;
+#START TRANSACTION;
+#INSERT INTO bm_borrower_message_preferences_existing
+#SELECT borrower_message_preference_id FROM borrower_message_transport_preferences;
 
-INSERT INTO borrower_message_transport_preferences (borrower_message_preference_id, message_transport_type)
-SELECT borrower_message_preference_id, 'email' FROM borrower_message_preferences WHERE (SELECT count(*) = 0 FROM bm_borrower_message_preferences_existing AS e WHERE e.borrowernumber=borrower_message_preferences.borrower_message_preference_id);
+#INSERT INTO borrower_message_transport_preferences (borrower_message_preference_id, message_transport_type)
+#SELECT borrower_message_preference_id, 'email' FROM borrower_message_preferences WHERE (SELECT count(*) = 0 FROM bm_borrower_message_preferences_existing AS e WHERE e.borrowernumber=borrower_message_preferences.borrower_message_preference_id);
 
-COMMIT;
+#COMMIT;
 
-EOF
+#EOF
 
 
 $progress->update( $limit );
@@ -302,11 +314,13 @@ sub get_options {
     my $verbose     = '';
     my $debug       = '';
     my $help        = '';
+    my $format      = 'libra';
  
     GetOptions (
         'c|config=s'  => \$config_dir,
         'l|limit=i'   => \$limit,
         'e|every=i'   => \$every,
+	'F|format=s'  => \$format,
         'v|verbose'   => \$verbose,
         'd|debug'     => \$debug,
         'h|?|help'    => \$help
@@ -315,7 +329,7 @@ sub get_options {
     pod2usage( -exitval => 0 ) if $help;
     pod2usage( -msg => "\nMissing Argument: -c, --config required\n",  -exitval => 1 ) if !$config_dir;
  
-    return ( $config_dir, $limit, $every, $verbose, $debug );
+    return ( $config_dir, $limit, $every, $format, $verbose, $debug );
  
 }
 

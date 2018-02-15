@@ -67,7 +67,7 @@ VALUES (
     NULL, -- altcontactcountry
     NULL, -- altcontactphone
     NULL, -- smsalertnumber
-    '' -- privacy
+    ''    -- privacy
 );
 SELECT LAST_INSERT_ID() INTO @BORROWERNUMBER;
 [% FOREACH message IN messages -%]

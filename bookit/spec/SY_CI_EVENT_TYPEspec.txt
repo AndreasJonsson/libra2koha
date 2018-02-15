@@ -1,2 +1,2 @@
-SY_CI_EVENT_TYPE_ID	varchar	1024
-DESCR	varchar	1024
+SY_CI_EVENT_TYPE_ID	varchar	32
+DESCR	varchar	256
