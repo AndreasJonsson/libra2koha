@@ -22,6 +22,7 @@ IDMAP="$OUTPUTDIR/IdMap.txt"
 MYSQL_CREDENTIALS="-u libra2koha -ppass libra2koha"
 MYSQL="mysql $MYSQL_CREDENTIALS"
 MYSQL_LOAD="mysql $MYSQL_CREDENTIALS --local-infile=1 --init-command='SET max_heap_table_size=4294967295;'"
+FULL=yes
 
 SOURCE_FORMAT=bookit
 
@@ -87,7 +88,7 @@ fi
 if [ ! -f "$CONFIG/branchcodes.yaml" ]; then
     echo "Missing $CONFIG/branchcodes.yaml"
     MISSING_FILE=1
-    table2config.pl --encoding=$TABLEENC --columndelim="$COLUMN_DELIMITER" --headerrows=$HEADER_ROWS --dir="$DIR" --name='CI_UNIT' --key=0 --comment=6 > "$CONFIG/branchcodes.yaml"
+    table2config.pl --encoding=$TABLEENC --columndelim="$COLUMN_DELIMITER" --headerrows=$HEADER_ROWS --dir="$DIR" --name='GE_ORG' --key=0 --comment=13 > "$CONFIG/branchcodes.yaml"
 fi
 if [ ! -f "$CONFIG/loc.yaml" ]; then
     echo "Missing $CONFIG/loc.yaml"
@@ -177,7 +178,7 @@ EOF
 echo -n "Going to create tables for records and items, and load data into MySQL... "
 . "$SOURCE_FORMAT"/create_item_tables.sh
 
-if [[ ! -e "$OUTPUTDIR"/records.marc ]]; then
+if [[ "$FULL" == "yes" || ! -e "$OUTPUTDIR"/records.marc ]]; then
     ## Get the relevant info out of the database and into a .marcxml file
     echo "Going to transform records... "
     records.pl --config $CONFIG --format $SOURCE_FORMAT --infile "$MARC" --outputdir "$OUTPUTDIR" --flag_done $RECORDS_PARAMS
@@ -194,54 +195,19 @@ echo -n "Going to create tables for borrowers, and load data into MySQL... "
 echo "done"
 
 ## Get the relevant info out of the database and into a .sql file
-echo "Going to transform borrowers... "
 BORROWERSSQL="$OUTPUTDIR/borrowers.sql"
-if [ -f $BORROWERSSQL ]; then
-   rm $BORROWERSSQL
+if [[ "$FULL" == "YES" || ! -e $BORROWERSSQL ]]; then
+  echo "Going to transform borrowers... "
+  perl borrowers.pl --format "$SOURCE_FORMAT" --config "$CONFIG" > $BORROWERSSQL
+  echo "done"
 fi
-perl borrowers.pl --format "$SOURCE_FORMAT" --config "$CONFIG" >> $BORROWERSSQL
-echo "done"
 
 ### ACTIVE ISSUES/LOANS ###
-
-# Clean up the database
-echo "DROP TABLE IF EXISTS Transactions        ;" | $MYSQL
-echo "DROP TABLE IF EXISTS TransactionsSaved   ;" | $MYSQL
-echo "DROP TABLE IF EXISTS BarCodes            ;" | $MYSQL
-echo "DROP TABLE IF EXISTS BorrowerBarCodes    ;" | $MYSQL
-echo "DROP TABLE IF EXISTS ItemBarCodes        ;" | $MYSQL
-echo "DROP TABLE IF EXISTS Reservations;"         | $MYSQL
-echo "DROP TABLE IF EXISTS ReservationBranches;"  | $MYSQL
-# Don't confuse Isses"${TABLEEXT}", which corresponds to issues of a serial, with issues,
-# as in outstanding loans (in issues.sql).
-echo "DROP TABLE IF EXISTS Issues              ;" | $MYSQL
 
 
 # Create tables and load the datafiles
 echo -n "Going to create tables for active issues, and load data into MySQL... "
-create_tables.pl --format="$SOURCE_FORMAT" --quote='"' --headerrows=$HEADER_ROWS --encoding=utf8 --ext=$TABLEEXT --spec "$SPECDIR" --columndelimiter="$COLUMN_DELIMITER" --rowdelimiter='\r\n' --dir "$tabledir" --table "Transactions" --table "BarCodes" --table "Issues"  --table "ILL" --table "ILL_Libraries" --table "Reservations" --table "ReservationBranches" --table "TransactionsSaved" | eval $MYSQL_LOAD
-# Now copy the BarCodes table so we can have one for items and one for borrowers
-$MYSQL <<EOF
-CREATE TABLE BorrowerBarCodes LIKE BarCodes;
-INSERT BorrowerBarCodes SELECT * FROM BarCodes;
-RENAME TABLE BarCodes TO ItemBarCodes;
-ALTER TABLE BorrowerBarCodes DROP COLUMN IdItem;
-DELETE FROM BorrowerBarCodes WHERE IdBorrower IS NULL;
-ALTER TABLE ItemBarCodes DROP COLUMN IdBorrower;
-DELETE FROM ItemBarCodes WHERE IdItem IS NULL;
-ALTER TABLE BorrowerBarCodes ADD PRIMARY KEY (IdBorrower);
-ALTER TABLE ItemBarCodes ADD PRIMARY KEY (IdItem);
-CREATE INDEX transaction_idborrower_index ON Transactions (IdBorrower);
-CREATE INDEX transaction_iditem_index ON Transactions (IdItem);
-CREATE INDEX transaction_idtransaction_index ON Transactions (IdTransaction);
-CREATE INDEX ILL_ActiveLibrary ON ILL(ActiveLibrary);
-CREATE INDEX ILL_Library_Id ON ILL_Libraries(IdLibrary);
-CREATE INDEX Issues_Cat_Id ON Issues(IdCat);
-CREATE INDEX Item_Issue_Id ON Items(IdIssue);
-CREATE INDEX BorrowerDebtsRows_RegDate ON BorrowerDebtsRows(RegDate);
-CREATE INDEX BorrowerDebtsRows_RegTime ON BorrowerDebtsRows(RegTime);
-
-EOF
+. "$SOURCE_FORMAT"/create_issue_tables.sh
 echo "done"
 
 # Get the relevant info out of the database and into a .sql file
@@ -250,7 +216,7 @@ ISSUESSQL="$OUTPUTDIR/issues.sql"
 if [ -f $ISSUESSQL ]; then
    rm $ISSUESSQL
 fi
-issues.pl --config $CONFIG >> $ISSUESSQL
+issues.pl --format "$SOURCE_FORMAT" --config $CONFIG >> $ISSUESSQL
 echo "done writing to $ISSUESSQL"
 
 echo "Serials"
@@ -262,6 +228,7 @@ old_issues.pl --configdir "$CONFIG" --branchcode "$BRANCHCODE" > "$OUTPUTDIR"/ol
 echo "Account lines"
 accountlines.pl --configdir "$CONFIG" > "$OUTPUTDIR"/accountlines.sql
 
+exit 0
 if [[ $LIBRA2KOHA_NOCONFIRM != '1' ]]; then
     confirm="no"
     read -e -i no -p "Are you prepared to import to $INSTANCE? (This will delete existing records.)" confirm
@@ -279,15 +246,4 @@ echo "TODO: The -idmap parameter to the bulkmarcimport.pl script doesn't work as
 echo "      (This is only needed to generate serials.sql, though)." 2>&1
 exit 0
 sudo koha-shell -c "/usr/share/koha/bin/migration_tools/bulkmarcimport.pl -b -file '$OUTPUTDIR'/records.marc -v -commit 100 -m MARCXML -d -fk -idmap '$IDMAP'" "$INSTANCE"
-
-eval $MYSQL_LOAD <<EOF
-DROP TABLE IF EXISTS IdMap;
-CREATE TABLE IdMap (
-  original BIGINT UNIQUE NOT NULL,
-  biblioitem BIGINT UNIQUE NOT NULL,
-  PRIMARY KEY(original),
-  KEY(biblioitem)
-) ENGINE=MEMORY;
-LOAD DATA LOCAL INFILE '$IDMAP' INTO TABLE IdMap CHARACTER SET utf8 FIELDS TERMINATED BY '|' LINES TERMINATED BY '\\n';
-EOF
 

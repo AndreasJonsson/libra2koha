@@ -1,4 +1,4 @@
-SELECT CI_BORR.CI_UNIT_ID AS IdBranchCode,
+SELECT CI_ACCOUNT.GE_ORG_ID AS IdBranchCode,
        barcodes.barcodes AS BarCode,
        MESSAGE AS Message,
        CI_BORR.NOTE AS Comment,

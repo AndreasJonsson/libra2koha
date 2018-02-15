@@ -21,12 +21,14 @@ use DateTime;
 use Pod::Usage;
 use Modern::Perl;
 use Data::Dumper;
+use StatementPreparer;
+
 
 binmode STDOUT, ":utf8";
 $|=1; # Flush output
 
 # Get options
-my ( $config_dir, $limit, $every, $verbose, $debug ) = get_options();
+my ( $config_dir, $limit, $every, $format, $verbose, $debug ) = get_options();
 
 $limit = 130889 if $limit == 0; # FIXME Get this from the database
 my $progress = Term::ProgressBar->new( $limit );
@@ -80,11 +82,10 @@ if ( -f $config_dir . '/patroncategories.yaml' ) {
 # Set up the database connection
 my $dbh = DBI->connect( $config->{'db_dsn'}, $config->{'db_user'}, $config->{'db_pass'}, { RaiseError => 1, AutoCommit => 1 } );
 
+my $preparer = new StatementPreparer(format => $format, dbh => $dbh);
+
 # Query for selecting all issues, with relevant data
-my $sth = $dbh->prepare("
-    SELECT t.*, bbc.BarCode AS BorrowerBarcode, ibc.BarCode as ItemBarcode, b.FirstName, b.LastName, b.IdBranchCode as BorrowerIdBranchCode, b.RegDate as dateenrolled
-    FROM Transactions as t JOIN Borrowers AS b USING (IdBorrower) LEFT OUTER JOIN BorrowerBarCodes as bbc USING (IdBorrower) LEFT OUTER JOIN ItemBarCodes as ibc USING (IdItem)
-");
+my $sth = $preparer->prepare('select_issue_info');
 
 =head1 PROCESS ISSUES
 
@@ -182,11 +183,13 @@ sub get_options {
     my $verbose     = '';
     my $debug       = '';
     my $help        = '';
+    my $format      = 'libra';
 
     GetOptions (
         'c|config=s'  => \$config_dir,
         'l|limit=i'   => \$limit,
         'e|every=i'   => \$every,
+	'F|format=s'  => \$format,
         'v|verbose'   => \$verbose,
         'd|debug'     => \$debug,
         'h|?|help'    => \$help
@@ -195,7 +198,7 @@ sub get_options {
     pod2usage( -exitval => 0 ) if $help;
     pod2usage( -msg => "\nMissing Argument: -c, --config required\n",  -exitval => 1 ) if !$config_dir;
 
-    return ( $config_dir, $limit, $every, $verbose, $debug );
+    return ( $config_dir, $limit, $every, $format, $verbose, $debug );
 
 }
 

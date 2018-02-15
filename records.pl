@@ -180,7 +180,7 @@ $sth->execute() or die "Failed to execute query";
 my $ca_catalog_table = $sth->fetchall_arrayref();
 my $has_ca_catalog = +@{$ca_catalog_table} != 0;
 
-my $preparer = new StatmentPreparer(format => $format, dbh => $dbh);
+my $preparer = new StatementPreparer(format => $format, dbh => $dbh);
 
 unless ($explicit_record_id) {
     if ($has_ca_catalog) {
@@ -239,7 +239,7 @@ for my $marc_file (glob $input_file) {
 
 =head2 Record level changes
 
-=head3 ISBN and ISSN
+=head3 ISBN and ISSN and 081 a
 
 Bookit format ISBN is in  350 00 c and ISSN in 350 10 c
 
@@ -258,6 +258,13 @@ Bookit format ISBN is in  350 00 c and ISSN in 350 10 c
 		      $mmc->set('issn', $issn);
 		      $record->delete_fields( $f350 );
 		  }
+	      }
+	  }
+	  for my $f081 ($record->field('081')) {
+	      my $signum = $f081->subfield('h');
+	      if (defined($signum)) {
+		  $mmc->set('klassifikationsdel_av_uppställningssignum', $signum);
+		  $record->delete_fields( $f081 );
 	      }
 	  }
       }
