@@ -11,12 +11,9 @@ SELECT CA_COPY.CA_COPY_ID AS IdItem,
        GE_PREMISES_ID AS IdDepartment,
        LATEST_CAUGHT_DATETIME AS LastSeen,
        LABEL AS BarCode,
-       labels.rn
+       labels.row_number
 FROM CA_COPY JOIN CA_CATALOG ON `ca_catalog.ca_catalog_id` = CA_CATALOG_ID
   LEFT OUTER JOIN CA_NOT_AVAILABLE_CAUSE USING (CA_NOT_AVAILABLE_CAUSE_ID)
-  LEFT OUTER JOIN
-    (SELECT @rn := CASE WHEN @prev IS NULL OR @prev != CA_COPY_ID THEN 1 ELSE @rn + 1 END AS rn,
-            @prev := CA_COPY_ID AS CA_COPY_ID, CA_COPY_LABEL_ID, LABEL FROM CA_COPY_LABEL
-       ORDER BY LABEL_TYPE ASC, CA_COPY_LABEL_ID DESC) AS labels
-    ON labels.CA_COPY_ID = CA_COPY.CA_COPY_ID AND labels.rn = 1
-WHERE GE_ORG_ID_UNIT != 10000 AND (`ca_catalog.title_no` = ? OR CA_CATALOG_ID = ?)
+  LEFT OUTER JOIN labels
+    ON labels.CA_COPY_ID = CA_COPY.CA_COPY_ID AND labels.row_number = 1
+WHERE GE_ORG_ID_UNIT != 10000 AND (`ca_catalog.title_no` = ? OR CA_CATALOG_ID = ?);

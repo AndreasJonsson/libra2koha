@@ -1,14 +1,7 @@
 SELECT CI_LOAN.GE_ORG_ID_UNIT AS IdBranchCode
-       LABEL
-FROM CI_LOAN
-
-$issue->{'IdBranchCode'}
-$issue->{'BorrowerIdBranchCode'}
-$issue->{'RegDate'}
-$issue->{'EstReturnDate'}
-$issue->{'LastName'}
-$issue->{'FirstName'}
-$issue->{'dateenrolled'}
-ItemBarcode
-BorrowerBarcode
-NoOfRenewals
+       LABEL AS ItemBarcode,
+       CI_BORR_CARD_ID AS BorrowerBarcode,
+       LOAN_DATETIME AS RegDate,
+       RETURN_DATETIME AS EstReturnDate
+FROM CI_LOAN LEFT OUTER JOIN CA_COPY USING(CA_COPY_ID)
+  LEFT OUTER JOIN labels  ON labels.CA_COPY_ID = CA_COPY.CA_COPY_ID AND labels.row_number = 1;

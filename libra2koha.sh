@@ -219,8 +219,8 @@ fi
 issues.pl --format "$SOURCE_FORMAT" --config $CONFIG >> $ISSUESSQL
 echo "done writing to $ISSUESSQL"
 
-echo "Serials"
-serials.pl --branchcode "$BRANCHCODE" --outputdir "$OUTPUTDIR" --config "$CONFIG"
+#echo "Serials"
+#serials.pl --branchcode "$BRANCHCODE" --outputdir "$OUTPUTDIR" --config "$CONFIG"
 echo "Reservations"
 reservations.pl --configdir "$CONFIG" > "$OUTPUTDIR"/reservations.sql
 echo "Old issues"
