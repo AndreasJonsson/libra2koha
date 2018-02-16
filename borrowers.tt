@@ -72,7 +72,7 @@ VALUES (
 SELECT LAST_INSERT_ID() INTO @BORROWERNUMBER;
 [% FOREACH message IN messages -%]
 INSERT INTO messages (borrowernumber,     branchcode,         message_type, message,       message_date,       manager_id)
-VALUES               (@BORROWERNUMBER, [% branchcode %], 'L',          [% message %], CURDATE(), 1);
+VALUES               (@BORROWERNUMBER, [% branchcode %], 'L',  [% message.text %], [% IF message.date %] [% message.date %] [% ELSE %] CURDATE() [% END %], 1);
 [% END -%]
 [% FOREACH d IN debarments -%]
 INSERT INTO borrower_debarments (borrowernumber,  expiration, type, comment, created, updated)

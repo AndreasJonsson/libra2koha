@@ -22,7 +22,8 @@ IDMAP="$OUTPUTDIR/IdMap.txt"
 MYSQL_CREDENTIALS="-u libra2koha -ppass libra2koha"
 MYSQL="mysql $MYSQL_CREDENTIALS"
 MYSQL_LOAD="mysql $MYSQL_CREDENTIALS --local-infile=1 --init-command='SET max_heap_table_size=4294967295;'"
-FULL=yes
+FULL=no
+QUICK=yes
 
 SOURCE_FORMAT=bookit
 
@@ -158,6 +159,7 @@ tabledir="$utf8dir"
 #tabledir="$DIR"
 
 ## Clean up the database
+if [[ "$QUICK"z != "yesz" ]]; then
 cat <<'EOF' | $MYSQL;
 SET FOREIGN_KEY_CHECKS = 0;
 SET GROUP_CONCAT_MAX_LEN=32768;
@@ -173,10 +175,13 @@ EXECUTE stmt;
 DEALLOCATE PREPARE stmt;
 SET FOREIGN_KEY_CHECKS = 1;
 EOF
+fi
 
 ## Create tables and load the datafiles
+if [[ "$QUICK"z != "yesz" ]]; then
 echo -n "Going to create tables for records and items, and load data into MySQL... "
 . "$SOURCE_FORMAT"/create_item_tables.sh
+fi
 
 if [[ "$FULL" == "yes" || ! -e "$OUTPUTDIR"/records.marc ]]; then
     ## Get the relevant info out of the database and into a .marcxml file
@@ -186,13 +191,13 @@ fi
 echo "done"
 
 ### BORROWERS ###
-
+if [[ "$QUICK"z != "yesz" ]]; then
 ## Create tables and load the datafiles
 $MYSQL < mysql/valid_person_number.sql
 echo -n "Going to create tables for borrowers, and load data into MySQL... "
 . "$SOURCE_FORMAT"/create_borrower_tables.sh
-
 echo "done"
+fi
 
 ## Get the relevant info out of the database and into a .sql file
 BORROWERSSQL="$OUTPUTDIR/borrowers.sql"
@@ -205,28 +210,29 @@ fi
 ### ACTIVE ISSUES/LOANS ###
 
 
+if [[ "$QUICK"z != "yesz" ]]; then
 # Create tables and load the datafiles
 echo -n "Going to create tables for active issues, and load data into MySQL... "
 . "$SOURCE_FORMAT"/create_issue_tables.sh
 echo "done"
+fi
 
 # Get the relevant info out of the database and into a .sql file
-echo "Going to transform issues... "
 ISSUESSQL="$OUTPUTDIR/issues.sql"
-if [ -f $ISSUESSQL ]; then
-   rm $ISSUESSQL
+if [[ "$FULL" == "YES" || ! -e $ISSUESSQL ]]; then
+  echo "Going to transform issues... "
+  issues.pl --format "$SOURCE_FORMAT" --config $CONFIG >> $ISSUESSQL
+  echo "done writing to $ISSUESSQL"
 fi
-issues.pl --format "$SOURCE_FORMAT" --config $CONFIG >> $ISSUESSQL
-echo "done writing to $ISSUESSQL"
 
 #echo "Serials"
 #serials.pl --branchcode "$BRANCHCODE" --outputdir "$OUTPUTDIR" --config "$CONFIG"
 echo "Reservations"
-reservations.pl --configdir "$CONFIG" > "$OUTPUTDIR"/reservations.sql
+reservations.pl --format "$SOURCE_FORMAT" --configdir "$CONFIG" > "$OUTPUTDIR"/reservations.sql
 echo "Old issues"
-old_issues.pl --configdir "$CONFIG" --branchcode "$BRANCHCODE" > "$OUTPUTDIR"/old_issues.sql
+old_issues.pl  --format "$SOURCE_FORMAT" --configdir "$CONFIG" --branchcode "$BRANCHCODE" > "$OUTPUTDIR"/old_issues.sql
 echo "Account lines"
-accountlines.pl --configdir "$CONFIG" > "$OUTPUTDIR"/accountlines.sql
+accountlines.pl  --format "$SOURCE_FORMAT" --configdir "$CONFIG" > "$OUTPUTDIR"/accountlines.sql
 
 exit 0
 if [[ $LIBRA2KOHA_NOCONFIRM != '1' ]]; then

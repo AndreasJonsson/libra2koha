@@ -2,7 +2,7 @@ package StatementPreparer;
 
 $VERSION     = 1.00;
 @ISA         = qw(Exporter);
-@EXPORT      = qw(get_pos);
+@EXPORT      = qw();
 @EXPORT_OK   = qw();
 
 use Modern::Perl;

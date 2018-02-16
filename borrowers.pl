@@ -8,7 +8,7 @@ borrowers.pl - Extract information about borrowers and format for import into Ko
 
 =head1 SYNOPSIS
 
- records.pl -v --config /home/my/library/
+ records.pl -v --g /home/my/library/
 
 =cut
 
@@ -17,30 +17,21 @@ use Getopt::Long;
 use YAML::Syck qw( LoadFile );
 use Term::ProgressBar;
 use Template;
-use DateTime;
-use DateTime::Format::Builder;
 use Pod::Usage;
 use Modern::Perl;
 use Data::Dumper;
 use Email::Valid;
 use StatementPreparer;
+use TimeUtils qw(ds ts init_time_utils);
+use utf8;
+
+sub fix_charcode {
+    my $s = shift;
+    utf8::decode($s);
+    return $s;
+}
 
 $|=1; # Flush output
-
-
-our $date_parser = DateTime::Format::Builder->new()->parser( regex => qr/^(\d{4})(\d\d)(\d\d)$/,
-                                                            params => [qw(year month day)] );
-
-our $time_parser = DateTime::Format::Builder->new()->parser( regex => qr/^(\d{4})(\d\d)(\d\d) (\d+):(\d+)(?::(\d+))?$/,
-							     params => [qw(year month day hour minute second)],
-							     postprocess => sub {
-								 my ($date, $p) = @_;
-								 unless (defined $p->{second}) {
-								     $p->{second} = 0;
-								 }
-								 return 1;
-							     }
-    );
 
 
 # Get options
@@ -96,6 +87,7 @@ if ( -f $config_dir . '/patroncategories.yaml' ) {
 # Set up the database connection
 my $dbh = DBI->connect( $config->{'db_dsn'}, $config->{'db_user'}, $config->{'db_pass'}, { RaiseError => 1, AutoCommit => 1 } );
 my $preparer = new StatementPreparer(format => $format, dbh => $dbh);
+init_time_utils(sub { return $dbh->quote(shift); });
 
 if (!defined($limit) || $limit == 0) {
     my $count_sth = $preparer->prepare('count_borrowers');
@@ -114,6 +106,11 @@ my $blocked_sth; # = $dbh->prepare('SELECT * FROM BorrowerBlocked WHERE IdBorrow
 my $addresses_sth = $preparer->prepare('select_borrower_addresses');
 
 my $phone_sth = $preparer->prepare('select_borrower_phone');
+
+my $message_sth;
+if ($format eq 'bookit') {
+    $message_sth = $dbh->prepare('SELECT MODIFY_DATETIME AS date, MESSAGE AS message FROM CI_BORR_MESSAGE WHERE CI_BORR_ID = ?');
+}
 
 =head1 PROCESS BORROWERS
 
@@ -162,18 +159,26 @@ RECORD: while ( my $borrower = $sth->fetchrow_hashref() ) {
     $borrower->{debarredcomment} = 'NULL';
     $borrower->{debarred} = 'NULL';
 
-
     my $isKohaMarked = 0;
     my @messages = ();
     if ($borrower->{'Message'}) {
 	$isKohaMarked = $borrower->{'Message'} =~ /\bkoha\b/i;
-	push @messages, $dbh->quote($borrower->{'Message'});
+	push @messages, { text => $dbh->quote($borrower->{'Message'})};
     }
     if ($borrower->{'Comment'}) {
 	$isKohaMarked = $isKohaMarked or $borrower->{'Comment'} =~ /\bkoha\b/i;
-	push @messages, $dbh->quote($borrower->{'Comment'});
+	push @messages, { text => $dbh->quote($borrower->{'Comment'}) };
     }
+
+    if ($format eq 'bookit') {
+	$message_sth->execute($borrower->{'IdBorrower'});
+	while (my $row = $message_sth->fetchrow_hashref()) {
+	    push @messages, { text => $dbh->quote(fix_charcode($row->{message})), date => ds($row->{date}) };
+	}
+    }
+
     $borrower->{'messages'} = \@messages;
+
 
     # Do transformations
     # Add a branchcode
@@ -181,8 +186,8 @@ RECORD: while ( my $borrower = $sth->fetchrow_hashref() ) {
     next RECORD if (!defined($borrower->{'branchcode'}) or $borrower->{'branchcode'} eq '');
     _quoten(\$borrower->{'branchcode'});
     # Fix the format of dates
-    $borrower->{'dateofbirth'} = _fix_date( $borrower->{'BirthDate'} );
-    $borrower->{'dateenrolled'} = _fix_date( $borrower->{'RegDate'} );
+    $borrower->{'dateofbirth'} = ds($borrower->{'BirthDate'});
+    $borrower->{'dateenrolled'} = ds($borrower->{'RegDate'});
     if ($isKohaMarked) {
 	$borrower->{'dateexpiry'}   = '"' . DateTime->now->add( 'years' => 1000 )->strftime( '%F' ) . '"';
     } else {
@@ -251,27 +256,6 @@ RECORD: while ( my $borrower = $sth->fetchrow_hashref() ) {
 
 $progress->update( $limit );
 
-# say "$count borrowers done";
-# say "Did you remember to load data into memory?" if $count == 0;
-
-=head1 SUBROUTINES
-
-Internal subroutines.
-
-=cut
-
-sub _fix_date {
-
-    my ( $d ) = @_;
-    if ( $d && length $d == 8 ) {
-        $d =~ m/(\d{4})(\d{2})(\d{2})/;
-        return "\"$1-$2-$3\"";
-    } else {
-        return 'NULL';
-    }
-
-}
-
 =head1 OPTIONS
 
 =over 4
@@ -331,23 +315,6 @@ sub get_options {
  
     return ( $config_dir, $limit, $every, $format, $verbose, $debug );
  
-}
-
-## Internal subroutines.
-
-# If these are needed elswhere they should be moved to some kind of include.
-
-# Takes: YYYYMMDD
-# Returns: YYYY-MM-DD
-
-sub fix_date {
-
-    my ( $d ) = @_;
-    my $year  = substr $d, 0, 4;
-    my $month = substr $d, 4, 2;
-    my $day   = substr $d, 6, 2;
-    return "$year-$month-$day";
-
 }
 
 sub _quote {
@@ -563,50 +530,6 @@ sub clean_control {
     
     return $s;
 }
-
-sub dp {
-    my $ds = shift;
-    if (!defined($ds) || $ds =~ /^ *$/) {
-        return undef;
-    }
-    return $date_parser->parse_datetime($ds);
-}
-
-sub ds {
-    my $d = shift;
-    $d = dp($d);
-    if (defined($d)) {
-       return $dbh->quote($d->strftime( '%F' ));
-    } else {
-       return "NULL";
-    }
-}
-
-sub tp {
-    my $ds = shift;
-    my $ts = shift;
-    if (!defined($ds) || $ds =~ /^ *$/) {
-        return undef;
-    }
-    if (defined($ts) && !$ds =~ /^ *$/) {
-	$ds .= " $ts";
-    } else {
-	$ds .= ' 0:00:00';
-    }
-    return $time_parser->parse_datetime($ds);
-}
-
-sub ts {
-    my $d = shift;
-    my $t = shift;
-    $d = tp($d, $t);
-    if (defined($d)) {
-       return $dbh->quote($d->strftime( '%F %T' ));
-    } else {
-       return "NULL";
-    }
-}
-
 
 =head1 AUTHOR
 

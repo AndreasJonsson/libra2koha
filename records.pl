@@ -495,12 +495,8 @@ debug output. Run C<perldoc itemtypes.pl> for more documentation.
 
 =cut
         my $itemtype;
-	if ($item->{'IdBranchCode'} eq '088') {
+	if ($item->{'IsRemote'}) {
 	    $itemtype = 'FJARRLAN';
-	} elsif ($item->{'IdDepartment'} eq '3') {
-	    $itemtype = 'DAISY'
-	} elsif ($item->{'IdDepartment'} eq '4') {
-	    $itemtype = 'FILM';
 	} else {
 	    $itemtype = get_itemtype( $record );
 	    $itemtype = refine_itemtype( $mmc, $record, $item, $itemtype );
@@ -729,19 +725,10 @@ sub get_options {
 
 ## Internal subroutines.
 
-# If these are needed elswhere they should be moved to some kind of include.
-
-# Takes: YYYYMMDD
-# Returns: YYYY-MM-DD
-
 sub fix_date {
-
     my ( $d ) = @_;
-    my $year  = substr $d, 0, 4;
-    my $month = substr $d, 4, 2;
-    my $day   = substr $d, 6, 2;
-    return "$year-$month-$day";
 
+    return $d->strftime('%F');
 }
 
 

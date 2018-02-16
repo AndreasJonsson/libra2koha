@@ -8,11 +8,13 @@ use Data::Dumper;
 use DateTime::Format::Builder;
 use Template;
 use utf8;
+use StatementPreparer;
 
 my ($opt, $usage) = describe_options(
     '%c %o <some-arg>',
     [ 'configdir=s',  'config directory' , { required => 1 } ],
-
+    [ 'format=s',  'Source format' , { default => 'libra' } ],
+    
            [],
            [ 'verbose|v',  "print extra stuff"            ],
            [ 'help',       "print usage message and exit", { shortcircuit => 1 } ],
@@ -23,27 +25,17 @@ if ( -f ($opt->configdir . '/config.yaml') ) {
     $config = LoadFile( $opt->configdir . '/config.yaml' );
 }
 
-our $date_parser = DateTime::Format::Builder->new()->parser( regex => qr/^(\d{4})(\d\d)(\d\d)$/,
-                                                            params => [qw(year month day)] );
+
 our $dbh = DBI->connect( $config->{'db_dsn'},
                         $config->{'db_user'},
                         $config->{'db_pass'},
                         { RaiseError => 1, AutoCommit => 1 } );
 
 
-our $time_parser = DateTime::Format::Builder->new()->parser( regex => qr/^(\d{4})(\d\d)(\d\d) (\d+):(\d+):(\d+)$/,
-							     params => [qw(year month day hour minute second)] );
-sub dp {
-    my $ds = shift;
-    if (!defined($ds) || $ds =~ /^ *$/) {
-        return undef;
-    }
-    return $date_parser->parse_datetime($ds);
-}
+my $preparer = new StatementPreparer(format => $format, dbh => $dbh);
 
 sub ds {
     my $d = shift;
-    $d = dp($d);
     if (defined($d)) {
        return $dbh->quote($d->strftime( '%F' ));
     } else {
@@ -51,28 +43,21 @@ sub ds {
     }
 }
 
-sub tp {
-    my $ds = shift;
-    my $ts = shift;
-    if (!defined($ds) || $ds =~ /^ *$/) {
-        return undef;
-    }
-    if (defined($ts) && !$ds =~ /^ *$/) {
-	$ds .= " $ts";
-    }
-    return $time_parser->parse_datetime($ds);
-}
-
 sub ts {
     my $d = shift;
     my $t = shift;
     $d = tp($d, $t);
     if (defined($d)) {
-       return $dbh->quote($d->strftime( '%F %T' ));
+	if (defined($t)) {
+	    die "Time not supported";
+	}
+	return $dbh->quote($d->strftime( '%F' ));
     } else {
        return "NULL";
     }
 }
+
+							     params => [qw(year month day hour minute second)] );
 my $branchcodes;
 if ( -f $opt->configdir . '/branchcodes.yaml' ) {
     $branchcodes = LoadFile( $opt->configdir . '/branchcodes.yaml' );
@@ -87,38 +72,7 @@ my $ttconfig = {
 my $tt2 = Template->new( $ttconfig ) || die Template->error(), "\n";
 
 
-my $sth = $dbh->prepare( <<'EOF' );
-SELECT
-  b.IdBorrower,
-  b.IdBranchCode,
-  BorrowerBarCodes.BarCode,
-  Transactions.IdItem IS NOT NULL AS has_transaction,
-  Transactions.RegDate AS TransactionDate,
-  rbc.BarCode AS ReservationBarCode,
-  IFNULL(ibc.BarCode, ItemBarCodes.BarCode) as ItemBarCode,
-  bdr.Amount,
-  FeeTypes.Name,
-  bd.Text AS Text,
-  bd.RegDate AS RegDate,
-  bd.RegTime AS RegTime,
-  b.FirstName,
-  b.LastName,
-  b.RegDate AS DateEnrolled
-FROM
-  BorrowerDebts AS bd
-  JOIN Borrowers AS b USING (IdBorrower)
-  LEFT OUTER JOIN BorrowerBarCodes USING(IdBorrower)
-  LEFT OUTER JOIN BorrowerDebtsRows AS bdr USING(IdDebt)
-  LEFT OUTER JOIN FeeTypes USING (IdFeeType)
-  LEFT OUTER JOIN ItemBarCodes USING (IdItem)
-  LEFT OUTER JOIN Transactions USING (IdTransaction)
-  LEFT OUTER JOIN Reservations USING (IdReservation)
-  LEFT OUTER JOIN ItemBarCodes AS rbc ON Reservations.IdItem = rbc.IdItem
-  LEFT OUTER JOIN ItemBarCodes AS ibc ON Transactions.IdItem = ibc.IdItem
-WHERE
-  b.IdBorrower IS NOT NULL
-ORDER BY b.IdBorrower, bdr.RegDate ASC, bdr.RegTime ASC
-EOF
+my $sth = $preparer->prepare('select_accountlines');
 
 my $ret = $sth->execute();
 die "Failed to execute sql query." unless $ret;

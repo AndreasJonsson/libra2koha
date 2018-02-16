@@ -106,11 +106,14 @@ use DBI;
 use Data::Dumper;
 use DateTime::Format::Builder;
 use Template;
+use StatementPreparer;
+use TimeUtils;
 
 
 my ($opt, $usage) = describe_options(
     '%c %o <some-arg>',
     [ 'configdir=s',  'config directory' , { required => 1 } ],
+    [ 'format=s',  'Source format' , { default => 'libra' } ],
 
            [],
            [ 'verbose|v',  "print extra stuff"            ],
@@ -124,56 +127,7 @@ if ( -f ($opt->configdir . '/config.yaml') ) {
     $config = LoadFile( $opt->configdir . '/config.yaml' );
 }
 
-our $date_parser = DateTime::Format::Builder->new()->parser( regex => qr/^(\d{4})(\d\d)(\d\d)$/,
-                                                            params => [qw(year month day)] );
-our $dbh = DBI->connect( $config->{'db_dsn'},
-                        $config->{'db_user'},
-                        $config->{'db_pass'},
-                        { RaiseError => 1, AutoCommit => 1 } );
 
-
-our $time_parser = DateTime::Format::Builder->new()->parser( regex => qr/^(\d{4})(\d\d)(\d\d) (\d+):(\d+):(\d+)$/,
-							     params => [qw(year month day hour minute second)] );
-sub dp {
-    my $ds = shift;
-    if (!defined($ds) || $ds =~ /^ *$/) {
-        return undef;
-    }
-    return $date_parser->parse_datetime($ds);
-}
-
-sub ds {
-    my $d = shift;
-    $d = dp($d);
-    if (defined($d)) {
-       return $dbh->quote($d->strftime( '%F' ));
-    } else {
-       return "NULL";
-    }
-}
-
-sub tp {
-    my $ds = shift;
-    my $ts = shift;
-    if (!defined($ds) || $ds =~ /^ *$/) {
-        return undef;
-    }
-    if (defined($ts) && !$ds =~ /^ *$/) {
-	$ds .= " $ts";
-    }
-    return $time_parser->parse_datetime($ds);
-}
-
-sub ts {
-    my $d = shift;
-    my $t = shift;
-    $d = tp($d, $t);
-    if (defined($d)) {
-       return $dbh->quote($d->strftime( '%F %T' ));
-    } else {
-       return "NULL";
-    }
-}
 my $branchcodes;
 if ( -f $opt->configdir . '/branchcodes.yaml' ) {
     $branchcodes = LoadFile( $opt->configdir . '/branchcodes.yaml' );
@@ -187,7 +141,15 @@ my $ttconfig = {
 # create Template object
 my $tt2 = Template->new( $ttconfig ) || die Template->error(), "\n";
 
-my $sth = $dbh->prepare( 'SELECT ISBN_ISSN, TITLE_NO, Reservations.*, BorrowerBarCodes.BarCode as BarCode, ItemBarCodes.BarCode AS ItemBarCode, FirstName, LastName, Title, Author FROM Reservations JOIN BorrowerBarCodes USING (IdBorrower) JOIN Borrowers USING(IdBorrower) JOIN CA_CATALOG ON CA_CATALOG_ID=Reservations.IdCat LEFT OUTER JOIN Items ON (Items.IdItem = Reservations.IdItem) LEFT OUTER JOIN ItemBarCodes ON (ItemBarCodes.IdItem = Items.IdItem) ORDER BY IdCat, RegDate ASC, RegTime ASC' );
+our $dbh = DBI->connect( $config->{'db_dsn'},
+                        $config->{'db_user'},
+                        $config->{'db_pass'},
+                        { RaiseError => 1, AutoCommit => 1 } );
+ 
+
+
+my $preparer = new StatementPreparer(format => $opt->format, dbh => $dbh);
+my $sth = $preparer->prepare('select_reservation_info');
 
 my $ret = $sth->execute();
 die "Failed to execute sql query." unless $ret;
@@ -222,7 +184,7 @@ while (my $row = $sth->fetchrow_hashref()) {
 	titleno          => $dbh->quote($row->{TITLE_NO}),
 	borrower_barcode => $dbh->quote($row->{BarCode}),
 	item_barcode     => $dbh->quote($row->{ItemBarCode}),
-	reservedate      => ds($row->{ResDate}),
+	reservedate      => $row->{ResDate},
 	holdingbranch    => $dbh->quote($branchcodes->{$row->{'FromIdBranchCode'}}),
 	pickbranch       => $dbh->quote($branchcodes->{$row->{'GetIdBranchCode'}}),
 	notificationdate => ds($row->{SendDate}),

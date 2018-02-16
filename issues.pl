@@ -22,6 +22,7 @@ use Pod::Usage;
 use Modern::Perl;
 use Data::Dumper;
 use StatementPreparer;
+use TimeUtils qw(ds ts init_time_utils);
 
 
 binmode STDOUT, ":utf8";
@@ -83,6 +84,7 @@ if ( -f $config_dir . '/patroncategories.yaml' ) {
 my $dbh = DBI->connect( $config->{'db_dsn'}, $config->{'db_user'}, $config->{'db_pass'}, { RaiseError => 1, AutoCommit => 1 } );
 
 my $preparer = new StatementPreparer(format => $format, dbh => $dbh);
+init_time_utils(sub { return $dbh->quote(shift); });
 
 # Query for selecting all issues, with relevant data
 my $sth = $preparer->prepare('select_issue_info');
@@ -108,7 +110,7 @@ $sth->execute();
 
 while ( my $issue = $sth->fetchrow_hashref() ) {
 
-    say Dumper $issue if $debug;
+    say STDERR Dumper $issue if $debug;
 
     # Only do every x record
     if ( $every && ( $count % $every != 0 ) ) {
@@ -118,10 +120,11 @@ while ( my $issue = $sth->fetchrow_hashref() ) {
 
     # Massage data
     $issue->{'branchcode'} = $branchcodes->{ $issue->{'IdBranchCode'} };
-    $issue->{'borrower_branchcode'} = $branchcodes->{ $issue->{'BorrowerIdBranchCode'} };
-    $issue->{'issuedate'} = _fix_date( $issue->{'RegDate'} );
-    $issue->{'date_due'} = _fix_date( $issue->{'EstReturnDate'} );
-    $issue->{'dateenrolled'} = _fix_date( $issue->{'dateenrolled'} );
+    my $bb = $issue->{'BorrowerIdBranchCode'};
+    $issue->{'borrower_branchcode'} = $dbh->quote(defined($bb) ? $branchcodes->{ $issue->{'BorrowerIdBranchCode'} } : 'NULL');
+    $issue->{'issuedate'} = ds( $issue->{'RegDate'} );
+    $issue->{'date_due'} = ds( $issue->{'EstReturnDate'} );
+    $issue->{'dateenrolled'} = ds( $issue->{'dateenrolled'} );
     $issue->{'surname_str'} = $dbh->quote($issue->{'LastName'});
     $issue->{'firstname_str'} = $dbh->quote($issue->{'FirstName'});
 
@@ -202,34 +205,6 @@ sub get_options {
 
 }
 
-## Internal subroutines.
-
-# If these are needed elswhere they should be moved to some kind of include.
-
-# Takes: YYYYMMDD
-# Returns: YYYY-MM-DD
-
-sub _fix_date {
-
-    my ( $d ) = @_;
-    if ( $d && length $d == 8 ) {
-        $d =~ m/(\d{4})(\d{2})(\d{2})/;
-        return "'$1-$2-$3'";
-    } else {
-        return 'NULL';
-    }
-
-}
-
-sub fix_date {
-
-    my ( $d ) = @_;
-    my $year  = substr $d, 0, 4;
-    my $month = substr $d, 4, 2;
-    my $day   = substr $d, 6, 2;
-    return "$year-$month-$day";
-
-}
 
 =head1 AUTHOR
 
