@@ -179,7 +179,6 @@ RECORD: while ( my $borrower = $sth->fetchrow_hashref() ) {
 
     $borrower->{'messages'} = \@messages;
 
-
     # Do transformations
     # Add a branchcode
     $borrower->{'branchcode'} = $branchcodes->{ $borrower->{'IdBranchCode'} };
@@ -224,9 +223,9 @@ RECORD: while ( my $borrower = $sth->fetchrow_hashref() ) {
     }
 
     $count++;
-    if ( $limit && $limit == $count ) {
-        last;
-    }
+    #if ( $limit && $limit == $count ) {
+    #last;
+    #}
     $progress->update( $count );
 
 } # end foreach record

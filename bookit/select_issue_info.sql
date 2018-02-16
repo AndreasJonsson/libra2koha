@@ -14,3 +14,4 @@ FROM
                    GROUP BY CI_BORR_ID) AS barcodes
   ON (barcodes.CI_BORR_ID = CI_LOAN.CI_BORR_ID);
 
+

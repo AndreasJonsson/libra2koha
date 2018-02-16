@@ -118,13 +118,16 @@ foreach my $table (@{$opt->tables}) {
 	};
 	if ($type eq 'date') {
 	    $coldecl->{tmpname} = "\@tmp_date_$count";
-	    $coldecl->{conversion} = "STR_TO_DATE($coldecl->{tmpname}, '" . $DATE_FORMATS{$opt->format} . "')";
+	    $coldecl->{conversion} = "IF($coldecl->{tmpname} = '', NULL, STR_TO_DATE($coldecl->{tmpname}, '" . $DATE_FORMATS{$opt->format} . "'))";
 	} elsif ($type eq 'datetime') {
 	    $coldecl->{tmpname} = "\@tmp_datetime_$count";
-	    $coldecl->{conversion} = "STR_TO_DATE($coldecl->{tmpname}, '" . $DATETIME_FORMATS{$opt->format} . "')";
+	    $coldecl->{conversion} = "IF($coldecl->{tmpname} = '', NULL, STR_TO_DATE($coldecl->{tmpname}, '" . $DATETIME_FORMATS{$opt->format} . "'))";
 	} elsif ($type eq 'time') {
 	    $coldecl->{tmpname} = "\@tmp_datetime_$count";
-	    $coldecl->{conversion} = "STR_TO_DATE($coldecl->{tmpname}, '" . $TIME_FORMATS{$opt->format} . "')";
+	    $coldecl->{conversion} = "IF($coldecl->{tmpname} = '', NULL, STR_TO_DATE($coldecl->{tmpname}, '" . $TIME_FORMATS{$opt->format} . "'))";
+	} elsif ($type eq 'int') {
+	    $coldecl->{tmpname} = "\@tmp_datetime_$count";
+	    $coldecl->{conversion} = "NULLIF($coldecl->{tmpname}, '')";
 	}
 	if (defined($size)) {
 	    $coldecl->{size} = $size;

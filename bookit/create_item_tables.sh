@@ -2,6 +2,10 @@ bib_tables="$(mktemp)"
 create_tables.pl --format="$SOURCE_FORMAT" --quote='"' --headerrows=$HEADER_ROWS --encoding=utf8 --ext=$TABLEEXT --spec "$SPECDIR" --columndelimiter="$COLUMN_DELIMITER" --rowdelimiter='\r\n' --dir "$tabledir" --table 'CA_COPY' --table 'CA_COPY_LABEL'  --table 'CA_NOT_AVAILABLE_CAUSE' --table 'CA_MEDIA_TYPE' --table 'CI_UNIT' --table 'GE_ORG' --table 'CA_CATALOG' --table 'GE_LA_KEY' --table 'GE_LA_TXT' > "$bib_tables"
 eval $MYSQL_LOAD < "$bib_tables"
 eval $MYSQL_LOAD <<'EOF'
+CREATE TABLE catalog_isbn_issn (CA_CATALOG_ID int, isbn VARCHAR(32), issn VARCHAR(32));
+CREATE INDEX catalog_isbn_issn_id ON catalog_isbn_issn(CA_CATALOG_ID);
+CREATE INDEX catalog_isbn_issn_isbn ON catalog_isbn_issn(isbn);
+CREATE INDEX catalog_isbn_issn_issn ON catalog_isbn_issn(issn);
 ALTER TABLE CA_COPY ADD COLUMN done INT(1) DEFAULT 0;
 CREATE UNIQUE INDEX ca_catalog_title_no_index  ON CA_CATALOG (`ca_catalog.title_no`);
 CREATE INDEX ca_catalog_id_index  ON CA_CATALOG (`ca_catalog.ca_catalog_id`);

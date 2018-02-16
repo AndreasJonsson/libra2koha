@@ -177,6 +177,8 @@ my $dbh = DBI->connect( $config->{'db_dsn'}, $config->{'db_user'}, $config->{'db
 my $sth = $dbh->prepare("SHOW TABLES LIKE 'CA_CATALOG'");
 $sth->execute() or die "Failed to execute query";
 
+my $isbn_issn_sth = $dbh->prepare("INSERT INTO isbn_issn (CA_CATALOG_ID, isbn, issn) VALUES (?, ?, ?)");
+
 my $ca_catalog_table = $sth->fetchall_arrayref();
 my $has_ca_catalog = +@{$ca_catalog_table} != 0;
 
@@ -245,21 +247,31 @@ Bookit format ISBN is in  350 00 c and ISSN in 350 10 c
 
 =cut
       if ($format eq 'bookit') {
+	  my $first_isbn;
+	  my $first_issn;
 	  for my $f350 ($record->field('350')) {
 	      if ($f350->indicator(1) == 0) {
 		  my $isbn = $f350->subfield('c');
 		  if (defined($isbn)) {
+		      if (!defined($first_isbn)) {
+			  $first_isbn = $isbn;
+		      }
 		      $mmc->set('isbn', $isbn);
 		      $record->delete_fields( $f350 );
 		  }
 	      } elsif ($f350->indicator(1) == 1) {
 		  my $issn = $f350->subfield('c');
 		  if (defined($issn)) {
+		      if (!defined($first_issn)) {
+			  $first_issn = $issn;
+		      }
 		      $mmc->set('issn', $issn);
 		      $record->delete_fields( $f350 );
 		  }
 	      }
 	  }
+	  $isbn_issn_sth->execute(int($record->field( '001' )->data()), $first_isbn, $first_issn)
+	      or warn "Failed to insert isbn '$first_isbn' and issn '$first_issn'!";
 	  for my $f081 ($record->field('081')) {
 	      my $signum = $f081->subfield('h');
 	      if (defined($signum)) {
@@ -580,7 +592,6 @@ FIXME This should be done with a mapping file!
 		$mmc->set('not_for_loan', 5);
 	    }
 	}
-
 
         # Mark the item as done, if we are told to do so
         #if ( $flag_done ) {
