@@ -181,7 +181,8 @@ RECORD: while ( my $borrower = $sth->fetchrow_hashref() ) {
 
     # Do transformations
     # Add a branchcode
-    $borrower->{'branchcode'} = $branchcodes->{ $borrower->{'IdBranchCode'} };
+    my $bc = defined($borrower->{'IdBranchCode'}) ? $branchcodes->{ $borrower->{'IdBranchCode'} } : $branchcodes->{ '10000' }
+    $borrower->{'branchcode'} = $bc;
     next RECORD if (!defined($borrower->{'branchcode'}) or $borrower->{'branchcode'} eq '');
     _quoten(\$borrower->{'branchcode'});
     # Fix the format of dates
