@@ -3,7 +3,7 @@ START TRANSACTION;
 SELECT IF(min(issue_id)>0, 0, min(issue_id)) - 1 FROM old_issues INTO @ISSUE_ID;
 
 SET @BORROWERNUMBER=NULL;
-SELECT borrowernumber FROM borrowers WHERE surname = [% surname %] AND firstname = [% firstname %] AND branchcode = [% branchcode %] AND dateenrolled = [% dateenrolled %] LIMIT 1 INTO @BORROWERNUMBER;
+SELECT borrowernumber FROM borrowers WHERE cardnumber = [% cardnumber %] OR [% cardnumber %] IS NULL AND (surname = [% surname %] AND firstname = [% firstname %] AND branchcode = [% branchcode %] AND dateenrolled = [% dateenrolled %]) LIMIT 1 INTO @BORROWERNUMBER;
 
 
 CREATE TEMPORARY TABLE bm_tmp_biblionumbers (biblionumber INT(11) PRIMARY KEY);
@@ -15,11 +15,11 @@ UNION
 
 SELECT IF(@BORROWERNUMBER IS NULL, [% branchcode %], (SELECT branchcode FROM borrowers WHERE borrowernumber = @BORROWERNUMBER)) INTO @BRANCHCODE;
 
-SELECT count(*) > 0 FROM items WHERE (SELECT count(*) > 0 FROM bm_tmp_biblionumbers WHERE  items.biblionumber=bm_tmp_biblionumbers.biblionumber) AND itemcallnumber = [% callnumber %] AND homebranch = @BRANCHCODE INTO @HAS_MATCHING_ITEM_CALLNUMBER;
+SET @HAS_MATCHING_ITEM_CALLNUMBER = EXISTS (SELECT * FROM items WHERE EXISTS (SELECT * FROM bm_tmp_biblionumbers WHERE  items.biblionumber=bm_tmp_biblionumbers.biblionumber) AND itemcallnumber = [% callnumber %] AND homebranch = @BRANCHCODE);
 
-SELECT count(*) > 0 FROM items WHERE (SELECT count(*) > 0 FROM bm_tmp_biblionumbers WHERE  items.biblionumber=bm_tmp_biblionumbers.biblionumber) AND homebranch = @BRANCHCODE INTO @HAS_MATCHING_ITEM;
+SET @HAS_MATCHING_ITEM = EXISTS (SELECT * FROM items WHERE EXISTS (SELECT * FROM bm_tmp_biblionumbers WHERE  items.biblionumber=bm_tmp_biblionumbers.biblionumber) AND homebranch = @BRANCHCODE);
 
-SELECT itemnumber FROM items WHERE @HAS_MATCHING_ITEM AND (SELECT count(*) > 0 FROM bm_tmp_biblionumbers
+SELECT itemnumber FROM items WHERE @HAS_MATCHING_ITEM AND EXISTS (SELECT * FROM bm_tmp_biblionumbers
   WHERE items.biblionumber=bm_tmp_biblionumbers.biblionumber) AND
     (NOT @HAS_MATCHING_ITEM_CALLNUMBER OR itemcallnumber = [% callnumber %]) AND
     (NOT @HAS_MATCHING_ITEM OR homebranch = @BRANCHCODE) LIMIT 1 INTO @ITEMNUMBER;

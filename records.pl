@@ -485,13 +485,9 @@ We base this on the Departments table and the value of Items.IdDepartment value.
 
 =cut
 	my $iddepartment;
-	if ($item->{'IdBranchCode'} eq '022') {
-	    $iddepartment = 'Magasin';
-	} else {
-	    $iddepartment = $ccode->{ $item->{'IdDepartment'} };
-	}
+	$iddepartment = defined($item->{IdDepartment}) ? $ccode->{ $item->{'IdDepartment'} } : undef;
 
-	$mmc->set('collection_code',  $iddepartment ) if $iddepartment;
+	$mmc->set('collection_code',  $iddepartment ) if defined($iddepartment);
 
 
 =head3 952$y Itemtype (mandatory)

@@ -146,7 +146,7 @@ our $dbh = DBI->connect( $config->{'db_dsn'},
                         $config->{'db_pass'},
                         { RaiseError => 1, AutoCommit => 1 } );
  
-
+init_time_utils(sub { $dbh->quote(shift); });
 
 my $preparer = new StatementPreparer(format => $opt->format, dbh => $dbh);
 my $sth = $preparer->prepare('select_reservation_info');
@@ -170,7 +170,7 @@ while (my $row = $sth->fetchrow_hashref()) {
     if ($row->{Status} eq 'A') {
 	$status_str = "'W'";
     } elsif ($row->{Status} eq 'R') {
-	if ($row->{IdItem} == 0) {
+	if (!defined($row->{IdItem}) || $row->{IdItem} == 0) {
 	    $status_str = 'NULL';
 	} else {
 	    $status_str = "'W'";
@@ -178,7 +178,15 @@ while (my $row = $sth->fetchrow_hashref()) {
     } elsif ($row->{Status} eq 'S') {
 	$status_str = "'T'";
     }
-    
+
+    $row->{BarCode} = (split ';', $row->{BarCode})[0];
+
+    my @parts = split ' ', $row->{RegDate};
+    if (scalar(@parts) > 1) {
+	$row->{RegDate} = $parts[0];
+	$row->{RegTime} = $parts[1];
+    }
+
     my $params = {
 	isbn_issn        => $dbh->quote($row->{ISBN_ISSN}),
 	titleno          => $dbh->quote($row->{TITLE_NO}),

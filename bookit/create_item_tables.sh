@@ -1,5 +1,5 @@
 bib_tables="$(mktemp)"
-create_tables.pl --format="$SOURCE_FORMAT" --quote='"' --headerrows=$HEADER_ROWS --encoding=utf8 --ext=$TABLEEXT --spec "$SPECDIR" --columndelimiter="$COLUMN_DELIMITER" --rowdelimiter='\r\n' --dir "$tabledir" --table 'CA_COPY' --table 'CA_COPY_LABEL'  --table 'CA_NOT_AVAILABLE_CAUSE' --table 'CA_MEDIA_TYPE' --table 'CI_UNIT' --table 'GE_ORG' --table 'CA_CATALOG' --table 'GE_LA_KEY' --table 'GE_LA_TXT' > "$bib_tables"
+create_tables.pl --format="$SOURCE_FORMAT" --quote='"' --headerrows=$HEADER_ROWS --encoding=utf8 --ext=$TABLEEXT --spec "$SPECDIR" --columndelimiter="$COLUMN_DELIMITER" --rowdelimiter='\r\n' --dir "$tabledir" --table 'CA_COPY' --table 'CA_COPY_LABEL'  --table 'CA_NOT_AVAILABLE_CAUSE' --table 'CA_MEDIA_TYPE' --table 'CI_UNIT' --table 'GE_ORG' --table 'CA_CATALOG' --table 'GE_LA_KEY' --table 'GE_LA_TXT' --table CI_CAT > "$bib_tables"
 eval $MYSQL_LOAD < "$bib_tables"
 eval $MYSQL_LOAD <<'EOF'
 CREATE TABLE catalog_isbn_issn (CA_CATALOG_ID int, isbn VARCHAR(32), issn VARCHAR(32));
@@ -29,5 +29,5 @@ SELECT @rn := CASE WHEN @prev IS NULL OR @prev != CA_COPY_ID THEN 1 ELSE @rn + 1
        ORDER BY LABEL_TYPE ASC, CA_COPY_LABEL_ID DESC;
 CREATE INDEX labels_rn ON labels(row_number);
 CREATE INDEX labels_ca_copy_id ON labels(CA_COPY_ID);
-
+CREATE INDEX ci_cat_id ON CI_CAT(CI_CAT_ID);
 EOF

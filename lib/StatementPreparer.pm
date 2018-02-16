@@ -24,9 +24,11 @@ sub prepare {
 
     my $filename = $self->{format} . "/${name}.sql";
 
-    open SQL, "<", $filename  or croak "Failed to open $filename: $!";
+    open SQL, "<:utf8", $filename  or croak "Failed to open $filename: $!";
 
-    my $stmnt =  $self->{dbh}->prepare(join "\n", <SQL>);
+    my $sql = join "\n", <SQL>;
+
+    my $stmnt =  $self->{dbh}->prepare($sql);
 
     close SQL;
 

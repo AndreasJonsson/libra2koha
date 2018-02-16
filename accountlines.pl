@@ -32,7 +32,7 @@ our $dbh = DBI->connect( $config->{'db_dsn'},
                         { RaiseError => 1, AutoCommit => 1 } );
 
 
-my $preparer = new StatementPreparer(format => $format, dbh => $dbh);
+my $preparer = new StatementPreparer(format => $opt->format, dbh => $dbh);
 
 sub ds {
     my $d = shift;
@@ -57,7 +57,6 @@ sub ts {
     }
 }
 
-							     params => [qw(year month day hour minute second)] );
 my $branchcodes;
 if ( -f $opt->configdir . '/branchcodes.yaml' ) {
     $branchcodes = LoadFile( $opt->configdir . '/branchcodes.yaml' );
@@ -116,6 +115,11 @@ sub account_idstring {
 sub account_type {
     my $row = shift;
     my $n  = $row->{Name};
+    
+| MSG_FEE         | Påminnelseavgift
+| DELAY_FEE_COPY  | Övertidsavgift
+| ILL_BOOKING_FEE | fjärrlån
+| OTHER_FEE       | 
 
     if ($n eq 'Övertidsavgift') {
 	return 'O';
