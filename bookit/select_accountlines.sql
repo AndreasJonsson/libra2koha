@@ -1,35 +1,36 @@
 SELECT
-  CI_BORR_ID AS IdBorrower,
+  CI_DEBT.CI_BORR_ID AS IdBorrower,
   labels.LABEL AS ItemBarCode,
   CI_LOAN.CI_LOAN_ID IS NOT NULL AS has_transaction,
   SY_CI_PARAM_ID AS Name,
-  
+  booking_label.LABEL AS ReservationBarCode,
+  CI_DEBT.AMOUNT AS Amount,
+  CI_DEBT_PAYMENT.AMOUNT AS PaymentAmount,
+  barcodes.barcodes AS BarCode,
+  CI_BORR.SURNAME AS LastName,
+  CONCAT(FIRST_NAME_1,
+    IF(FIRST_NAME_2 != '', CONCAT(' ', FIRST_NAME_2), ''),
+    IF(FIRST_NAME_3 != '', CONCAT(' ', FIRST_NAME_3), ''),
+    IF(FIRST_NAME_4 != '', CONCAT(' ', FIRST_NAME_4), ''),
+    IF(FIRST_NAME_5 != '', CONCAT(' ', FIRST_NAME_5), '')) as FirstName,
+  CI_DEBT.LOAN_DATETIME AS TransactionDate,
+  CI_DEBT.CREATE_DATETIME AS RegDate,
+  CI_DEBT.NOTE AS Text,
+  CI_DEBT_PAYMENT.NOTE AS PaymentText,
+  CI_DEBT_PAYMENT.CREATE_DATETIME AS PaymentDate,
+  CI_DEBT.GE_ORG_ID AS IdBranchCode
 FROM CI_DEBT
-LEFT OUTER JOIN CI_DEBT_PAYMENT USING(CA_DEBT_ID)
+LEFT OUTER JOIN CI_DEBT_PAYMENT USING(CI_DEBT_ID)
 LEFT OUTER JOIN CA_COPY USING(CA_COPY_ID)
 LEFT OUTER JOIN labels USING(CA_COPY_ID)
-LEFT OUTER JOIN CI_BORR USING(CI_BORR_ID)
+LEFT OUTER JOIN CI_BORR ON CI_BORR.CI_BORR_ID = CI_DEBT.CI_BORR_ID
+LEFT OUTER JOIN CA_BOOKING USING(CA_BOOKING_ID)
+LEFT OUTER JOIN CA_COPY AS booking_copy ON CA_BOOKING.CA_COPY_ID = booking_copy.CA_COPY_ID
+LEFT OUTER JOIN labels AS booking_label ON booking_copy.CA_COPY_ID = booking_label.CA_COPY_ID AND booking_label.row_number = 1
 LEFT OUTER JOIN CI_LOAN ON CI_LOAN.CA_COPY_ID = CA_COPY.CA_COPY_ID AND CI_LOAN.CI_BORR_ID = CI_BORR.CI_BORR_ID
 LEFT OUTER JOIN (SELECT CI_BORR_ID, GROUP_CONCAT(DISTINCT CI_BORR_CARD_ID ORDER BY LENGTH(CI_BORR_CARD_ID) DESC SEPARATOR ';') as barcodes FROM CI_BORR_CARD WHERE
                  NOT (valid_personnummer(CI_BORR_CARD_ID) OR valid_samordningsnummer(CI_BORR_CARD_ID))
                  GROUP BY CI_BORR_ID) AS barcodes
-      ON (barcodes.CI_BORR_ID = CI_BORR.CI_BORR_ID)
+      ON (barcodes.CI_BORR_ID = CI_BORR.CI_BORR_ID);
 
 
-$current_line->{IdBorrower}
-->{ItemBarCode}
-
-->{has_transaction}
-->{Name}
-->{ReservationBarCode}
-->{Amount}
-->{BarCode}
-->{LastName}
-->{FirstName}
- $row->{DateEnrolled}
-  $row->{TransactionDate}
-   $row->{RegDate}
-    $row->{RegTime}
-     $row->{Text}
-      $row->{'IdBranchCode'}
-       $row->{Name}

@@ -9,9 +9,10 @@ SELECT CI_ACCOUNT.GE_ORG_ID AS IdBranchCode,
             IF(FIRST_NAME_2 != '', CONCAT(' ', FIRST_NAME_2), ''),
             IF(FIRST_NAME_3 != '', CONCAT(' ', FIRST_NAME_3), ''),
             IF(FIRST_NAME_4 != '', CONCAT(' ', FIRST_NAME_4), ''),
-            IF(FIRST_NAME_5 != '', CONCAT(' ', FIRST_NAME_5), '')) as FirstName,
+            IF(FIRST_NAME_5 != '', CONCAT(' ', FIRST_NAME_5), '')) AS FirstName,
        SURNAME AS LastName,
-       CI_BORR.CI_BORR_ID AS IdBorrower
+       CI_BORR.CI_BORR_ID AS IdBorrower,
+       IF(LENGTH(CI_BORR.PIN_CODE) >= 4, CI_BORR.PIN_CODE, NULL) AS Password
 FROM CI_BORR
   LEFT OUTER JOIN CI_ACCOUNT USING(CI_BORR_ID)
   LEFT OUTER JOIN CI_BORR_CAT USING(CI_BORR_CAT_ID)

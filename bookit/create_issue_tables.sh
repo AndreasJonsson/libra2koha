@@ -1,4 +1,4 @@
-create_tables.pl --format="$SOURCE_FORMAT" --quote='"' --headerrows=$HEADER_ROWS --encoding=utf8 --ext=$TABLEEXT --spec "$SPECDIR" --columndelimiter="$COLUMN_DELIMITER" --rowdelimiter='\r\n' --dir "$tabledir" --table "CI_LOAN" --table "CA_BOOKING" --table CI_LOAN_RETURN_LOG  --table "CI_REM" --table "CI_REM_MSG" --table "CI_REM_MSG_STATUS" --table SY_DEBT_TYPE --table SY_PAYMENT_TYPE --table IL_LOAN --table IL_STATUS --table IL_LIBRARY | eval $MYSQL_LOAD
+create_tables.pl --format="$SOURCE_FORMAT" --quote='"' --headerrows=$HEADER_ROWS --encoding=utf8 --ext=$TABLEEXT --spec "$SPECDIR" --columndelimiter="$COLUMN_DELIMITER" --rowdelimiter='\r\n' --dir "$tabledir" --table "CI_LOAN" --table "CA_BOOKING" --table CI_LOAN_RETURN_LOG  --table "CI_REM" --table "CI_REM_MSG" --table "CI_REM_MSG_STATUS" --table SY_DEBT_TYPE --table SY_PAYMENT_TYPE | eval $MYSQL_LOAD
 # Now copy the BarCodes table so we can have one for items and one for borrowers
 $MYSQL <<EOF
 CREATE INDEX CI_LOAN_CA_COPY_ID ON CI_LOAN(CA_COPY_ID);

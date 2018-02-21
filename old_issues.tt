@@ -9,9 +9,9 @@ SELECT borrowernumber FROM borrowers WHERE cardnumber = [% cardnumber %] OR [% c
 CREATE TEMPORARY TABLE bm_tmp_biblionumbers (biblionumber INT(11) PRIMARY KEY);
 
 INSERT INTO bm_tmp_biblionumbers
-  SELECT biblionumber FROM bm_biblio_identification     WHERE CONCAT(marc003, marc001) = [% title_no %]
+  SELECT biblionumber FROM bm_biblio_identification     WHERE CONCAT(IFNULL(marc003, ''), marc001) = [% title_no %]
 UNION
-  SELECT biblionumber FROM bm_merged_records        WHERE CONCAT(marc003, marc001) = [% title_no %];
+  SELECT biblionumber FROM bm_merged_records        WHERE CONCAT(IFNULL(marc003, ''), marc001) = [% title_no %];
 
 SELECT IF(@BORROWERNUMBER IS NULL, [% branchcode %], (SELECT branchcode FROM borrowers WHERE borrowernumber = @BORROWERNUMBER)) INTO @BRANCHCODE;
 

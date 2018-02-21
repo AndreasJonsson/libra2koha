@@ -23,6 +23,7 @@ use Data::Dumper;
 use Email::Valid;
 use StatementPreparer;
 use TimeUtils qw(ds ts init_time_utils);
+use Koha::AuthUtils qw(hash_password);
 use utf8;
 
 sub fix_charcode {
@@ -208,6 +209,11 @@ RECORD: while ( my $borrower = $sth->fetchrow_hashref() ) {
 
     _quote(\$borrower->{'FirstName'});
     _quote(\$borrower->{'LastName'});
+
+    if (defined($borrower->{'Password'})) {
+	$borrower->{'Password'} = hash_password($borrower->{'Password'});
+    }
+    _quote(\$borrower->{'Password'});
 
     $tt2->process( 'borrowers.tt', $borrower, \*STDOUT,  {binmode => ':utf8'} ) || die $tt2->error();
 

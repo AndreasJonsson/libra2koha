@@ -5,7 +5,7 @@ SET @ISSUE_ID = NULL;
 
 SELECT borrowernumber FROM borrowers WHERE [% cardnumber %] IS NOT NULL AND cardnumber = [% cardnumber %] OR [% cardnumber %] IS NULL AND cardnumber IS NULL AND surname = [% surname %] AND firstname = [% firstname %] AND branchcode = [% branchcode %] AND dateenrolled = [% dateenrolled %] LIMIT 1 INTO @BORROWERNUMBER;
 
-SELECT count(borrowernumber) > 1 FROM borrowers WHERE [% cardnumber %] IS NOT NULL AND cardnumber = [% cardnumber %] OR [% cardnumber %] IS NULL AND cardnumber IS NULL AND surname = [% surname %] AND firstname = [% firstname %] AND branchcode = [% branchcode %] AND dateenrolled = [% dateenrolled %];
+SET @HAS_BORROWER = EXISTS (SELECT borrowernumber FROM borrowers WHERE [% cardnumber %] IS NOT NULL AND cardnumber = [% cardnumber %] OR [% cardnumber %] IS NULL AND cardnumber IS NULL AND surname = [% surname %] AND firstname = [% firstname %] AND branchcode = [% branchcode %] AND dateenrolled = [% dateenrolled %]);
 
 [% IF DebtName != 'Reservationsavgift' %]
 SELECT @ISSUE_ID := issue_id, itemnumber FROM
@@ -18,4 +18,4 @@ SELECT @ITEMNUMBER := itemnumber FROM items WHERE [% barcode %] = barcode;
 
 INSERT INTO accountlines
 (borrowernumber, accountno, itemnumber, date, amount, description, accounttype, amountoutstanding, lastincrement, timestamp)
-SELECT @BORROWERNUMBER, [% accountno %], @ITEMNUMBER, [% date %], [% amount %], [% description %], [% accounttype %], [% amountoutstanding %], [% lastincrement %], [% timestamp %] WHERE @BORROWERNUMBER IS NOT NULL AND (SELECT count(*) = 0 FROM accountlines WHERE borrowernumber = @BORROWERNUMBER AND accountno = [% accountno %]);
+SELECT @BORROWERNUMBER, [% accountno %], @ITEMNUMBER, [% date %], [% amount %], [% description %], [% accounttype %], [% amountoutstanding %], [% lastincrement %], [% timestamp %] WHERE @HAS_BORROWER AND @BORROWERNUMBER IS NOT NULL AND NOT EXISTS (SELECT * FROM accountlines WHERE borrowernumber = @BORROWERNUMBER AND accountno = [% accountno %]);

@@ -2,7 +2,7 @@ package TimeUtils;
 
 $VERSION     = 1.00;
 @ISA         = qw(Exporter);
-@EXPORT      = qw(ds ts init_time_utils);
+@EXPORT      = qw(ds ts dp init_time_utils);
 @EXPORT_OK   = qw();
 
 use Modern::Perl;

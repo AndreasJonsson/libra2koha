@@ -65,6 +65,29 @@ print $usage->text if ($opt->help);
 my  ($csvfiles, $specfiles, $missingcsvs, $missingspecs) =
     build_table_info($opt);
 
+my $DATE_STRTODATE = strtodate($DATE_FORMATS{$opt->format});
+my $DATETIME_STRTODATE = strtodate($DATETIME_FORMATS{$opt->format});
+my $TIME_STRTODATE = strtodate($TIME_FORMATS{$opt->format});
+
+sub strtodate {
+    my $f = shift;
+    if ($f =~ /%y/) {
+	# Two digit years.  Only support dates up to one year into the future.
+	return sub {
+	    my $s = shift;
+	    return "IF (STR_TO_DATE($s, '" .
+		$f ."') > ADDDATE(CURRENT_DATE(), INTERVAL 1 YEAR), ADDDATE(STR_TO_DATE($s, '" .
+		$f . "'), INTERVAL -100 YEAR), STR_TO_DATE($s, '" .
+		$f . "'))";
+	};
+    } else {
+	return sub {
+	    my $s = shift;
+	    return "STR_TO_DATE($s, " . $f . ")";
+	};
+    }
+}
+
 my $ttenc = $opt->encoding;
 
 $ttenc =~ s/-//g;
@@ -118,13 +141,13 @@ foreach my $table (@{$opt->tables}) {
 	};
 	if ($type eq 'date') {
 	    $coldecl->{tmpname} = "\@tmp_date_$count";
-	    $coldecl->{conversion} = "IF($coldecl->{tmpname} = '', NULL, STR_TO_DATE($coldecl->{tmpname}, '" . $DATE_FORMATS{$opt->format} . "'))";
+	    $coldecl->{conversion} = "IF($coldecl->{tmpname} = '', NULL, " . $DATE_STRTODATE->($coldecl->{tmpname}) . ")";
 	} elsif ($type eq 'datetime') {
 	    $coldecl->{tmpname} = "\@tmp_datetime_$count";
-	    $coldecl->{conversion} = "IF($coldecl->{tmpname} = '', NULL, STR_TO_DATE($coldecl->{tmpname}, '" . $DATETIME_FORMATS{$opt->format} . "'))";
+	    $coldecl->{conversion} = "IF($coldecl->{tmpname} = '', NULL, " . $DATETIME_STRTODATE->($coldecl->{tmpname}) .")";
 	} elsif ($type eq 'time') {
 	    $coldecl->{tmpname} = "\@tmp_datetime_$count";
-	    $coldecl->{conversion} = "IF($coldecl->{tmpname} = '', NULL, STR_TO_DATE($coldecl->{tmpname}, '" . $TIME_FORMATS{$opt->format} . "'))";
+	    $coldecl->{conversion} = "IF($coldecl->{tmpname} = '', NULL, " . $TIME_STRTODATE->($coldecl->{tmpname}) . ")";
 	} elsif ($type eq 'int') {
 	    $coldecl->{tmpname} = "\@tmp_datetime_$count";
 	    $coldecl->{conversion} = "NULLIF($coldecl->{tmpname}, '')";

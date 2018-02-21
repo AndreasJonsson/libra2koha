@@ -50,7 +50,7 @@ VALUES (
     NULL, -- borrowernotes
     NULL, -- relationship
     NULL, -- sex
-    NULL, -- password
+    [% Password %], -- password
     NULL, -- flags
     IF (@USERID_COLLISSION, NULL,[% userid_str %]), -- userid
     NULL, -- opacnote

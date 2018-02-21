@@ -10,10 +10,10 @@ SELECT biblionumber FROM
 LEFT OUTER JOIN
   bm_merged_records AS m USING(biblionumber)
 WHERE
-  CONCAT(id.marc003, id.marc001) = [% titleno %] OR CONCAT(m.marc003, m.marc001) = [% titleno %]
+  CONCAT(IFNULL(id.marc003, ''), id.marc001) = [% titleno %] OR CONCAT(IFNULL(m.marc003, ''), m.marc001) = [% titleno %]
   [% IF isbn_issn != "''" %] OR isbn = normalize_isbn([% isbn_issn %]) OR issn = normalize_issn([% isbn_issn %]) [% END %]
 ORDER BY
- CONCAT(id.marc003, id.marc001) = [% titleno %] OR CONCAT(m.marc003, m.marc001) = [% titleno %] DESC
+ CONCAT(IFNULL(id.marc003, ''), id.marc001) = [% titleno %] OR CONCAT(IFNULL(m.marc003, ''), m.marc001) = [% titleno %] DESC
 LIMIT 1
 INTO @BIBLIONUMBER;
 

@@ -28,12 +28,14 @@ use Itemtypes;
 use ExplicitRecordNrField;
 use MarcUtil::MarcMappingCollection;
 use StatementPreparer;
+use TimeUtils;
+use utf8;
 
 binmode STDOUT, ":utf8";
 $|=1; # Flush output
 
 # Get options
-my ( $config_dir, $input_file, $flag_done, $limit, $every, $output_dir, $verbose, $debug, $explicit_record_id, $format ) = get_options();
+my ( $config_dir, $input_file, $default_branchcode, $flag_done, $limit, $every, $output_dir, $verbose, $debug, $explicit_record_id, $format ) = get_options();
 
 sub add_stat {
     my ($stat, $item, $extra) = @_;
@@ -177,7 +179,7 @@ my $dbh = DBI->connect( $config->{'db_dsn'}, $config->{'db_user'}, $config->{'db
 my $sth = $dbh->prepare("SHOW TABLES LIKE 'CA_CATALOG'");
 $sth->execute() or die "Failed to execute query";
 
-my $isbn_issn_sth = $dbh->prepare("INSERT INTO isbn_issn (CA_CATALOG_ID, isbn, issn) VALUES (?, ?, ?)");
+my $isbn_issn_sth = $dbh->prepare("INSERT INTO catalog_isbn_issn (CA_CATALOG_ID, isbn, issn) VALUES (?, ?, ?)");
 
 my $ca_catalog_table = $sth->fetchall_arrayref();
 my $has_ca_catalog = +@{$ca_catalog_table} != 0;
@@ -240,6 +242,15 @@ for my $marc_file (glob $input_file) {
       say '* ' . $record->title() if $verbose;
 
 =head2 Record level changes
+
+=head3 Missing 003
+
+=cut
+
+      #if (!defined($record->field('003'))) {
+      #my $field = MARC::Field->new( '003', $default_branchcode );
+      #$record->insert_fields_ordered($field);
+      #}
 
 =head3 ISBN and ISSN and 081 a
 
@@ -577,7 +588,35 @@ FIXME This should be done with a mapping file!
 	    $mmc->set('not_for_loan', 4);
 	}
 
-	if (defined($item->{'LoanPeriodName'})) {
+	my %loanperiods = (
+	    'DVD' => ['itemtype' => 'FILM'],
+	    'tillfälligt korttidslån' => ['itemtype' => 'KORTLON'],
+	    'Fjärrlån. Går att låna hem' => ['not_for_loan' => 3, 'itemtype' => 'FJARRLAN'],
+	    'Fjärrlån.  Ej för hemlån.' => ['not_for_loan' => 3, 'itemtype' => 'FJARRLAN'],
+	    'Korttidslån' => ['itemtype' => 'KORTLAN'],
+	    'Ej hemlån' => ['not_for_loan' => 1],
+	    'Tidskrifter' => ['not_for_loan' => 2, 'itemtype' => 'TIDSKRIFT'],
+	    'Talböcker deponerade' => ['itemtype' => 'DAISY'],
+	    'Stavgång' => ['itemtype' => 'STAVGANG'],
+	    'CD-ROM' => ['itemtype' => 'ELEKRESURS'],
+	    'Film' => ['itemtype' => 'FILM'],
+	    'Långlån' => [],
+	    'Flygelnyckel' => ['itemtype' => 'FLYGELNYCK'],
+	    'Fjärr-kopia' => [],
+	    'depositioner på Språkhyllan' => [],
+	    'Barn tidskrifter' => ['itemtype' => 'BARN TIDSK', 'not_for_loan' => 2],
+	    'Språkdepositioner' => [],
+	    'Korttidslån ny litteratur' => ['itemtype' => 'KORTLAN'],
+	    'Fjärrlån => öppen lånetid', ['not_for_loan' => 3, 'itemtype' => 'FJARRLAN'],
+	    'Daisyspelare' => [],
+	    'Bilaga' => [],
+	    'E-media' => ['itemtype' => 'ELEKRESURS']);
+	if (defined($item->{'LoanPeriodName'}) && exists($loanperiods{$item->{'LoanPeriodName'}})) {
+	    my @lp = @{$loanperiods{$item->{'LoanPeriodName'}}};
+	    for (my $i = 0; $i < scalar(@lp); $i+=2) {
+		$mmc->set($lp[$i], $lp[$i + 1]);
+	    }
+	} elsif (defined($item->{'LoanPeriodName'})) {
 	    if ($item->{'LoanPeriodName'} eq 'Fjärrlån') {
 		$mmc->set('not_for_loan', 3);
 	    } elsif ($item->{'LoanPeriodName'} eq 'Tidskrifter') {
@@ -697,6 +736,7 @@ sub get_options {
 
     # Options
     my $config_dir         = '';
+    my $default_branchcode = '';
     my $input_file         = '';
     my $flag_done          = '';
     my $explicit_record_id = 0;
@@ -710,6 +750,7 @@ sub get_options {
 
     GetOptions (
         'c|config=s'           => \$config_dir,
+	'B|branchcode=s'       => \$default_branchcode,
         'i|infile=s'           => \$input_file,
         'f|flag_done'          => \$flag_done,
         'l|limit=i'            => \$limit,
@@ -726,7 +767,7 @@ sub get_options {
     pod2usage( -msg => "\nMissing Argument: -c, --config required\n",  -exitval => 1 ) if !$config_dir;
     pod2usage( -msg => "\nMissing Argument: -i, --infile required\n",  -exitval => 1 ) if !$input_file;
 
-    return ( $config_dir, $input_file, $flag_done, $limit, $every, $output_dir, $verbose, $debug, $explicit_record_id, $format );
+    return ( $config_dir, $input_file, $default_branchcode, $flag_done, $limit, $every, $output_dir, $verbose, $debug, $explicit_record_id, $format );
 
 }
 
@@ -735,7 +776,7 @@ sub get_options {
 sub fix_date {
     my ( $d ) = @_;
 
-    return $d->strftime('%F');
+    return dp($d)->strftime('%F');
 }
 
 

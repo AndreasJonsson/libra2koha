@@ -5,10 +5,16 @@ use YAML::Syck qw( LoadFile );
 use Getopt::Long::Descriptive;
 use DBI;
 use Data::Dumper;
-use DateTime::Format::Builder;
 use Template;
 use utf8;
 use StatementPreparer;
+use TimeUtils;
+
+sub fix_charcode {
+    my $s = shift;
+    utf8::decode($s);
+    return $s;
+}
 
 my ($opt, $usage) = describe_options(
     '%c %o <some-arg>',
@@ -33,29 +39,7 @@ our $dbh = DBI->connect( $config->{'db_dsn'},
 
 
 my $preparer = new StatementPreparer(format => $opt->format, dbh => $dbh);
-
-sub ds {
-    my $d = shift;
-    if (defined($d)) {
-       return $dbh->quote($d->strftime( '%F' ));
-    } else {
-       return "NULL";
-    }
-}
-
-sub ts {
-    my $d = shift;
-    my $t = shift;
-    $d = tp($d, $t);
-    if (defined($d)) {
-	if (defined($t)) {
-	    die "Time not supported";
-	}
-	return $dbh->quote($d->strftime( '%F' ));
-    } else {
-       return "NULL";
-    }
-}
+init_time_utils(sub { return $dbh->quote(shift); });
 
 my $branchcodes;
 if ( -f $opt->configdir . '/branchcodes.yaml' ) {
@@ -116,12 +100,15 @@ sub account_type {
     my $row = shift;
     my $n  = $row->{Name};
     
-| MSG_FEE         | Påminnelseavgift
-| DELAY_FEE_COPY  | Övertidsavgift
-| ILL_BOOKING_FEE | fjärrlån
-| OTHER_FEE       | 
-
-    if ($n eq 'Övertidsavgift') {
+    if ($n eq 'MSG_FEE') {
+	return 'F';
+    } elsif ($n eq 'DELAY_FEE_COPY') {
+	return 'M';
+    } elsif ($n eq 'ILL_BOOKING_FEE') {
+	return 'M';
+    } elsif ($n eq 'OTHER_FEE') {
+	return 'M';
+    } elsif ($n eq 'Övertidsavgift') {
 	return 'O';
     } elsif ($n eq 'Påminnelseavgift') {
 	return 'F';
@@ -176,6 +163,17 @@ while (next_borrower()) {
 	my $accountid = account_idstring($row, $barcode);
 
 	my $account;
+	if (defined($row->{BarCode})) {
+	    $row->{BarCode} = (split ';', $row->{BarCode})[0];
+	}
+
+	my @parts = split ' ', $row->{RegDate};
+	if (scalar(@parts) > 1) {
+	    $row->{RegDate} = $parts[0];
+	    $row->{RegTime} = $parts[1];
+	}
+
+	$row->{Amount} = defined($row->{Amount}) ? $row->{Amount} : 0;
 
 	if (!defined($accounts{$accountid})) {
 	    $account = {
@@ -191,7 +189,7 @@ while (next_borrower()) {
 		issuedate => ds( $row->{TransactionDate} ),
 		date => ds( $row->{RegDate} ),
 		timestamp => ts( $row->{RegDate}, $row->{RegTime} ),
-		description => $row->{Text},
+		description => fix_charcode($row->{Text}),
 		note => 'note',
 		dispute => 'dispute',
 		branchcode => $branchcodes->{ $row->{'IdBranchCode'} },
@@ -203,11 +201,17 @@ while (next_borrower()) {
 	    $account->{amountoutstanding} += $row->{Amount};
 	    $account->{lastincrement} = $row->{Amount};
 
+
 	    die "accounttype mismatch: '" . $account->{accounttype} . "' ne '" . account_type($row) . "'" unless eq0($account->{accounttype}, account_type($row));
 	    die "barcode mismatch: '" . $account->{barcode} . "' ne '" . $barcode . "'" unless eq0($account->{barcode}, $barcode);
 	    die "cardnumber mismatch: '" . $account->{cardnumber} . "' ne '" . $row->{BarCode} . "'" unless eq0($account->{cardnumber}, $row->{BarCode});
 	    die "surname mismatch: '" . $account->{surname} . "' ne '" . $row->{LastName} . "'"  unless eq0($account->{surname}, $row->{LastName});
 	    die "firstname mismatch: '" . $account->{firstname} . "' ne '" . $row->{FirstName} . "'"  unless eq0($account->{firstname}, $row->{FirstName});
+	}
+
+	if (defined($row->{PaymentAmount})) {
+	    $account->{amountoutstanding} -= $row->{PaymentAmount};
+	    $account->{lastincrement} = -$row->{PaymentAmount};
 	}
     }
 

@@ -58,10 +58,12 @@ if [[ -n "$PERL5LIB" ]]; then
 else
    export PERL5LIB="$LIBRIOTOOLS_DIR"/lib:"$SCRIPTDIR"/lib
 fi
+export PERL5LIB="/usr/share/koha/lib:$PERL5LIB"
 if [[ -z "$LIBRA2KOHA_NOCONFIRM" ]] ; then
    export LIBRA2KOHA_NOCONFIRM=0
 fi
 export PATH="$SCRIPTDIR:$LIBRIOTOOLS_DIR:$PATH"
+
 
 # Create the output dir, if it is missing
 if [ ! -d "$OUTPUTDIR" ]; then
@@ -186,7 +188,7 @@ fi
 if [[ "$FULL" == "yes" || ! -e "$OUTPUTDIR"/records.marc ]]; then
     ## Get the relevant info out of the database and into a .marcxml file
     echo "Going to transform records... "
-    records.pl --config $CONFIG --format $SOURCE_FORMAT --infile "$MARC" --outputdir "$OUTPUTDIR" --flag_done $RECORDS_PARAMS
+    records.pl --branchcode "$BRANCHCODE" --config $CONFIG --format $SOURCE_FORMAT --infile "$MARC" --outputdir "$OUTPUTDIR" --flag_done $RECORDS_PARAMS
 fi
 echo "done"
 
@@ -202,9 +204,13 @@ fi
 ## Get the relevant info out of the database and into a .sql file
 BORROWERSSQL="$OUTPUTDIR/borrowers.sql"
 if [[ "$FULL" == "YES" || ! -e $BORROWERSSQL ]]; then
-  echo "Going to transform borrowers... "
-  perl borrowers.pl --format "$SOURCE_FORMAT" --config "$CONFIG" > $BORROWERSSQL
-  echo "done"
+    echo "Going to transform borrowers... "
+    TMPPERLIO=$PERLIO
+    ## Koha's hash_password function fails if PERLIO is set to :utf8
+    unset PERLIO
+    perl borrowers.pl --format "$SOURCE_FORMAT" --config "$CONFIG" > $BORROWERSSQL
+    export PERLIO=$TMPPERLIO
+    echo "done"
 fi
 
 ### ACTIVE ISSUES/LOANS ###
