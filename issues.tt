@@ -6,7 +6,7 @@ SELECT CONCAT("Exemplar redan utlånat: ", @ITEMNUMBER) FROM DUAL WHERE @ITEM_BO
 
 INSERT INTO issues ( borrowernumber, itemnumber, date_due, branchcode, renewals, issuedate )
   SELECT
-    ( SELECT borrowernumber FROM borrowers WHERE [% IF BorrowerBarcode %] cardnumber = '[% BorrowerBarcode %]' [% ELSE %] cardnumber IS NULL AND surname = [% surname_str %] AND firstname = [% firstname_str %] AND branchcode = [% borrower_branchcode %] AND dateenrolled = [% dateenrolled %] [% END %] LIMIT 1 ),
+    ( SELECT borrowernumber FROM borrowers WHERE [% IF barcode != "NULL" %] cardnumber = [% barcode %] [% ELSE %] cardnumber IS NULL AND surname = [% surname_str %] AND firstname = [% firstname_str %] AND branchcode = [% borrower_branchcode %] AND dateenrolled = [% dateenrolled %] [% END %] LIMIT 1 ),
     ( @ITEMNUMBER ),
     [% date_due %], -- date_due
     '[% branchcode %]', -- branchcode

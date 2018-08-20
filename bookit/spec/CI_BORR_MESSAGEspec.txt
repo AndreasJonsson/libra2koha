@@ -9,3 +9,4 @@ SY_USER_ID_MODIFY	varchar	256
 MODIFY_DATETIME	datetime
 NOTE	varchar	1024
 EXTERNAL	varchar	64
+MESSAGE_TYPE	int

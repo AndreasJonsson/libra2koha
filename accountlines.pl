@@ -209,10 +209,10 @@ while (next_borrower()) {
 	    die "firstname mismatch: '" . $account->{firstname} . "' ne '" . $row->{FirstName} . "'"  unless eq0($account->{firstname}, $row->{FirstName});
 	}
 
-	if (defined($row->{PaymentAmount})) {
-	    $account->{amountoutstanding} -= $row->{PaymentAmount};
-	    $account->{lastincrement} = -$row->{PaymentAmount};
-	}
+	#if (defined($row->{PaymentAmount})) {
+	#$account->{amountoutstanding} -= $row->{PaymentAmount};
+	#$account->{lastincrement} = -$row->{PaymentAmount};
+	#}
     }
 
     for my $account (values %accounts) {

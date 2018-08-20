@@ -18,9 +18,10 @@ SELECT CA_BOOKING.CA_CATALOG_ID AS IdCat,
 FROM CA_BOOKING
      LEFT OUTER JOIN CA_CATALOG ON CA_CATALOG_ID = `ca_catalog.ca_catalog_id`
      LEFT OUTER JOIN catalog_isbn_issn ON `ca_catalog.title_no` = catalog_isbn_issn.CA_CATALOG_ID
-     LEFT OUTER JOIN labels ON IFNULL(CA_COPY_ID_CAUGHT, CA_BOOKING.CA_COPY_ID) = labels.CA_COPY_ID
+     LEFT OUTER JOIN labels ON IFNULL(CA_COPY_ID_CAUGHT, CA_BOOKING.CA_COPY_ID) = labels.CA_COPY_ID and labels.row_number = 0
      JOIN CI_BORR USING(CI_BORR_ID)
      LEFT OUTER JOIN (SELECT CI_BORR_ID, GROUP_CONCAT(DISTINCT CI_BORR_CARD_ID ORDER BY LENGTH(CI_BORR_CARD_ID) DESC SEPARATOR ';') as barcodes FROM CI_BORR_CARD WHERE
      	           NOT (valid_personnummer(CI_BORR_CARD_ID) OR valid_samordningsnummer(CI_BORR_CARD_ID))
                    GROUP BY CI_BORR_ID) AS barcodes
-       ON (barcodes.CI_BORR_ID = CI_BORR.CI_BORR_ID);
+       ON (barcodes.CI_BORR_ID = CI_BORR.CI_BORR_ID)
+ORDER BY CA_BOOKING.CREATE_DATETIME ASC;

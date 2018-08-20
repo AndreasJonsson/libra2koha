@@ -127,6 +127,7 @@ my $ttconfig = {
     INCLUDE_PATH => '', 
     ENCODING => 'utf8'  # ensure correct encoding
 };
+binmode( STDOUT, ":utf8" );
 # create Template object
 my $tt2 = Template->new( $ttconfig ) || die Template->error(), "\n";
 
@@ -193,7 +194,10 @@ RECORD: while ( my $borrower = $sth->fetchrow_hashref() ) {
     } else {
 	$borrower->{'dateexpiry'}   = '"' . DateTime->now->subtract( 'days' => 1 )->strftime( '%F' ) . '"';
     }
-    # Tranlsate patron categories
+    #if (!defined($patroncategories->{ $borrower->{'IdBorrowerCategory'} })) {
+    #print STDERR "IdBorrowerCategory not defined:\n";
+    #print STDERR Dumper( $borrower );
+    #}
     $borrower->{'categorycode'} = $patroncategories->{ $borrower->{'IdBorrowerCategory'} };
     next if (!defined($borrower->{'categorycode'}) or $borrower->{'categorycode'} eq '');
     _quoten(\$borrower->{'categorycode'});
@@ -201,7 +205,7 @@ RECORD: while ( my $borrower = $sth->fetchrow_hashref() ) {
     $borrower->{'userid_str'} = 'NULL';
 
     if (defined($borrower->{'BarCode'}) && $borrower->{'BarCode'} ne '') {
-	$borrower->{'userid_str'} = $dbh->quote($borrower->{'BarCode'});
+	$borrower->{'userid_str'} = $borrower->{'cardnumber_str'};
     } 
     if (defined($borrower->{RegId}) && $borrower->{RegId} ne '') {
 	$borrower->{'userid_str'} = $dbh->quote($borrower->{RegId});

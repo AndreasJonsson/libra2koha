@@ -3,7 +3,12 @@ START TRANSACTION;
 SELECT IF(min(issue_id)>0, 0, min(issue_id)) - 1 FROM old_issues INTO @ISSUE_ID;
 
 SET @BORROWERNUMBER=NULL;
-SELECT borrowernumber FROM borrowers WHERE cardnumber = [% cardnumber %] OR [% cardnumber %] IS NULL AND (surname = [% surname %] AND firstname = [% firstname %] AND branchcode = [% branchcode %] AND dateenrolled = [% dateenrolled %]) LIMIT 1 INTO @BORROWERNUMBER;
+SELECT borrowernumber
+FROM borrowers
+WHERE cardnumber = [% cardnumber %] OR
+   [% cardnumber %] IS NULL AND
+     (surname = [% surname %] AND firstname = [% firstname %] AND branchcode = [% branchcode %] AND dateenrolled = [% dateenrolled %])
+LIMIT 1 INTO @BORROWERNUMBER;
 
 
 CREATE TEMPORARY TABLE bm_tmp_biblionumbers (biblionumber INT(11) PRIMARY KEY);

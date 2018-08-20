@@ -128,6 +128,16 @@ while ( my $issue = $sth->fetchrow_hashref() ) {
     $issue->{'surname_str'} = $dbh->quote($issue->{'LastName'});
     $issue->{'firstname_str'} = $dbh->quote($issue->{'FirstName'});
 
+    my @barcodes = defined($issue->{BorrowerBarcode}) ? split ';', $issue->{BorrowerBarcode} : ();
+    my $barcode;
+    if (scalar(@barcodes) > 0)  {
+	$barcode = $dbh->quote(shift @barcodes);
+    } else {
+	$barcode = 'NULL';
+    }
+
+    $issue->{'barcode'} = $barcode;
+
     if ($issue->{'branchcode'} eq '') {
 	warn "No branchcode for issue: " . Dumper($issue);
     } else {

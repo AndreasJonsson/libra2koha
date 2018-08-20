@@ -103,7 +103,7 @@ my $tt2 = Template->new( $ttconfig ) || die Template->error(), "\n";
 
 foreach my $table (@{$opt->tables}) {
 
-    if ($opt->verbose) {
+    if (1 && $opt->verbose) {
 	print STDERR "Creating table $table\n";
     }
     
