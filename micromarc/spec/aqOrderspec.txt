@@ -1,0 +1,15 @@
+Id	int
+ExternalOrderNo	nvarchar
+ExternalCustomerNo	nvarchar
+OrderDate	datetime2	
+RegTime	datetime2
+ModTime	datetime2
+SupplierId	int
+Internal	bit
+IsAutomaticallyCreated	bit
+RegBy	nvarchar
+ModBy	nvarchar
+OrderStatusId	int
+OurRef	nvarchar
+Requisition	nvarchar
+Notes	nvarchar

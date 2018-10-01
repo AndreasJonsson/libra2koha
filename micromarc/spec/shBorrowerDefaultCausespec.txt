@@ -1,0 +1,3 @@
+Id	int
+StringId	int
+InternalDescription	nvarchar

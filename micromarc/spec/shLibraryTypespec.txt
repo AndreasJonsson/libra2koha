@@ -1,0 +1,4 @@
+Id	int
+StringId	int
+Description	nvarchar
+RegistrationFormId	int

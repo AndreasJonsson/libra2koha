@@ -1,0 +1,3 @@
+Id	int
+SupplierId	int
+Dummy	bit	

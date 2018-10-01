@@ -1,0 +1,3 @@
+Code	int
+DescriptionId	int
+Description	nvarchar

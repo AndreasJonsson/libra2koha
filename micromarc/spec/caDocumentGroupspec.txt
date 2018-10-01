@@ -1,0 +1,5 @@
+Id	int
+Name	varchar	1024
+AuthorityFileId	varchar	1024
+IsILL	bit
+IsILLDepot	bit

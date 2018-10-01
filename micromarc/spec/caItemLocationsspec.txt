@@ -1,0 +1,4 @@
+Id	int
+LocalUnit	int
+Name	nvarchar
+Note	nvarchar

@@ -1,0 +1,7 @@
+Id	int
+Eng	nvarchar
+Nob	nvarchar
+Swe	nvarchar
+Description	nvarchar
+Nno	nvarchar
+Fin	nvarchar

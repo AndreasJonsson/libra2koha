@@ -1,0 +1,4 @@
+Id	int
+BorrowerChildId	int
+BorrowerParentId	int
+IsMainParent	bit

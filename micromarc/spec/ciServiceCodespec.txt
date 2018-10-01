@@ -1,0 +1,4 @@
+Code	int
+Description	nvarchar
+DescriptionId	int
+OnLoan	bit

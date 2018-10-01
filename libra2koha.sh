@@ -11,6 +11,22 @@ dir="$(cd "$(dirname "$BASH_SOURCE")"; pwd -P)"
 
 TABLEEXT=.txt
 TABLEENC=iso-8859-1
+FULL=no
+QUICK=yes
+BUILD_MARC_FILE=no
+
+SOURCE_FORMAT=bookit
+
+COLUMN_DELIMITER='|'
+QUOTE_CHAR='"'
+ESCAPE_CHAR='\\'
+HEADER_ROWS=1
+
+
+if [[ -e "$dir"/config.inc ]]; then
+    . "$dir"/config.inc
+fi
+
 INSTANCE="$3"
 EXPORTCAT="$DIR/exportCat.txt"
 OUTPUTDIR="$DIR/out"
@@ -18,39 +34,24 @@ IDMAP="$OUTPUTDIR/IdMap.txt"
 MYSQL_CREDENTIALS="-u libra2koha -ppass libra2koha"
 MYSQL="mysql $MYSQL_CREDENTIALS"
 MYSQL_LOAD="mysql $MYSQL_CREDENTIALS --local-infile=1 --init-command='SET max_heap_table_size=4294967295;'"
-FULL=no
-QUICK=yes
-
-SOURCE_FORMAT=bookit
-
-if [[ -e "$dir"/config.inc ]]; then
-    . "$dir"/config.inc
-fi
 
 echo "Source format: $SOURCE_FORMAT"
 
 if [[ $SOURCE_FORMAT == bookit ]]; then
     MARC="$DIR/*.iso2709"
+elif [[ $SOURCE_FORMAT == micromarc ]]; then
+    BUILD_MARC_FILE=yes
+    MARC="$OUTPUTDIR/catalogue.marc"
 else
     MARC="$DIR/CatalogueExport.dat"
 fi
 
 SPECDIR="$dir/${SOURCE_FORMAT}/spec"
 
-COLUMN_DELIMITER='|'
-HEADER_ROWS=1
-
 export PERLIO=:unix:utf8
 
 if [[ -z "$SCRIPTDIR" ]]; then
    SCRIPTDIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd -P)"
-fi
-if [[ "$LIBRA2KOHA_DELIMITED_FORMAT" == "1" ]]; then
-  LINE2ISO_PARAMS=--delimited
-  RECORDS_PARAMS=--explicit-record-id
-else
-  LINE2ISO_PARAMS=
-  RECORDS_PARAMS=
 fi
 if [[ -z "$LIBRIOTOOLS_DIR" ]]; then
    export LIBRIOTOOLS_DIR=../LibrioTools
@@ -65,7 +66,6 @@ if [[ -z "$LIBRA2KOHA_NOCONFIRM" ]] ; then
    export LIBRA2KOHA_NOCONFIRM=0
 fi
 export PATH="$SCRIPTDIR:$LIBRIOTOOLS_DIR:$PATH"
-
 
 # Create the output dir, if it is missing
 if [ ! -d "$OUTPUTDIR" ]; then
@@ -93,53 +93,57 @@ fi
 
 ### RECORDS ###
 
-#utf8dir="$(mktemp -d)"
-utf8dir="${OUTPUTDIR}"/utf8dir
-mkdir -p "$utf8dir"
+if [[ "$TABLEENC" == "utf-8" ]]; then
+    utf8dir="$DIR"
+else
+    utf8dir="${OUTPUTDIR}"/utf8dir
+    mkdir -p "$utf8dir"
 
-for file in "$DIR"/*"${TABLEEXT}"  ; do
-   if [[ -f  "$file" ]] ; then
-      if [[ ! ( "$file" =~ spec\.txt$ ) ]]; then
-         name="$(basename -s "${TABLEEXT}" "$file")"
-	 specName="$name"spec
-	 specFile="$SPECDIR/$specName".txt
-         if [[ ! -e "$specFile" && "$name" != 'exportCat' && "$name" != 'exportCatMatch' ]]; then
-	    echo "No specification file corresponding to $file!" 1>&2
-         elif [[ ! -e "$utf8dir"/"$name""${TABLEEXT}" ]]; then
-             if [[ "$name" == exportCat || "$name" == exportCatMatch ]] ; then
-		 enc=utf8
-		 numColumns=8
-             else
-		 numColumns=$(wc -l $specFile | awk '{ print $1 }')
-		 enc=$TABLEENC
-             fi
-	     
-             if [[ $(stat -c %s "$file") == 2 ]] ; then
-		 # Skip, due to a bug in the GHC IO library that generates an error on a file containing
-		 # only the unicode byte order marker.  The bug exists in ghc 7.6.3-21 (Debian jessie) but appears to
-		 # have been fixed in ghc 7.10.3-7 (Ubuntu xenial)
- 		 touch "$utf8dir"/"$name""${TABLEEXT}"
-	     else
-		 echo "Converting table ${name}"
-		 delimtabletransform  --encoding=$TABLEENC               \
-                                   --column-delimiter="$COLUMN_DELIMITER" \
-                                   --row-delimiter='\n'               \
-                                   --row-delimiter='\r\n'             \
-                                   --enclosed-by='"'                  \
-				   --null-literal                     \
-                                   "$file" > "$utf8dir"/"${name}${TABLEEXT}"
-             fi
-         fi
-      fi
-   fi
-done
+    for file in "$DIR"/*"${TABLEEXT}"  ; do
+	if [[ -f  "$file" ]] ; then
+	    if [[ ! ( "$file" =~ spec\.txt$ ) ]]; then
+		name="$(basename -s "${TABLEEXT}" "$file")"
+		specName="$name"spec
+		specFile="$SPECDIR/$specName".txt
+		if [[ ! -e "$specFile" && "$name" != 'exportCat' && "$name" != 'exportCatMatch' ]]; then
+		    echo "No specification file corresponding to $file!" 1>&2
+		elif [[ ! -e "$utf8dir"/"$name""${TABLEEXT}" ]]; then
+		    if [[ "$name" == exportCat || "$name" == exportCatMatch ]] ; then
+			enc=utf8
+			numColumns=8
+		    else
+			numColumns=$(wc -l $specFile | awk '{ print $1 }')
+			enc=$TABLEENC
+		    fi
+		    
+		    if [[ $(stat -c %s "$file") == 2 ]] ; then
+			# Skip, due to a bug in the GHC IO library that generates an error on a file containing
+			# only the unicode byte order marker.  The bug exists in ghc 7.6.3-21 (Debian jessie) but appears to
+			# have been fixed in ghc 7.10.3-7 (Ubuntu xenial)
+ 			touch "$utf8dir"/"$name""${TABLEEXT}"
+		    else
+			echo "Converting table ${name}"
+			delimtabletransform  --encoding=$TABLEENC               \
+					     --column-delimiter="$COLUMN_DELIMITER" \
+					     --row-delimiter='\n'               \
+					     --row-delimiter='\r\n'             \
+					     --enclosed-by="$QUOTE_CHAR"        \
+					     --null-literal                     \
+					     "$file" > "$utf8dir"/"${name}${TABLEEXT}"
+		    fi
+		fi
+	    fi
+	fi
+    done
 
+
+fi
 
 tabledir="$utf8dir"
-#tabledir="$DIR"
 
 ## Clean up the database
 if [[ "$QUICK"z != "yesz" ]]; then
+    echo "Cleaning database!"
 cat <<'EOF' | $MYSQL;
 SET FOREIGN_KEY_CHECKS = 0;
 SET GROUP_CONCAT_MAX_LEN=32768;
@@ -156,6 +160,13 @@ DEALLOCATE PREPARE stmt;
 SET FOREIGN_KEY_CHECKS = 1;
 EOF
 fi
+
+if [[ "$BUILD_MARC_FILE" == "yes" && ( "$FULL" == "yes" || ! -e "$MARC" ) ]]; then
+   . "$SOURCE_FORMAT"/create_marc_records.sh
+fi
+
+echo "Exiting"
+exit 0
 
 ## Create tables and load the datafiles
 if [[ "$QUICK"z != "yesz" ]]; then

@@ -1,0 +1,7 @@
+Id	int
+Description	nvarchar
+ArticleNo	nvarchar
+ItemPrice	numeric
+Notes	nvarchar
+MM2AccountCodeId	int
+DescriptionId	int

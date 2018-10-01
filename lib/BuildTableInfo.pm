@@ -8,7 +8,7 @@ $VERSION     = 1.00;
 use strict;
 use Modern::Perl;
 use Data::Dumper;
-
+use File::BOM;
 use Text::CSV;
 
 use Getopt::Long::Descriptive;
@@ -48,15 +48,17 @@ sub build_table_info {
 	my $base = $_;
 	my $fh;
 	my $csvfile = $opt->dir . "/" . $csvfiles->{$base}->{filename};
-	open $fh, ("<:encoding(" . $opt->encoding . ")"), $csvfile or die ($csvfile . ": $!");
+	open $fh, ("<:encoding(" . $opt->encoding . "):via(File::BOM)"), $csvfile or die ($csvfile . ": $!");
 	my $csv = Text::CSV->new({
 	    quote_char => $opt->quote,
 	    sep_char => $opt->columndelimiter,
 	    eol => $opt->rowdelimiter,
-	    escape_char => "\\"
+	    escape_char => $opt->escape
 				 });
+
+
 	my $columns = $csv->getline( $fh );
-	
+
 	my %columns = ();
 	my $i = 0;
 	for my $c (@$columns) {

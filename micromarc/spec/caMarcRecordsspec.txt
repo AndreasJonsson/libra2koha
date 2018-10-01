@@ -1,0 +1,5 @@
+MarcRecordId	int
+Mainfield	int
+I1	varchar	1
+I2	varchar	1
+Value	varchar	2056

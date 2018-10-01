@@ -1,0 +1,14 @@
+Id	int
+TermId	int
+IsControlField	smallint
+MainField	nchar
+SubField	nchar
+MarcFieldValue	nvarchar
+ControlField1	nvarchar
+ControlField1StartPos	int
+ControlField1Length	int
+ControlField1Value	nvarchar
+ControlField2	nvarchar
+ControlField2StartPos	int
+ControlField2Length	int
+ControlField2Value	nvarchar

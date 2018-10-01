@@ -1,0 +1,5 @@
+Id	int
+BorrowerId	int
+Barcode	nvarchar
+IsCommonBorrowerCard	bit
+IsSSN	bit

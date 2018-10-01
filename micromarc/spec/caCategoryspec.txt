@@ -1,0 +1,5 @@
+Id	int
+Name	varchar	256
+AutoCheckIn	int
+OwnerId	int
+LabelTemplateId	int

@@ -1,0 +1,13 @@
+Id	int
+ILLId	int
+NewIllStatusId	int
+OldIllStatusId	int
+NewServiceCode	int
+OldServiceCode	int
+ModBy	nvarchar
+LocalUnitId	int
+ExternalLibraryId	int
+ChangedDate	datetime2
+MessageLinkId	int
+DeliverAtUnitId	int
+LibraryId	int

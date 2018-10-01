@@ -1,0 +1,12 @@
+Id	int
+SupplierId	int
+LocalUnitId	int
+CustomerNo	nvarchar
+LogonUser	nvarchar
+LogonPassword	nvarchar
+AssumedDeliveryDays	int
+Notes	nvarchar
+DocumentGroupId	int
+ReceiveItemAutomatically	bit
+DefaultAccountPeriodId	int	
+UpdateRecordsPolicy	int	

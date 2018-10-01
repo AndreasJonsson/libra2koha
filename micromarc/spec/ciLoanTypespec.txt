@@ -1,0 +1,4 @@
+Id	int
+Name	nvarchar
+MaterialTypeId	int
+IsReadOnly	smallint

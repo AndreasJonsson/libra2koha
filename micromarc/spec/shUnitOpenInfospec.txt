@@ -1,0 +1,6 @@
+Id	int
+LocalUnitId	int
+IsOpen	bit
+OpenHours	nvarchar
+Weekday	smallint
+MM2_Library_Close_Id	int

@@ -1,0 +1,10 @@
+Id	int
+Name	nvarchar
+Description	nvarchar
+Notes	nvarchar
+UnitId	int
+AdministratorId	int
+LastUpdated	datetime2
+NameInExternalSystem	nvarchar
+mm2_BorrowerGroupId	int
+mm2_UnitId	int

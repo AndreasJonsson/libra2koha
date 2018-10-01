@@ -1,0 +1,9 @@
+Id	int
+Name	nvarchar
+Description	nvarchar
+LocalizedNameId	int
+AllowDeletion	bit
+ScrapItem	bit
+DisplayOrder	int
+Calculated	bit
+IsSerialStatus	bit

@@ -29,17 +29,20 @@ use BuildTableInfo;
 
 my %DATE_FORMATS = (
     bookit => '%d-%b-%y',
-    libra  => '%Y%m%d'
+    libra  => '%Y%m%d',
+    micromarc => '%d.%m.%Y'
     );
 
 my %DATETIME_FORMATS = (
     bookit => '%d-%b-%y %T',
-    libra  => '%Y%m%d %T'
+    libra  => '%Y%m%d %T',
+    micromarc => '%d.%m.%Y %T'
     );
 
 my %TIME_FORMATS = (
     bookit => '%T',
-    libra  => '%T'
+    libra  => '%T',
+    micromarc => '%T'
     );
 
 my ($opt, $usage) = describe_options(
@@ -54,6 +57,7 @@ my ($opt, $usage) = describe_options(
     [ 'encoding=s',  'character encoding',      { default => 'utf-8' } ],
     [ 'specencoding=s',  'character encoding of specfile',      { default => 'utf-8' } ],
     [ 'quote=s',  'quote character' ],
+    [ 'escape=s', 'escape character', { default => "\\" } ],
     [ 'headerrows=i', 'number of header rows',  { default => 0 } ],
            [],
            [ 'verbose|v',  "print extra stuff"            ],
@@ -112,8 +116,13 @@ foreach my $table (@{$opt->tables}) {
 
     my $count = 0;
     my @columns = ();
+	
     for my $c (@{$csvfiles->{$table}->{columnlist}}) {
 	my $s = $specfiles->{$table}->{columns}->{$c};
+	if (! defined($s->{type})) {
+	    print Dumper($specfiles);
+	}
+	
 	my $type = $s->{type};
 	chomp $type;
 	my $size;
@@ -130,9 +139,14 @@ foreach my $table (@{$opt->tables}) {
         } elsif ( $type eq 'bit' ) {
 	    $type = 'BOOLEAN';
 	    $size = '';
+	} elseif ( $type eq 'float' ) {
+	    $type = 'FLOAT';
+	    $size = '';
 	}
 	if ($type ne 'varchar') {
 	    $size = '';
+	} else if (!defined($size)) {
+	    $size = 1024;
 	}
 	my $coldecl = {
 	    'name' => $c,
@@ -142,14 +156,14 @@ foreach my $table (@{$opt->tables}) {
 	if ($type eq 'date') {
 	    $coldecl->{tmpname} = "\@tmp_date_$count";
 	    $coldecl->{conversion} = "IF($coldecl->{tmpname} = '', NULL, " . $DATE_STRTODATE->($coldecl->{tmpname}) . ")";
-	} elsif ($type eq 'datetime') {
+	} elsif ($type eq 'datetime' || $type eq 'datetime2') {
 	    $coldecl->{tmpname} = "\@tmp_datetime_$count";
 	    $coldecl->{conversion} = "IF($coldecl->{tmpname} = '', NULL, " . $DATETIME_STRTODATE->($coldecl->{tmpname}) .")";
 	} elsif ($type eq 'time') {
-	    $coldecl->{tmpname} = "\@tmp_datetime_$count";
+	    $coldecl->{tmpname} = "\@tmp_time_$count";
 	    $coldecl->{conversion} = "IF($coldecl->{tmpname} = '', NULL, " . $TIME_STRTODATE->($coldecl->{tmpname}) . ")";
 	} elsif ($type eq 'int') {
-	    $coldecl->{tmpname} = "\@tmp_datetime_$count";
+	    $coldecl->{tmpname} = "\@tmp_int_$count";
 	    $coldecl->{conversion} = "NULLIF($coldecl->{tmpname}, '')";
 	}
 	if (defined($size)) {

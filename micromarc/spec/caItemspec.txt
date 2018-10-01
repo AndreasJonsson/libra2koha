@@ -1,0 +1,37 @@
+Id	int
+MarcRecordId	int
+Barcode	varchar	1024
+ItemNo	int
+ItemName	varchar	1024
+Shelf	varchar	1024
+ItemStatus	int
+ControllingUnitId	int
+BelongToUnitId	int
+PlacedAtUnitId	int
+ILLUnitId	int
+RegBy	varchar	1024
+RegTime	datetime
+ModBy	varchar 1024
+ModTime	datetime
+StatusChangedBy	varchar	1024
+StatusChangedTime	datetime
+ScrapDate	datetime
+PermitLoan	bit
+ShowInOpac	bit
+LoanCountStarted	int
+LoanCount	int
+RenewalCount	int
+BoxNo	int
+Retrospective	bit
+Notes	varchar	2056
+CategoryNewCheckedIn	date
+LoanTypeId	int
+CulturalFundBook	bit
+IsMagneticMedia	bit
+ItemBindingText	varchar	1024
+LastLentToBorrowerDate	datetime
+Location	int
+IsPicked	bit
+AllowILL	bit
+AllowLII	bit
+IsFloating	bit

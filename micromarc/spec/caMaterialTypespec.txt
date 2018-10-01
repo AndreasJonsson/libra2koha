@@ -1,0 +1,13 @@
+Id	int
+Name	nvarchar
+ImageIndex	int
+F000	char
+F007	char
+IsCatchAll	bit
+NameId	int
+HelpTextId	int
+f007p3	char
+GroupId	int
+SortOrder	int
+F019b	nvarchar
+F500a	nvarchar

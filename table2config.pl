@@ -114,12 +114,10 @@ my $csv = Text::CSV->new({
 
 for (my $i = 0; $i < $opt->headerrows; $i++) {
     die "Filehandle is closed! $i" unless defined(fileno($fh));
-    $csv->getline( $fh );
+    my $row = $csv->getline( $fh );
 }
 
-
 while (my $row = $csv->getline( $fh ) ) {
-
     my $key     = $row->[ $opt->key ];
     my $value   = '';
     if (defined($opt->value)) {

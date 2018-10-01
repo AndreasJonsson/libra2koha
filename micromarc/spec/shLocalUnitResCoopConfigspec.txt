@@ -1,0 +1,3 @@
+UnitId	int
+CoopUnitId	int
+Priority	int

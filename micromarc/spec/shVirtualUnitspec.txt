@@ -1,0 +1,2 @@
+VirtualUnitId	int
+PhysicalUnitId	int

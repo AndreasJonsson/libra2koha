@@ -1,0 +1,6 @@
+Id	int
+LocalUnitId	int
+FromDate	date
+ToDate	date
+Name	nvarchar
+MM2_Library_Close_Id	int

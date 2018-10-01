@@ -1,0 +1,11 @@
+Id	int
+OrgNo	nvarchar
+SupplierNo	nvarchar
+SecondName	nvarchar
+RegBy	nvarchar
+RegTime	datetime2
+ModBy	nvarchar
+ModTime	datetime2
+ProviderId	int
+Inactive	bit
+WebshopURL	bit

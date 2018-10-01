@@ -1,0 +1,8 @@
+Code	int
+Dismission	smallint
+Calculated	smallint
+DescriptionId	int
+Description	nvarchar
+ReservationAllowed	bit
+AllowedForNewItem	bit
+SortOrder	smallint
