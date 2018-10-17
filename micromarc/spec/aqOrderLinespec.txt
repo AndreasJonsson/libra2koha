@@ -5,7 +5,7 @@ Price	decimal
 DeliveryDate	datetime2
 Id	int
 OrderLineStatusId	int
-AccountCode	nvarchar	
+AccountCode	nvarchar
 CurrencyId	int
 Title	nvarchar
 ItemControlNumber	nvarchar
@@ -18,3 +18,5 @@ ModTime	datetime2
 RegBy	nvarchar
 RegTime	datetime2
 LockedBy	nvarchar
+AccountPeriodId	int
+LastReminderTime	datetime2

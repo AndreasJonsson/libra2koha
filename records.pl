@@ -14,7 +14,8 @@ records.pl - Read MARCXML records from a file and add items from the database.
 =cut
 
 use MARC::File::USMARC;
-use MARC::File::XML ( BinaryEncoding => 'utf8', RecordFormat => 'NORMARC' );
+use MARC::File::XML ( BinaryEncoding => 'utf8', RecordFormat => 'MARC21' );
+use MARC::Batch;
 use DBI;
 use Getopt::Long;
 use YAML::Syck qw( LoadFile );
@@ -35,7 +36,7 @@ binmode STDOUT, ":utf8";
 $|=1; # Flush output
 
 # Get options
-my ( $config_dir, $input_file, $default_branchcode, $flag_done, $limit, $every, $output_dir, $verbose, $debug, $explicit_record_id, $format ) = get_options();
+my ( $config_dir, $input_file, $default_branchcode, $flag_done, $limit, $every, $output_dir, $verbose, $debug, $explicit_record_id, $format, $xml_input ) = get_options();
 
 sub add_stat {
     my ($stat, $item, $extra) = @_;
@@ -176,13 +177,14 @@ my $dbh = DBI->connect( $config->{'db_dsn'}, $config->{'db_user'}, $config->{'db
 
 # Query for selecting items connected to a given record
 
-my $sth = $dbh->prepare("SHOW TABLES LIKE 'CA_CATALOG'");
-$sth->execute() or die "Failed to execute query";
+my $sth;
 
-my $isbn_issn_sth = $dbh->prepare("INSERT INTO catalog_isbn_issn (CA_CATALOG_ID, isbn, issn) VALUES (?, ?, ?)");
+my $isbn_issn_sth;
+if ($format eq 'bookit') {
+    $isbn_issn_sth  = $dbh->prepare("INSERT INTO catalog_isbn_issn (CA_CATALOG_ID, isbn, issn) VALUES (?, ?, ?)");
+}
 
-my $ca_catalog_table = $sth->fetchall_arrayref();
-my $has_ca_catalog = +@{$ca_catalog_table} != 0;
+my $has_ca_catalog = 1;
 
 my $preparer = new StatementPreparer(format => $format, dbh => $dbh);
 
@@ -225,7 +227,12 @@ my $count = 0;
 my $count_items = 0;
 say "Starting record iteration" if $verbose;
 for my $marc_file (glob $input_file) {
-    my $batch = MARC::File::USMARC->in( $marc_file );
+    my $batch;
+    if ($xml_input) {
+	$batch = MARC::Batch->new( 'XML', $marc_file );
+    } else {
+	$batch = MARC::File::USMARC->in( $marc_file );
+    }
   RECORD: while (my $record = $batch->next()) {
 
       # Only do every x record
@@ -343,7 +350,11 @@ L<http://wiki.koha-community.org/wiki/Holdings_data_fields_%289xx%29>
 	  say "catid: $catid" if $verbose;
 	  # add_catitem_stat($catid);
 	  # Look up items by recordid in the DB and add them to our record
-	  $sth->execute( $recordid, $catid ) or die "Failed to query items for $recordid";
+	  if ($format eq 'micromarc') {
+	      $sth->execute( $recordid ) or die "Failed to query items for $recordid";
+	  } else {
+	      $sth->execute( $recordid, $catid ) or die "Failed to query items for $recordid";
+	  }
 	  $items = $sth->fetchall_arrayref({});
       } else {
 	  my $f = $record->field( $ExplicitRecordNrField::RECORD_NR_FIELD );
@@ -372,7 +383,7 @@ L<http://wiki.koha-community.org/wiki/Holdings_data_fields_%289xx%29>
 =cut
 
         $mmc->set('homebranch',    $branchcodes->{$item->{'IdBranchCode'}} );
-        $mmc->set('holdingbranch', $branchcodes->{$item->{'IdBranchCode'}} );
+        $mmc->set('holdingbranch', $branchcodes->{defined($item->{'IdPlacedAtBranchCode'}) ? $item->{'IdPlacedAtBranchCode'} : $item->{'IdBranchCode'}});
 
 
 =head3 952$c Shelving location
@@ -516,9 +527,16 @@ debug output. Run C<perldoc itemtypes.pl> for more documentation.
         my $itemtype;
 	if ($item->{'IsRemote'}) {
 	    $itemtype = 'FJARRLAN';
-	} else {
+	}
+# elsif (defined($item->{'MaterialType'})) {
+#	    $itemtype = $item->{'MaterialType'};
+#	}
+	else {
 	    $itemtype = get_itemtype( $record );
 	    $itemtype = refine_itemtype( $mmc, $record, $item, $itemtype );
+	}
+	if (defined($item->{'MaterialType'})) {
+	    print("MaterialTyle: " . $item->{'MaterialType'} . " itemtype: $itemtype\n");
 	}
 	add_itemtype_stat($itemtype, $item->{'CA_CATALOG_LINK_TYPE_ID'});
 	$mmc->set('itemtype', $itemtype);
@@ -657,7 +675,9 @@ Just add the itemtype in 942$c.
       last if $limit && $limit == $count;
 
     } # end foreach record
-    $batch->close();
+    unless ($xml_input) {
+	$batch->close();
+    }
 }
 
 $progress->update( $limit );
@@ -744,6 +764,7 @@ sub get_options {
     my $every              = '';
     my $output_dir         = '';
     my $format             = 'libra';
+    my $xml                = 0;
     my $verbose            = '';
     my $debug              = '';
     my $help               = '';
@@ -758,6 +779,7 @@ sub get_options {
         'o|outputdir=s'        => \$output_dir,
         'E|explicit-record-id' => \$explicit_record_id,
 	'F|format=s'           => \$format,
+	'X|xml'                => \$xml,
         'v|verbose'            => \$verbose,
         'd|debug'              => \$debug,
         'h|?|help'             => \$help
@@ -767,7 +789,7 @@ sub get_options {
     pod2usage( -msg => "\nMissing Argument: -c, --config required\n",  -exitval => 1 ) if !$config_dir;
     pod2usage( -msg => "\nMissing Argument: -i, --infile required\n",  -exitval => 1 ) if !$input_file;
 
-    return ( $config_dir, $input_file, $default_branchcode, $flag_done, $limit, $every, $output_dir, $verbose, $debug, $explicit_record_id, $format );
+    return ( $config_dir, $input_file, $default_branchcode, $flag_done, $limit, $every, $output_dir, $verbose, $debug, $explicit_record_id, $format, $xml );
 
 }
 
@@ -784,11 +806,18 @@ sub num_records_ {
     $input_file = shift;
     my $n = 0;
     foreach my $f (glob $input_file) {
-	my $batch = MARC::File::USMARC->in( $f );
+	my $batch;
+	if ($xml_input) {
+	    $batch = MARC::Batch->new('XML', $f);
+	} else {
+	    $batch = MARC::File::USMARC->in( $f );
+	}
 	while ($batch->next()) {
 	    $n++;
 	}
-	$batch->close();
+	unless ($xml_input) {
+	    $batch->close();
+	}
     }
     return $n;
 }
@@ -823,7 +852,7 @@ sub refine_itemtype {
     my $itemtype = $original_itemtype;
 
     my $ccall = $item->{'Location_Marc'};
-    my $localshelf = defined($item->{'IdLocalShelf'}) ? $loc->{ $item->{'IdLocalShelf'} } : undef;
+    my $localshelf = defined($item->{'IdLocalShelf'}) ? $loc->{ $item->{'IdLocalShelf'} } : (defined($item->{'LocalShelf'}) ? $item->{'LocalShelf'} : undef);
 
     my $classificationcode = $mmc->get('klassifikationskod');
     my $ccode = $mmc->get('collection_code');

@@ -1,3 +1,3 @@
 CategoryId	int
-ItemId		int
-InDate		date
+ItemId	int
+InDate	date

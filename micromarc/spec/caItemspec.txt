@@ -11,7 +11,7 @@ PlacedAtUnitId	int
 ILLUnitId	int
 RegBy	varchar	1024
 RegTime	datetime
-ModBy	varchar 1024
+ModBy	varchar	1024
 ModTime	datetime
 StatusChangedBy	varchar	1024
 StatusChangedTime	datetime

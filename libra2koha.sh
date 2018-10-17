@@ -37,11 +37,14 @@ MYSQL_LOAD="mysql $MYSQL_CREDENTIALS --local-infile=1 --init-command='SET max_he
 
 echo "Source format: $SOURCE_FORMAT"
 
+RECORDS_INPUT_FORMAT=
+
 if [[ $SOURCE_FORMAT == bookit ]]; then
     MARC="$DIR/*.iso2709"
 elif [[ $SOURCE_FORMAT == micromarc ]]; then
     BUILD_MARC_FILE=yes
     MARC="$OUTPUTDIR/catalogue.marc"
+    RECORDS_INPUT_FORMAT=--xml
 else
     MARC="$DIR/CatalogueExport.dat"
 fi
@@ -165,9 +168,6 @@ if [[ "$BUILD_MARC_FILE" == "yes" && ( "$FULL" == "yes" || ! -e "$MARC" ) ]]; th
    . "$SOURCE_FORMAT"/create_marc_records.sh
 fi
 
-echo "Exiting"
-exit 0
-
 ## Create tables and load the datafiles
 if [[ "$QUICK"z != "yesz" ]]; then
 echo -n "Going to create tables for records and items, and load data into MySQL... "
@@ -177,7 +177,7 @@ fi
 if [[ "$FULL" == "yes" || ! -e "$OUTPUTDIR"/records.marc ]]; then
     ## Get the relevant info out of the database and into a .marcxml file
     echo "Going to transform records... "
-    records.pl --branchcode "$BRANCHCODE" --config $CONFIG --format $SOURCE_FORMAT --infile "$MARC" --outputdir "$OUTPUTDIR" --flag_done $RECORDS_PARAMS
+    records.pl --branchcode "$BRANCHCODE" --config $CONFIG --format $SOURCE_FORMAT --infile "$MARC" --outputdir "$OUTPUTDIR" --flag_done $RECORDS_PARAMS $RECORDS_INPUT_FORMAT
 fi
 echo "done"
 

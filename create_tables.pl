@@ -1,4 +1,4 @@
-#!/usr/bin/env perl 
+#!/usr/bin/perl
 
 # Copyright 2014 Magnus Enger Libriotech
 # Copyright 2017 Andreas Jonsson andreas.jonsson@kreablo.se
@@ -87,7 +87,7 @@ sub strtodate {
     } else {
 	return sub {
 	    my $s = shift;
-	    return "STR_TO_DATE($s, " . $f . ")";
+	    return "STR_TO_DATE($s, '" . $f . "')";
 	};
     }
 }
@@ -120,11 +120,15 @@ foreach my $table (@{$opt->tables}) {
     for my $c (@{$csvfiles->{$table}->{columnlist}}) {
 	my $s = $specfiles->{$table}->{columns}->{$c};
 	if (! defined($s->{type})) {
-	    print Dumper($specfiles);
+	    # print Dumper($specfiles);
 	}
 	
 	my $type = $s->{type};
-	chomp $type;
+	if (!defined($type)) {
+	    $type = '';
+	} else {
+	    chomp $type;
+	}
 	my $size;
 	if (defined($s->{typeextra}) and $s->{typeextra} ne '') {
 	    $size = $s->{typeextra};
@@ -139,13 +143,16 @@ foreach my $table (@{$opt->tables}) {
         } elsif ( $type eq 'bit' ) {
 	    $type = 'BOOLEAN';
 	    $size = '';
-	} elseif ( $type eq 'float' ) {
+	} elsif ( $type eq 'float' ) {
 	    $type = 'FLOAT';
+	    $size = '';
+	} elsif ( $type eq 'datetime2' ) {
+	    $type = 'datetime';
 	    $size = '';
 	}
 	if ($type ne 'varchar') {
 	    $size = '';
-	} else if (!defined($size)) {
+	} elsif (!defined($size)) {
 	    $size = 1024;
 	}
 	my $coldecl = {
@@ -156,7 +163,7 @@ foreach my $table (@{$opt->tables}) {
 	if ($type eq 'date') {
 	    $coldecl->{tmpname} = "\@tmp_date_$count";
 	    $coldecl->{conversion} = "IF($coldecl->{tmpname} = '', NULL, " . $DATE_STRTODATE->($coldecl->{tmpname}) . ")";
-	} elsif ($type eq 'datetime' || $type eq 'datetime2') {
+	} elsif ($type eq 'datetime') {
 	    $coldecl->{tmpname} = "\@tmp_datetime_$count";
 	    $coldecl->{conversion} = "IF($coldecl->{tmpname} = '', NULL, " . $DATETIME_STRTODATE->($coldecl->{tmpname}) .")";
 	} elsif ($type eq 'time') {

@@ -1,43 +1,43 @@
 Id	int
-LibrarySystem	nvarchar
-LibraryNumber	nvarchar
-DepartmentName	nvarchar
-OtherName	nvarchar
+LibrarySystem	varchar	128
+LibraryNumber	varchar	256
+DepartmentName	varchar	256
+OtherName	varchar	256
 LastCorrected	datetime2
 Code	nvarchar
-CountryNameEng	nvarchar
-OtherNames	nvarchar
-Reservations	nvarchar
-AuthorizationCode	nvarchar
+CountryNameEng	varchar	16
+OtherNames	varchar	256
+Reservations	varchar	256
+AuthorizationCode	varchar	32
 Unavailable	smallint
-EmailILLAuto	nvarchar
-EmailILLReceipt	nvarchar
-Z3950Port	nvarchar
-Z3950BaseName	nvarchar
-Z3950ServerAddress	nvarchar
+EmailILLAuto	varchar	256
+EmailILLReceipt	varchar	256
+Z3950Port	varchar	16
+Z3950BaseName	varchar	256
+Z3950ServerAddress	varchar	256
 LibraryNumberOld	int
 LibraryNoOverride	int
 Manager	nvarchar
-ManagerDeputy	nvarchar
+ManagerDeputy	varchar	128
 ILLServices	int
-CustomerTypeCode	nvarchar
-URLOpac	nvarchar
-NameEnglish	nvarchar
-ILLContactPerson	nvarchar
-URLZ3950Info	nvarchar
-QuickCode	nvarchar
+CustomerTypeCode	varchar	128
+URLOpac	varchar		256
+NameEnglish	varchar	256
+ILLContactPerson	varchar	256
+URLZ3950Info	varchar	256
+QuickCode	varchar	128
 IsLocalRecord	smallint
 LoanDuration	int
-EmailXML	nvarchar
-EmailXMLReceipt	nvarchar
+EmailXML	varchar	256
+EmailXMLReceipt	varchar	256
 BSName	nvarchar
-Z3950UserName	nvarchar
-Z3950UserPassword	nvarchar
-Z3950Syntax	nvarchar
-Z3950SkipMarcFields	nvarchar
-Z3950DupControl	nvarchar
-Z3950PreProcess	nvarchar
-Z3950Ccl2Rpn	nvarchar
-RemoteDeliveryWebserviceURL	nvarchar
-OrgNo	nvarchar
-URLNCIP	nvarchar
+Z3950UserName	varchar	256
+Z3950UserPassword	varchar	256
+Z3950Syntax	varchar	256
+Z3950SkipMarcFields	varchar	256
+Z3950DupControl	varchar	256
+Z3950PreProcess	varchar	256
+Z3950Ccl2Rpn	varchar	256
+RemoteDeliveryWebserviceURL	varchar	256
+OrgNo	varchar	256
+URLNCIP	varchar	256
