@@ -93,7 +93,7 @@ my $mmc = MarcUtil::MarcMappingCollection::marc_mappings(
     'collection_code'                  => { map => { '952' => '8' } },
     'subjects'                         => { map => { '653' => 'b' } },
     'libra_subjects'                   => { map => { '976' => 'b' } },
-    'last_itemtype'                    => { map => { '942' => 'c' }, append => 0 }
+    'biblioitemtype'                    => { map => { '942' => 'c' }, append => 0 }
     );
 
 =head1 CONFIG FILES
@@ -665,8 +665,11 @@ Just add the itemtype in 942$c.
 
 =cut
 
-      if ( $last_itemtype ) {
-	  $mmc->set('last_itemtype', $last_itemtype);
+      if ( !$last_itemtype ) {
+	  my $itemtype = get_itemtype( $record );
+	  $last_itemtype = refine_itemtype( $mmc, $record, $item, $itemtype );
+	  
+	  $mmc->set('biblioitemtype', $last_itemtype);
       }
 
       $file->write( $record );
