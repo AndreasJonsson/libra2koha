@@ -57,7 +57,6 @@ my $config;
 if ( -f $config_dir . '/config.yaml' ) {
     $config = LoadFile( $config_dir . '/config.yaml' );
 }
-my $output_file = $config->{'output_marcxml'};
 
 =head2 branchcodes.yaml
 
@@ -137,6 +136,16 @@ $sth->execute();
 
 my $auto_count = 1;
 
+print <<EOF;
+
+DROP TABLE IF EXISTS import_table_borrower_idmap;
+CREATE TABLE import_table_borrower_idmap (
+  `source_id` int PRIMARY KEY NOT NULL,
+  `target_id` int UNIQUE KEY NOT NULL
+);
+
+EOF
+
 RECORD: while ( my $borrower = $sth->fetchrow_hashref() ) {
 
     say Dumper $borrower if $debug;
@@ -163,14 +172,14 @@ RECORD: while ( my $borrower = $sth->fetchrow_hashref() ) {
 
     my $isKohaMarked = 0;
     my @messages = ();
-    if ($borrower->{'Message'}) {
-	$isKohaMarked = $borrower->{'Message'} =~ /\bkoha\b/i;
-	push @messages, { text => $dbh->quote($borrower->{'Message'})};
-    }
-    if ($borrower->{'Comment'}) {
-	$isKohaMarked = $isKohaMarked or $borrower->{'Comment'} =~ /\bkoha\b/i;
-	push @messages, { text => $dbh->quote($borrower->{'Comment'}) };
-    }
+    # if ($borrower->{'Message'}) {
+    # $isKohaMarked = $borrower->{'Message'} =~ /\bkoha\b/i;
+    # push @messages, { text => $dbh->quote($borrower->{'Message'})};
+    #}
+    #if ($borrower->{'Comment'}) {
+    #	$isKohaMarked = $isKohaMarked or $borrower->{'Comment'} =~ /\bkoha\b/i;
+    #	push @messages, { text => $dbh->quote($borrower->{'Comment'}) };
+    #}
 
     if ($format eq 'bookit') {
 	$message_sth->execute($borrower->{'IdBorrower'});
@@ -209,6 +218,22 @@ RECORD: while ( my $borrower = $sth->fetchrow_hashref() ) {
     } 
     if (defined($borrower->{RegId}) && $borrower->{RegId} ne '') {
 	$borrower->{'userid_str'} = $dbh->quote($borrower->{RegId});
+    }
+
+    if (defined($borrower->{'FullName'})) {
+	my $s = $borrower->{'FullName'};
+	my $i = index $s, ',';
+	if (!defined($borrower->{'FirstName'}) && $i >= 0) {
+	    $borrower->{'FirstName'} = substr($s, $i + 1);
+	}
+	if (!defined($borrower->{'LastName'})) {
+	    if ($i >= 0) {
+		$borrower->{'LastName'} = substr($s, 0, $i);
+		$borrower->{'LastName'} =~ s/^(\s*)//s;
+	    } else {
+		$borrower->{'LastName'} = $borrower->{'FullName'};
+	    }
+	}
     }
 
     _quote(\$borrower->{'FirstName'});

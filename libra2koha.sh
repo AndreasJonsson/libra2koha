@@ -192,7 +192,7 @@ fi
 
 ## Get the relevant info out of the database and into a .sql file
 BORROWERSSQL="$OUTPUTDIR/borrowers.sql"
-if [[ "$FULL" == "YES" || ! -e $BORROWERSSQL ]]; then
+if [[ "$FULL" == "yes" || ! -e $BORROWERSSQL ]]; then
     echo "Going to transform borrowers... "
     TMPPERLIO=$PERLIO
     ## Koha's hash_password function fails if PERLIO is set to :utf8
@@ -214,7 +214,7 @@ fi
 
 # Get the relevant info out of the database and into a .sql file
 ISSUESSQL="$OUTPUTDIR/issues.sql"
-if [[ "$FULL" == "YES" || ! -e $ISSUESSQL ]]; then
+if [[ "$FULL" == "yes" || ! -e $ISSUESSQL ]]; then
   echo "Going to transform issues... "
   issues.pl --format "$SOURCE_FORMAT" --config $CONFIG >> $ISSUESSQL
   echo "done writing to $ISSUESSQL"
@@ -224,12 +224,12 @@ fi
 #serials.pl --branchcode "$BRANCHCODE" --outputdir "$OUTPUTDIR" --config "$CONFIG"
 echo "Reservations"
 reservations.pl --format "$SOURCE_FORMAT" --configdir "$CONFIG" > "$OUTPUTDIR"/reservations.sql
-if [[ "$FULL" == "YES" || ! -e "$OUTPUTDIR"/old_issues.sql ]]; then
+if [[ "$FULL" == "yes" || ! -e "$OUTPUTDIR"/old_issues.sql ]]; then
   echo "Old issues"
   old_issues.pl  --format "$SOURCE_FORMAT" --configdir "$CONFIG" --branchcode "$BRANCHCODE" > "$OUTPUTDIR"/old_issues.sql
 fi
-echo "Account lines"
-accountlines.pl  --format "$SOURCE_FORMAT" --configdir "$CONFIG" > "$OUTPUTDIR"/accountlines.sql
+#echo "Account lines"
+#accountlines.pl  --format "$SOURCE_FORMAT" --configdir "$CONFIG" > "$OUTPUTDIR"/accountlines.sql
 
 exit 0
 if [[ $LIBRA2KOHA_NOCONFIRM != '1' ]]; then

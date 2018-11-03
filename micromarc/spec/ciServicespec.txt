@@ -22,7 +22,13 @@ ReserveAtLocalUnitId	int
 ServiceAtLocalUnitId	int
 ModBy	nvarchar
 ResTitleAllItems	smallint
+ReservationScope	varchar
 MM2_Service_Id	int
 ReminderSent	smallint
 ReservationNumber	nvarchar
 ReservationNote	nvarchar
+ReservationNote` varchar(1024),
+ResInactiveUntil	datetime
+ResPausedFrom	datetime
+ResPausedTo	datetime
+ResActiveToday	bit

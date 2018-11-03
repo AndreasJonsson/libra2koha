@@ -80,7 +80,9 @@ VALUES                          (@BORROWERNUMBER, [% d.expiration %], [% d.type 
 [% END -%]
 
 INSERT INTO borrower_attributes (borrowernumber, code, attribute)
-SELECT @BORROWERNUMBER, 'USERID', [% userid_str %] WHERE @USERID_COLLISSION;
+SELECT @BORROWERNUMBER, 'USERID', [% userid_str %] FROM DUAL WHERE @USERID_COLLISSION;
 
 INSERT INTO borrower_attributes (borrowernumber, code, attribute)
-SELECT @BORROWERNUMBER, 'CARDNUMBER', [% cardnumber_str %] WHERE @CARDNUMBER_COLLISSION;
+SELECT @BORROWERNUMBER, 'CARDNUMBER', [% cardnumber_str %] FROM DUAL WHERE @CARDNUMBER_COLLISSION;
+
+INSERT INTO import_table_borrower_idmap (target_id, source_id) VALUES (@BORROWERNUMBER, [% IdBorrower %]);

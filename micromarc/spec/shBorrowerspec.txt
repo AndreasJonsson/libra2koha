@@ -47,3 +47,4 @@ BibPlussAgreementDate	date
 SendMessagesToBothParents	bit
 ReceiptMessageFormat	int
 HasReadInformationMessage	bit
+FeideId	varchar

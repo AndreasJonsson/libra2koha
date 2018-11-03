@@ -398,7 +398,10 @@ which values are actually in use:
 =cut
 
 	my $localshelf;
-	if (defined($item->{'IdLocalShelf'})) {
+	if (defined($item->{'LocalShelf'})) {
+	    $localshelf = $item->{'LocalShelf'};
+	    $mmc->set('localshelf', $localshelf);
+	} elsif (defined($item->{'IdLocalShelf'})) {
 	    # $field952->add_subfields( 'c', $item->{'IdDepartment'} ) if $item->{'IdDepartment'};
 	    $localshelf = $loc->{ $item->{'IdLocalShelf'} };
 	    $mmc->set('localshelf', $localshelf);
@@ -535,8 +538,8 @@ debug output. Run C<perldoc itemtypes.pl> for more documentation.
 	    $itemtype = get_itemtype( $record );
 	    $itemtype = refine_itemtype( $mmc, $record, $item, $itemtype );
 	}
-	if (defined($item->{'MaterialType'})) {
-	    print("MaterialTyle: " . $item->{'MaterialType'} . " itemtype: $itemtype\n");
+	if (defined($item->{'MaterialType'}) && $item->{'MaterialType'} ne '') {
+	    print("MaterialType: " . $item->{'MaterialType'} . " itemtype: $itemtype\n");
 	}
 	add_itemtype_stat($itemtype, $item->{'CA_CATALOG_LINK_TYPE_ID'});
 	$mmc->set('itemtype', $itemtype);

@@ -86,6 +86,10 @@ while (my $row = $sth->fetchrow_hashref()) {
 	$barcode = 'NULL';
     }
 
+    if (!defined($row->{IdBorrower})) {
+	$row->{IdBorrower} = 'NULL';
+    }
+
     my @parts = split ' ', $row->{RegDate};
     if (scalar(@parts) > 1) {
 	$row->{RegDate} = $parts[0];
@@ -101,7 +105,9 @@ while (my $row = $sth->fetchrow_hashref()) {
 	branchcode => $dbh->quote($branchcode),
 	surname =>    $dbh->quote($row->{LastName}),
 	firstname =>  $dbh->quote($row->{FirstName}),
-	dateenrolled => ds( $row->{DateEnrolled} )
+	dateenrolled => ds( $row->{DateEnrolled} ),
+	item_barcode     => $dbh->quote($row->{ItemBarCode}),
+	IdBorrower => $row->{IdBorrower}
     };
 
     $tt2->process( 'old_issues.tt', $params, \*STDOUT, {binmode => ':utf8'}) || die $tt2->error();

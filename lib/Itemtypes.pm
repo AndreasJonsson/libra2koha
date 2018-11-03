@@ -179,7 +179,7 @@ sub get_itemtype {
     # Kartografisk resurs
     # http://www.kb.se/katalogisering/Formathandboken/Bibliografiska-formatet/008/Kartografisk-resurs/
     } elsif ( $f000p6 eq 'e' || $f000p6 eq 'f' ) {
-        $itemtype = 'KARTOR';
+        $itemtype = 'KARTA';
 
     # Daisy
     # http://libra-hjalp.axiell.com/daisy

@@ -121,12 +121,14 @@ while ( my $issue = $sth->fetchrow_hashref() ) {
     # Massage data
     $issue->{'branchcode'} = $branchcodes->{ $issue->{'IdBranchCode'} };
     my $bb = $issue->{'BorrowerIdBranchCode'};
-    $issue->{'borrower_branchcode'} = $dbh->quote(defined($bb) ? $branchcodes->{ $issue->{'BorrowerIdBranchCode'} } : 'NULL');
+    $issue->{'borrower_branchcode'} = $dbh->quote(defined($bb) ? $branchcodes->{ $bb } : 'NULL');
     $issue->{'issuedate'} = ds( $issue->{'RegDate'} );
     $issue->{'date_due'} = ds( $issue->{'EstReturnDate'} );
-    $issue->{'dateenrolled'} = ds( $issue->{'dateenrolled'} );
-    $issue->{'surname_str'} = $dbh->quote($issue->{'LastName'});
-    $issue->{'firstname_str'} = $dbh->quote($issue->{'FirstName'});
+    $issue->{'note'} = $dbh->quote($issue->{'Note'});
+
+    if (!defined($issue->{'NoOfRenewals'})) {
+	$issue->{'NoOfRenewals'} = 0;
+    }
 
     my @barcodes = defined($issue->{BorrowerBarcode}) ? split ';', $issue->{BorrowerBarcode} : ();
     my $barcode;

@@ -36,13 +36,13 @@ my %DATE_FORMATS = (
 my %DATETIME_FORMATS = (
     bookit => '%d-%b-%y %T',
     libra  => '%Y%m%d %T',
-    micromarc => '%d.%m.%Y %T'
+    micromarc => '%d.%m.%Y %H.%i.%S'
     );
 
 my %TIME_FORMATS = (
     bookit => '%T',
     libra  => '%T',
-    micromarc => '%T'
+    micromarc => '%H.%i.%S'
     );
 
 my ($opt, $usage) = describe_options(
@@ -72,6 +72,12 @@ my  ($csvfiles, $specfiles, $missingcsvs, $missingspecs) =
 my $DATE_STRTODATE = strtodate($DATE_FORMATS{$opt->format});
 my $DATETIME_STRTODATE = strtodate($DATETIME_FORMATS{$opt->format});
 my $TIME_STRTODATE = strtodate($TIME_FORMATS{$opt->format});
+
+sub bool_conversion {
+    my $s = shift;
+
+    return "IF($s = '', NULL, IF($s REGEXP '^(T(rue)?)|(Y(es))\$', TRUE, FALSE))";
+}
 
 sub strtodate {
     my $f = shift;
@@ -150,7 +156,7 @@ foreach my $table (@{$opt->tables}) {
 	    $type = 'datetime';
 	    $size = '';
 	}
-	if ($type ne 'varchar') {
+	if ($type ne 'varchar' && $type ne 'varbinary') {
 	    $size = '';
 	} elsif (!defined($size)) {
 	    $size = 1024;
@@ -172,6 +178,9 @@ foreach my $table (@{$opt->tables}) {
 	} elsif ($type eq 'int') {
 	    $coldecl->{tmpname} = "\@tmp_int_$count";
 	    $coldecl->{conversion} = "NULLIF($coldecl->{tmpname}, '')";
+	} elsif ($type eq 'BOOLEAN') {
+	    $coldecl->{tmpname} = "\@tmp_int_$count";
+	    $coldecl->{conversion} = bool_conversion($coldecl->{tmpname});
 	}
 	if (defined($size)) {
 	    $coldecl->{size} = $size;
@@ -181,12 +190,15 @@ foreach my $table (@{$opt->tables}) {
     }
     my $columndelimiter = $opt->columndelimiter;
     $columndelimiter =~ s/	/\\t/g;
+    my $rowdelim = $opt->rowdelimiter;
+    $rowdelim =~ s/\n/\\n/g;
+    $rowdelim =~ s/\r/\\r/g;
     my $vars = {
 	'dirs' => $opt->dir,
 	    'tablename' => $table,
 	    'columns' => \@columns,
 	    'sep' => $columndelimiter,
-	    'rowsep' => $opt->rowdelimiter,
+	    'rowsep' => $rowdelim,
 	    'ext' => $opt->ext,
 	    'enc' => $ttenc,
 	    'headerrows' => $opt->headerrows

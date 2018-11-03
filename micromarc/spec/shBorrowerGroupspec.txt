@@ -59,3 +59,7 @@ BorrowerCanHaveParents	bit
 RestrictParentAccessAtAge	int
 SeverConnectionToParentsAtAge	int
 IsTemporaryBorrowersGroup	bit
+RequiresParent	bit
+CascadeDefaultingToParent	bit
+AutoDefaultMode	bit
+TotalDebtLimitForDefaulting	int

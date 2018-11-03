@@ -1,16 +1,18 @@
 
-SELECT count(itemnumber) FROM items WHERE barcode = '[% ItemBarcode %]' > 0 INTO @HAS_ITEM;
+SELECT EXISTS (SELECT count(itemnumber) FROM items WHERE barcode = '[% ItemBarcode %]') INTO @HAS_ITEM;
 SELECT IF(@HAS_ITEM, (SELECT itemnumber FROM items WHERE barcode = '[% ItemBarcode %]'), NULL) FROM DUAL INTO @ITEMNUMBER;
 SELECT count(*) > 0 FROM issues WHERE itemnumber = @ITEMNUMBER INTO @ITEM_BORROWED;
 SELECT CONCAT("Exemplar redan utlånat: ", @ITEMNUMBER) FROM DUAL WHERE @ITEM_BORROWED;
 
-INSERT INTO issues ( borrowernumber, itemnumber, date_due, branchcode, renewals, issuedate )
+INSERT INTO issues ( borrowernumber, itemnumber, date_due, branchcode, renewals, issuedate, note )
   SELECT
-    ( SELECT borrowernumber FROM borrowers WHERE [% IF barcode != "NULL" %] cardnumber = [% barcode %] [% ELSE %] cardnumber IS NULL AND surname = [% surname_str %] AND firstname = [% firstname_str %] AND branchcode = [% borrower_branchcode %] AND dateenrolled = [% dateenrolled %] [% END %] LIMIT 1 ),
+    ( SELECT target_id AS borrowernumber FROM import_table_borrower_idmap WHERE source_id = [% IdBorrower %] ),
     ( @ITEMNUMBER ),
     [% date_due %], -- date_due
     '[% branchcode %]', -- branchcode
-    '[% NoOfRenewals %]', -- renewals
-    [% issuedate %] -- issuedate
+    [% NoOfRenewals %], -- renewals
+    [% issuedate %], -- issuedate
+    [% note %]
   FROM DUAL WHERE @HAS_ITEM AND NOT @ITEM_BORROWED;
 UPDATE items SET onloan = [% issuedate %] WHERE @HAS_ITEM AND barcode = '[% ItemBarcode %]' AND NOT @ITEM_BORROWED;
+

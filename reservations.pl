@@ -187,6 +187,10 @@ while (my $row = $sth->fetchrow_hashref()) {
 	$row->{RegTime} = $parts[1];
     }
 
+    if (!defined($row->{IdBorrower})) {
+	$row->{IdBorrower} = 'NULL';
+    }
+
     my $params = {
 	isbn_issn        => $dbh->quote($row->{ISBN_ISSN}),
 	titleno          => $dbh->quote($row->{TITLE_NO}),
@@ -212,6 +216,7 @@ while (my $row = $sth->fetchrow_hashref()) {
 	firstname        => $dbh->quote($row->{FirstName}),
 	title            => $dbh->quote($row->{Title}),
 	author           => $dbh->quote($row->{Author}),
+	IdBorrower       => $row->{IdBorrower}
     };
 
     
