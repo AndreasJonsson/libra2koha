@@ -35,3 +35,4 @@ IsPicked	bit
 AllowILL	bit
 AllowLII	bit
 IsFloating	bit
+OnCart	bit

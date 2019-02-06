@@ -27,9 +27,16 @@ LoanReceipt	int
 ReturnReceipt	int
 NotifyReceipt	int
 SecondNotes	nvarchar
+Immutable	bit
 IsMortensBaby	smallint
 ContactStatusId	int
 ExternalSyncActive	bit
 MainAddrLine3	nvarchar
 SecondAddrLine3	nvarchar
 DeprecatedPassword	nvarchar	256
+InvoiceName	nvarchar	256
+InvoiceAddrLine1	nvarchar	256
+InvoiceAddrLine2	nvarchar	256
+InvoiceZip	nvarchar	256
+InvoicePlace	nvarchar	64
+InvoiceCountry	nvarchar	64 

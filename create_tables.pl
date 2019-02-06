@@ -30,19 +30,22 @@ use BuildTableInfo;
 my %DATE_FORMATS = (
     bookit => '%d-%b-%y',
     libra  => '%Y%m%d',
-    micromarc => '%d.%m.%Y'
+    #micromarc => '%d.%m.%Y'
+    micromarc => '%Y-%m-%d'
     );
 
 my %DATETIME_FORMATS = (
     bookit => '%d-%b-%y %T',
     libra  => '%Y%m%d %T',
-    micromarc => '%d.%m.%Y %H.%i.%S'
+    #micromarc => '%d.%m.%Y %H.%i.%S'
+    micromarc => '%Y-%m-%d %H:%i:%S'
     );
 
 my %TIME_FORMATS = (
     bookit => '%T',
     libra  => '%T',
-    micromarc => '%H.%i.%S'
+    #micromarc => '%H.%i.%S'
+    micromarc => '%H:%i:%S'
     );
 
 my ($opt, $usage) = describe_options(

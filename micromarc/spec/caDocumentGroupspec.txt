@@ -1,5 +1,6 @@
 Id	int
 Name	varchar	1024
+MM2_Document_Group_Id	varchar	1024
 AuthorityFileId	varchar	1024
 IsILL	bit
 IsILLDepot	bit

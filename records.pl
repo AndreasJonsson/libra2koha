@@ -35,6 +35,10 @@ use utf8;
 binmode STDOUT, ":utf8";
 $|=1; # Flush output
 
+$YAML::Syck::ImplicitUnicode = 1;
+
+open IGNORED_BIBLIOS, ">ignored_biblios.txt";
+
 # Get options
 my ( $config_dir, $input_file, $default_branchcode, $flag_done, $limit, $every, $output_dir, $verbose, $debug, $explicit_record_id, $format, $xml_input ) = get_options();
 
@@ -72,6 +76,7 @@ my $mmc = MarcUtil::MarcMappingCollection::marc_mappings(
     'catid'                            => { map => { '035' => 'a' } },
     'klassifikationskod'               => { map => { '084' => 'a' } },
     'klassifikationsdel_av_uppställningssignum' => { map => { '852' => 'h' } },
+    'beståndsuppgift'                  => { map => { '866' => 'a' } },
     'okontrollerad_term'               => { map => { '653' => 'a' } },
     'fysisk_beskrivning'               => { map => { '300' => 'e' } },
     'genre_form_uppgift_eller_fokusterm' => { map => { '655' => 'a' } },
@@ -182,6 +187,11 @@ my $sth;
 my $isbn_issn_sth;
 if ($format eq 'bookit') {
     $isbn_issn_sth  = $dbh->prepare("INSERT INTO catalog_isbn_issn (CA_CATALOG_ID, isbn, issn) VALUES (?, ?, ?)");
+}
+
+my $is_documentgroup_sth;
+if ($format eq 'micromarc') {
+    $is_documentgroup_sth  = $dbh->prepare("SELECT EXISTS (SELECT * FROM caMarcRecord WHERE  caMarcRecord.Id = ? AND (DocumentGroupId = 4 OR DocumentGroupId = 5))");
 }
 
 my $has_ca_catalog = 1;
@@ -351,6 +361,12 @@ L<http://wiki.koha-community.org/wiki/Holdings_data_fields_%289xx%29>
 	  # add_catitem_stat($catid);
 	  # Look up items by recordid in the DB and add them to our record
 	  if ($format eq 'micromarc') {
+	      $is_documentgroup_sth->execute( $recordid );
+	      my @process = $is_documentgroup_sth->fetchrow_array;
+	      my ($process) = @process;
+	      if (!$process) {
+		  next RECORD;
+	      }
 	      $sth->execute( $recordid ) or die "Failed to query items for $recordid";
 	  } else {
 	      $sth->execute( $recordid, $catid ) or die "Failed to query items for $recordid";
@@ -370,11 +386,18 @@ L<http://wiki.koha-community.org/wiki/Holdings_data_fields_%289xx%29>
 	  $items = $sth->fetchall_arrayref({});
 
       }
+      
+      my $includedItem = 0;
+      my $ignoredItem = 0;
+
     ITEM: foreach my $item ( @{ $items } ) {
 
         say Dumper $item if $debug;
 
-	next ITEM if $branchcodes->{$item->{'IdBranchCode'}} eq '';
+	if ($branchcodes->{$item->{'IdBranchCode'}} eq '') {
+	    $ignoredItem++;
+	    next ITEM;
+	}
 
 =head3 952$a and 952$b Homebranch and holdingbranch (mandatory)
 
@@ -440,16 +463,16 @@ To see what is present in the data:
   SELECT Location_Marc, count(*) AS count FROM Items GROUP BY Location_Marc;
 
 =cut
-        if ( defined($item->{'Location_Marc'}) && length($item->{'Location_Marc'}) > 1) {
-            $mmc->set( 'call_number', $item->{'Location_Marc'} );
-        } else {
+        # if ( defined($item->{'Location_Marc'}) && length($item->{'Location_Marc'}) > 1) {
+        #     $mmc->set( 'call_number', $item->{'Location_Marc'} );
+        # } else {
             my $field852 = $record->field( '852' );
             if (defined $field852) {
 		$mmc->set('call_number', scalar($mmc->get('klassifikationsdel_av_uppställningssignum')));
 	    } else {
-		$mmc->set('call_number', scalar($mmc->get('klassifikationskod')));
+		$mmc->set('call_number', scalar($mmc->get('beståndsuppgift')));
             }
-        }
+        # }
 
 =head3 952$p Barcode (mandatory)
 
@@ -511,6 +534,13 @@ We base this on the Departments table and the value of Items.IdDepartment value.
 =cut
 	my $iddepartment;
 	$iddepartment = defined($item->{IdDepartment}) ? $ccode->{ $item->{'IdDepartment'} } : undef;
+
+	if (defined($iddepartment) && $iddepartment eq 'IGNORE') {
+	    $ignoredItem++;
+	    next ITEM;
+	};
+
+	$includedItem++;
 
 	$mmc->set('collection_code',  $iddepartment ) if defined($iddepartment);
 
@@ -667,13 +697,16 @@ Just add the itemtype in 942$c.
 
       if ( !$last_itemtype ) {
 	  my $itemtype = get_itemtype( $record );
-	  $last_itemtype = refine_itemtype( $mmc, $record, $item, $itemtype );
+	  $last_itemtype = refine_itemtype( $mmc, $record, undef, $itemtype );
 	  
 	  $mmc->set('biblioitemtype', $last_itemtype);
       }
 
+      print IGNORED_BIBLIOS ($record->field('001')->data() . "\n") unless $includedItem || !$ignoredItem;
+      
       $file->write( $record );
       say MARC::File::XML::record( $record ) if $debug;
+      say "Record was ignored." if $debug && !($includedItem || !$ignoredItem);
 
       # Count and cut off at the limit if one is given
       $count++;
@@ -858,7 +891,10 @@ sub refine_itemtype {
     my $itemtype = $original_itemtype;
 
     my $ccall = $item->{'Location_Marc'};
-    my $localshelf = defined($item->{'IdLocalShelf'}) ? $loc->{ $item->{'IdLocalShelf'} } : (defined($item->{'LocalShelf'}) ? $item->{'LocalShelf'} : undef);
+    my $localshelf;
+    if (defined($item)) {
+	$localshelf = defined($item->{'IdLocalShelf'}) ? $loc->{ $item->{'IdLocalShelf'} } : (defined($item->{'LocalShelf'}) ? $item->{'LocalShelf'} : undef);
+    }
 
     my $classificationcode = $mmc->get('klassifikationskod');
     my $ccode = $mmc->get('collection_code');

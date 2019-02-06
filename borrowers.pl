@@ -198,11 +198,16 @@ RECORD: while ( my $borrower = $sth->fetchrow_hashref() ) {
     # Fix the format of dates
     $borrower->{'dateofbirth'} = ds($borrower->{'BirthDate'});
     $borrower->{'dateenrolled'} = ds($borrower->{'RegDate'});
-    if ($isKohaMarked) {
-	$borrower->{'dateexpiry'}   = '"' . DateTime->now->add( 'years' => 1000 )->strftime( '%F' ) . '"';
+    if ($borrower->{'Expires'}) {
+	$borrower->{'dateexpiry'} = "'" . $borrower->{'Expires'} . "'";
     } else {
-	$borrower->{'dateexpiry'}   = '"' . DateTime->now->subtract( 'days' => 1 )->strftime( '%F' ) . '"';
+	$borrower->{'dateexpiry'} = "'" . DateTime->now->add( 'years' => 3 )->strftime( '%F' ) . "'";
     }
+    #if ($isKohaMarked) {
+    # $borrower->{'dateexpiry'}   = '"' . DateTime->now->add( 'years' => 1000 )->strftime( '%F' ) . '"';
+    #} else {
+    #$borrower->{'dateexpiry'}   = '"' . DateTime->now->subtract( 'days' => 1 )->strftime( '%F' ) . '"';
+    #}
     #if (!defined($patroncategories->{ $borrower->{'IdBorrowerCategory'} })) {
     #print STDERR "IdBorrowerCategory not defined:\n";
     #print STDERR Dumper( $borrower );

@@ -13,7 +13,8 @@ SELECT shBorrower.HomeUnit AS IdBranchCode,
        shBorrower.BorrowerGroupId AS IdBorrowerCategory,
        shContact.Name AS FullName,
        shBorrower.Id AS IdBorrower,
-       shContact.PinCode AS Password
+       shContact.PinCode AS Password,
+       shBorrower.Expires AS Expires
 FROM shBorrower
   LEFT OUTER JOIN shBorrowerBarcode ON (shBorrowerBarcode.BorrowerId = shBorrower.Id AND NOT shBorrowerBarcode.IsSSN)
   LEFT OUTER JOIN shContact ON (shContact.Id = shBorrower.Id);

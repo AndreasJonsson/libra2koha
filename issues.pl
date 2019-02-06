@@ -122,8 +122,15 @@ while ( my $issue = $sth->fetchrow_hashref() ) {
     $issue->{'branchcode'} = $branchcodes->{ $issue->{'IdBranchCode'} };
     my $bb = $issue->{'BorrowerIdBranchCode'};
     $issue->{'borrower_branchcode'} = $dbh->quote(defined($bb) ? $branchcodes->{ $bb } : 'NULL');
+
     $issue->{'issuedate'} = ds( $issue->{'RegDate'} );
+
+    
+
     $issue->{'date_due'} = ds( $issue->{'EstReturnDate'} );
+
+
+    
     $issue->{'note'} = $dbh->quote($issue->{'Note'});
 
     if (!defined($issue->{'NoOfRenewals'})) {

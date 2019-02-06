@@ -6,6 +6,7 @@ F006	char
 F007	char
 f007p3	char
 f007p10	char
+f008p20	char
 IsCatchAll	bit
 NameId	int
 HelpTextId	int
