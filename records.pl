@@ -163,6 +163,21 @@ if ( -f $config_dir . '/ccode.yaml' ) {
     $ccode = LoadFile( $config_dir . '/ccode.yaml' );
 }
 
+my $notforloan = {};
+if ( -f $config_dir . '/notforloan.yaml' ) {
+    $notforloan = LoadFile( $config_dir . '/notforloan.yaml');
+}
+
+my $damaged = {};
+if ( -f $config_dir . '/damaged.yaml' ) {
+    $damaged = LoadFile( $config_dir . '/damaged.yaml');
+}
+
+my $lost = {};
+if ( -f $config_dir . '/lost.yaml' ) {
+    $lost = LoadFile( $config_dir . '/lost.yaml');
+}
+
 my @input_files = glob $input_file;
 # Check that the input file exists
 if (  scalar(@input_files) < 1 ) {

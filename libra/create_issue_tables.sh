@@ -1,4 +1,4 @@
-create_tables.pl --format="$SOURCE_FORMAT" --quote='"' --headerrows=$HEADER_ROWS --encoding=utf8 --ext=$TABLEEXT --spec "$SPECDIR" --columndelimiter="$COLUMN_DELIMITER" --rowdelimiter='\r\n' --dir "$tabledir" --table "Transactions" --table "BarCodes" --table "Issues"  --table "ILL" --table "ILL_Libraries" --table "Reservations" --table "ReservationBranches" --table "TransactionsSaved" | eval $MYSQL_LOAD
+create_tables.pl --format="$SOURCE_FORMAT" --quote='"' --headerrows=$HEADER_ROWS --encoding=$TABLEENC --ext=$TABLEEXT --spec "$SPECDIR" --columndelimiter="$COLUMN_DELIMITER" --rowdelimiter='\r\n' --dir "$tabledir" --table "Transactions" --table "BarCodes" --table "Issues"  --table "ILL" --table "ILL_Libraries" --table "Reservations" --table "ReservationBranches" --table "TransactionsSaved" | eval $MYSQL_LOAD
 # Now copy the BarCodes table so we can have one for items and one for borrowers
 $MYSQL <<EOF
 CREATE TABLE BorrowerBarCodes LIKE BarCodes;

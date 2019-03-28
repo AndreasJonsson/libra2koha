@@ -142,7 +142,8 @@ else
 
 fi
 
-tabledir="$utf8dir"
+#tabledir="$utf8dir"
+tabledir="$DIR"
 
 ## Clean up the database
 if [[ "$QUICK"z != "yesz" ]]; then
