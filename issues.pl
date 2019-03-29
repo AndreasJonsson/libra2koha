@@ -95,7 +95,7 @@ Walk through all issues and perform necesarry actions.
 
 =cut
 
-say "Starting issues iteration" if $verbose;
+say STDERR "Starting issues iteration" if $verbose;
 my $count = 0;
 
 # Configure Template Toolkit

@@ -39,7 +39,7 @@ sub dp {
 
 sub ds {
     my $d = shift;
-    if (defined($d) && !($d =~ /^0000-00-00/)) {
+    if (defined($d) && !($d =~ /^(00|19)00-00-00/)) {
 	$d = dp($d);
        return $quote->($d->strftime( '%F' ));
     } else {

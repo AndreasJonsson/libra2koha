@@ -2,7 +2,7 @@
 SET @BIBLIONUMBER = NULL;
 
 SELECT bi.biblionumber
-FROM biblioitems AS bi JOIN bm_biblio_identification AS id USING(biblionumber) LEFT OUTER JOIN bm_merged_records as m USING (biblionumber)  WHERE CONCAT(IFNULL(id.marc003, ''), id.marc001) = [% titleno %] OR CONCAT(IFNULL(m.marc003, ''), m.marc001) = [% titleno %] LIMIT 1 INTO @BIBLIONUMBER;
+FROM biblioitems AS bi JOIN k_biblio_identification AS id USING(biblionumber) LEFT OUTER JOIN k_merged_records as m USING (biblionumber)  WHERE CONCAT(IFNULL(id.marc003, ''), id.marc001) = [% titleno %] OR CONCAT(IFNULL(m.marc003, ''), m.marc001) = [% titleno %] LIMIT 1 INTO @BIBLIONUMBER;
 
 SELECT @BIBLIONUMBER IS NOT NULL AND (@PREVBIBLIONUMBER IS NULL OR @BIBLIONUMBER != @PREVBIBLIONUMBER) INTO @CREATE_NEW_SUBSCRIPTION;
 SELECT IFNULL(@BIBLIONUMBER, @PREVBIBLIONUMBER) INTO @PREVBIBLIONUMBER;

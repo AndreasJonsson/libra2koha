@@ -271,22 +271,22 @@ RECORD: while ( my $borrower = $sth->fetchrow_hashref() ) {
 } # end foreach record
 
 #print <<EOF;
-#CREATE TEMPORARY TABLE bm_borrower_message_preferences_existing (borrowernumber INT(11) PRIMARY KEY NOT NULL);
+#CREATE TEMPORARY TABLE k_borrower_message_preferences_existing (borrowernumber INT(11) PRIMARY KEY NOT NULL);
 #START TRANSACTION;
-#INSERT INTO bm_borrower_message_preferences_existing
+#INSERT INTO k_borrower_message_preferences_existing
 #SELECT borrowernumber FROM borrower_message_preferences WHERE message_attribute_id=2 AND borrowernumber IS NOT NULL;
 
 #INSERT INTO borrower_message_preferences (borrowernumber, categorycode, message_attribute_id, days_in_advance, wants_digest)
-#SELECT borrowernumber, NULL, 2, 3, 0 FROM borrowers WHERE (SELECT count(*) = 0 FROM bm_borrower_message_preferences_existing AS e WHERE e.borrowernumber=borrowers.borrowernumber);
+#SELECT borrowernumber, NULL, 2, 3, 0 FROM borrowers WHERE (SELECT count(*) = 0 FROM k_borrower_message_preferences_existing AS e WHERE e.borrowernumber=borrowers.borrowernumber);
 #COMMIT;
 
-#DELETE FROM bm_borrower_message_preferences_existing;
+#DELETE FROM k_borrower_message_preferences_existing;
 #START TRANSACTION;
-#INSERT INTO bm_borrower_message_preferences_existing
+#INSERT INTO k_borrower_message_preferences_existing
 #SELECT borrower_message_preference_id FROM borrower_message_transport_preferences;
 
 #INSERT INTO borrower_message_transport_preferences (borrower_message_preference_id, message_transport_type)
-#SELECT borrower_message_preference_id, 'email' FROM borrower_message_preferences WHERE (SELECT count(*) = 0 FROM bm_borrower_message_preferences_existing AS e WHERE e.borrowernumber=borrower_message_preferences.borrower_message_preference_id);
+#SELECT borrower_message_preference_id, 'email' FROM borrower_message_preferences WHERE (SELECT count(*) = 0 FROM k_borrower_message_preferences_existing AS e WHERE e.borrowernumber=borrower_message_preferences.borrower_message_preference_id);
 
 #COMMIT;
 

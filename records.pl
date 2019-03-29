@@ -214,8 +214,8 @@ if (  scalar(@input_files) < 1 ) {
     exit;
 }
 
-$limit = 33376;
-#$limit = num_records_($input_file) if $limit == 0;
+#$limit = 33376;
+$limit = num_records_($input_file) if $limit == 0;
 
 print "There are $limit records in $input_file\n";
 
