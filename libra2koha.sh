@@ -14,10 +14,13 @@ TABLEENC=iso-8859-1
 FULL=no
 QUICK=yes
 BUILD_MARC_FILE=no
+TRANSFORM_TABLES=yes
 
 SOURCE_FORMAT=bookit
 
 COLUMN_DELIMITER='|'
+ROW_DELIMITER="
+"
 QUOTE_CHAR='"'
 ESCAPE_CHAR='\\'
 HEADER_ROWS=1
@@ -96,11 +99,11 @@ fi
 
 ### RECORDS ###
 
-if [[ "$TABLEENC" == "utf-8" ]]; then
-    utf8dir="$DIR"
+if [[ "$TRANSFORM_TABLES" != "yes" || "$TABLEENC" == "utf-8" ]]; then
+    tabledir="$DIR"
 else
-    utf8dir="${OUTPUTDIR}"/utf8dir
-    mkdir -p "$utf8dir"
+    tabledir="${OUTPUTDIR}"/utf8dir
+    mkdir -p "$tabledir"
 
     for file in "$DIR"/*"${TABLEEXT}"  ; do
 	if [[ -f  "$file" ]] ; then
@@ -110,7 +113,7 @@ else
 		specFile="$SPECDIR/$specName".txt
 		if [[ ! -e "$specFile" && "$name" != 'exportCat' && "$name" != 'exportCatMatch' ]]; then
 		    echo "No specification file corresponding to $file!" 1>&2
-		elif [[ ! -e "$utf8dir"/"$name""${TABLEEXT}" ]]; then
+		elif [[ ! -e "$tabledir"/"$name""${TABLEEXT}" ]]; then
 		    if [[ "$name" == exportCat || "$name" == exportCatMatch ]] ; then
 			enc=utf8
 			numColumns=8
@@ -123,7 +126,7 @@ else
 			# Skip, due to a bug in the GHC IO library that generates an error on a file containing
 			# only the unicode byte order marker.  The bug exists in ghc 7.6.3-21 (Debian jessie) but appears to
 			# have been fixed in ghc 7.10.3-7 (Ubuntu xenial)
- 			touch "$utf8dir"/"$name""${TABLEEXT}"
+ 			touch "$tabledir"/"$name""${TABLEEXT}"
 		    else
 			echo "Converting table ${name}"
 			delimtabletransform  --encoding=$TABLEENC               \
@@ -132,7 +135,7 @@ else
 					     --row-delimiter='\r\n'             \
 					     --enclosed-by="$QUOTE_CHAR"        \
 					     --null-literal                     \
-					     "$file" > "$utf8dir"/"${name}${TABLEEXT}"
+					     "$file" > "$tabledir"/"${name}${TABLEEXT}"
 		    fi
 		fi
 	    fi
@@ -141,9 +144,6 @@ else
 
 
 fi
-
-#tabledir="$utf8dir"
-tabledir="$DIR"
 
 ## Clean up the database
 if [[ "$QUICK"z != "yesz" ]]; then
@@ -178,7 +178,7 @@ fi
 if [[ "$FULL" == "yes" || ! -e "$OUTPUTDIR"/records.marc ]]; then
     ## Get the relevant info out of the database and into a .marcxml file
     echo "Going to transform records... "
-    records.pl --branchcode "$BRANCHCODE" --config $CONFIG --format $SOURCE_FORMAT --infile "$MARC" --outputdir "$OUTPUTDIR" --flag_done $RECORDS_PARAMS $RECORDS_INPUT_FORMAT
+    records.pl --default-branchcode "$BRANCHCODE" --config $CONFIG --format $SOURCE_FORMAT --infile "$MARC" --outputdir "$OUTPUTDIR" $RECORDS_PARAMS $RECORDS_INPUT_FORMAT
 fi
 echo "done"
 
@@ -198,7 +198,7 @@ if [[ "$FULL" == "yes" || ! -e $BORROWERSSQL ]]; then
     TMPPERLIO=$PERLIO
     ## Koha's hash_password function fails if PERLIO is set to :utf8
     unset PERLIO
-    perl borrowers.pl --format "$SOURCE_FORMAT" --config "$CONFIG" > $BORROWERSSQL
+    perl borrowers.pl  --verbose --debug --format "$SOURCE_FORMAT" --config "$CONFIG" > $BORROWERSSQL
     export PERLIO=$TMPPERLIO
     echo "done"
 fi

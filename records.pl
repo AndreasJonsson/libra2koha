@@ -17,7 +17,7 @@ use MARC::File::USMARC;
 use MARC::File::XML ( BinaryEncoding => 'utf8', RecordFormat => 'MARC21' );
 use MARC::Batch;
 use DBI;
-use Getopt::Long;
+use Getopt::Long::Descriptive;
 use YAML::Syck qw( LoadFile );
 use Term::ProgressBar;
 use Data::Dumper;
@@ -27,7 +27,7 @@ use Pod::Usage;
 use Modern::Perl;
 use Itemtypes;
 use ExplicitRecordNrField;
-use MarcUtil::MarcMappingCollection;
+use MarcUtil::WrappedMarcMappingCollection;
 use StatementPreparer;
 use TimeUtils;
 use utf8;
@@ -40,7 +40,36 @@ $YAML::Syck::ImplicitUnicode = 1;
 open IGNORED_BIBLIOS, ">ignored_biblios.txt";
 
 # Get options
-my ( $config_dir, $input_file, $default_branchcode, $flag_done, $limit, $every, $output_dir, $verbose, $debug, $explicit_record_id, $format, $xml_input ) = get_options();
+
+my ($opt, $usage) = describe_options(
+    '%c %o <some-arg>',
+    [ 'config=s', 'config directory', { required => 1 } ],
+    [ 'infile=s', 'input file', { required => 1 } ],
+    [ 'default-branchcode=s', 'Default branchcode', { default => '' } ],
+    [ 'outputdir=s', 'output directory', { required => 1 } ],
+    [ 'flag-done', 'Use item done flag', { default => 0 } ],
+    [ 'limit=i', 'Limit processing to this number of items.  0 means process all.', { default => 0 } ],
+    [ 'every=i', 'Process every nth item', { default => 1 } ],
+    [ 'explicit-record-id', 'Use explicit record ids', { default => 0 }],
+    [ 'format=s', 'Input database format', { required => 1 }],
+    [ 'xml-input', 'Expect XML input', { default => 0 }],
+    [ 'xml-output', 'Generate XML output', { default => 0 }],
+    [],
+    [ 'verbose|v',  "print extra stuff"            ],
+    [ 'debug',      "Enable debug output" ],
+    [ 'help',       "print usage message and exit", { shortcircuit => 1 } ],
+);
+
+if ($opt->help) {
+    print $usage->text;
+    exit 0;
+}
+
+my $config_dir = $opt->config;
+my $limit = $opt->limit;
+my $output_dir = $opt->outputdir;
+my $input_file = $opt->infile;
+my $format = $opt->format;
 
 sub add_stat {
     my ($stat, $item, $extra) = @_;
@@ -70,7 +99,7 @@ sub add_catitem_stat {
     add_stat(\%catid_types, $catid);
 }
 
-my $mmc = MarcUtil::MarcMappingCollection::marc_mappings(
+my $mmc = MarcUtil::WrappedMarcMappingCollection::marc_mappings(
     'isbn'                             => { map => { '020' => 'a' } },
     'issn'                             => { map => { '022' => 'a' } },
     'catid'                            => { map => { '035' => 'a' } },
@@ -80,22 +109,22 @@ my $mmc = MarcUtil::MarcMappingCollection::marc_mappings(
     'okontrollerad_term'               => { map => { '653' => 'a' } },
     'fysisk_beskrivning'               => { map => { '300' => 'e' } },
     'genre_form_uppgift_eller_fokusterm' => { map => { '655' => 'a' } },
-    'homebranch'                       => { map => { '952' => 'a' } },
-    'holdingbranch'                    => { map => { '952' => 'b' } },
-    'localshelf'                       => { map => { '952' => 'c' } },
-    'date_acquired'                    => { map => { '952' => 'd' } },
-    'price'                            => { map => { '952' => [ 'g', 'v' ] } },
-    'total_number_of_checkouts'        => { map => { '952' => 'l' } },
-    'call_number'                      => { map => { '952' => 'o' } },
-    'barcode'                          => { map => { '952' => 'p' } },
-    'date_last_seen'                   => { map => { '952' => 'r' } },
-    'date_last_checkout'               => { map => { '952' => 's' } },
-    'internal_staff_note'              => { map => { '952' => 'x' } },
-    'itemtype'                         => { map => { '952' => 'y' } },
-    'lost_status'                      => { map => { '952' => '1' } },
-    'damaged_status'                   => { map => { '952' => '4' } },
-    'not_for_loan'                     => { map => { '952' => '7' } },
-    'collection_code'                  => { map => { '952' => '8' } },
+    'homebranch'                       => { itemcol => 'homebranch', map => { '952' => 'a' } },
+    'holdingbranch'                    => { itemcol => 'holdingbranch', map => { '952' => 'b' } },
+    'localshelf'                       => { itemcol => 'location', map => { '952' => 'c' } },
+    'date_acquired'                    => { itemcol => 'dateaccessioned', map => { '952' => 'd' } },
+    'price'                            => { itemcol => ['price', 'replacementprice'],  map => { '952' => [ 'g', 'v' ] } },
+    'total_number_of_checkouts'        => { itemcol => 'issues', map => { '952' => 'l' } },
+    'call_number'                      => { itemcol => 'itemcallnumber', map => { '952' => 'o' } },
+    'barcode'                          => { itemcol => 'barcode', map => { '952' => 'p' } },
+    'date_last_seen'                   => { itemcol => 'datelastseen', map => { '952' => 'r' } },
+    'date_last_checkout'               => { itemcol => 'datelastborrowed', map => { '952' => 's' } },
+    'internal_staff_note'              => { itemcol => 'itemnotes_nonpublic', map => { '952' => 'x' } },
+    'itemtype'                         => { itemcol => 'itype', map => { '952' => 'y' } },
+    'lost_status'                      => { itemcol => 'itemlost', avcategory => 'LOST', map => { '952' => '1' } },
+    'damaged_status'                   => { itemcol => 'damaged', avcategory => 'DAMAGED', map => { '952' => '4' } },
+    'not_for_loan'                     => { itemcol => 'notforloan', avcategory => 'NOT_LOAN', map => { '952' => '7' } },
+    'collection_code'                  => { itemcol => 'ccode', map => { '952' => '8' } },
     'subjects'                         => { map => { '653' => 'b' } },
     'libra_subjects'                   => { map => { '976' => 'b' } },
     'biblioitemtype'                    => { map => { '942' => 'c' }, append => 0 }
@@ -185,8 +214,8 @@ if (  scalar(@input_files) < 1 ) {
     exit;
 }
 
-#$limit = 33376;
-$limit = num_records_($input_file) if $limit == 0;
+$limit = 33376;
+#$limit = num_records_($input_file) if $limit == 0;
 
 print "There are $limit records in $input_file\n";
 
@@ -194,6 +223,8 @@ my $progress = Term::ProgressBar->new( $limit );
 
 # Set up the database connection
 my $dbh = DBI->connect( $config->{'db_dsn'}, $config->{'db_user'}, $config->{'db_pass'}, { RaiseError => 1, AutoCommit => 1 } );
+
+$dbh->do('SET profiling=1');
 
 # Query for selecting items connected to a given record
 
@@ -213,7 +244,7 @@ my $has_ca_catalog = 1;
 
 my $preparer = new StatementPreparer(format => $format, dbh => $dbh);
 
-unless ($explicit_record_id) {
+unless ($opt->explicit_record_id) {
     if ($has_ca_catalog) {
 	$sth = $preparer->prepare('items_ca');
     } else {
@@ -240,7 +271,12 @@ EOF
 #");
 
 # Create a file output object
-my $file = MARC::File::XML->out( $output_file );
+my $file;
+if ($opt->xml_output) {
+    $file = MARC::File::XML->out( $output_file );
+} else {
+    open $file, ">:raw:utf8", $output_file or die "Failed to open '$output_file': $!";
+}
 
 =head1 PROCESS RECORDS
 
@@ -250,10 +286,10 @@ Record level actions
 
 my $count = 0;
 my $count_items = 0;
-say "Starting record iteration" if $verbose;
+say "Starting record iteration" if $opt->verbose;
 for my $marc_file (glob $input_file) {
     my $batch;
-    if ($xml_input) {
+    if ($opt->xml_input) {
 	$batch = MARC::Batch->new( 'XML', $marc_file );
     } else {
 	$batch = MARC::File::USMARC->in( $marc_file );
@@ -261,7 +297,7 @@ for my $marc_file (glob $input_file) {
   RECORD: while (my $record = $batch->next()) {
 
       # Only do every x record
-      if ( $every && ( $count % $every != 0 ) ) {
+      if ( $opt->every && ( $count % $opt->every != 0 ) ) {
 	  $count++;
 	  next RECORD;
       }
@@ -271,7 +307,7 @@ for my $marc_file (glob $input_file) {
       my $last_itemtype;
 
       $record->encoding( 'UTF-8' );
-      say '* ' . $record->title() if $verbose;
+      say '* ' . $record->title() if $opt->verbose;
 
 =head2 Record level changes
 
@@ -344,10 +380,10 @@ L<http://wiki.koha-community.org/wiki/Holdings_data_fields_%289xx%29>
       my $items;
       my $recordid;
 
-      unless ($explicit_record_id) {
+      unless ($opt->explicit_record_id) {
 	  my $catid;
 	  for my $cid ($mmc->get('catid')) {
-	      if ($cid =~ /^\(LibraSE\)/) {
+	      if (defined($cid) and $cid =~ /^\(LibraSE\)/) {
 		  $cid =~ s/\((.*)\)//;
 		  $catid = $cid;
 		  last;
@@ -364,15 +400,15 @@ L<http://wiki.koha-community.org/wiki/Holdings_data_fields_%289xx%29>
 	      } else {
 		  $f003 = lc $record->field( '003' )->data();
 	      }
-	      die "Record does not have 001 and 003!" unless $f001 && $f003;
+	      say STDERR "Record does not have 001 and 003!", next RECORD unless $f001 && $f003;
 	      $recordid = lc "$f003$f001";
 	  } else {
-	      die "Record does not have 001!" unless $f001;
+	      say STDERR "Record does not have 001!", next RECORD unless $f001;
 	      $recordid = $f001;
 	  }
 	  # Remove any non alphanumerics
 	  $recordid =~ s/[^a-zæøåöA-ZÆØÅÖ\d]//g;
-	  say "catid: $catid" if $verbose;
+	  say "catid: $catid" if $opt->verbose;
 	  # add_catitem_stat($catid);
 	  # Look up items by recordid in the DB and add them to our record
 	  if ($format eq 'micromarc') {
@@ -386,7 +422,7 @@ L<http://wiki.koha-community.org/wiki/Holdings_data_fields_%289xx%29>
 	  } else {
 	      $sth->execute( $recordid, $catid ) or die "Failed to query items for $recordid";
 	  }
-	  $items = $sth->fetchall_arrayref({});
+	  # $items = $sth->fetchall_arrayref({});
       } else {
 	  my $f = $record->field( $ExplicitRecordNrField::RECORD_NR_FIELD );
 
@@ -398,16 +434,15 @@ L<http://wiki.koha-community.org/wiki/Holdings_data_fields_%289xx%29>
 
 	  $sth->execute( $recordid );
 
-	  $items = $sth->fetchall_arrayref({});
+	  # $items = $sth->fetchall_arrayref({});
 
       }
       
       my $includedItem = 0;
       my $ignoredItem = 0;
 
-    ITEM: foreach my $item ( @{ $items } ) {
-
-        say Dumper $item if $debug;
+    ITEM: while (my $item = $sth->fetchrow_hashref) {
+        say Dumper $item if $opt->debug;
 
 	if ($branchcodes->{$item->{'IdBranchCode'}} eq '') {
 	    $ignoredItem++;
@@ -507,7 +542,7 @@ From BarCodes.Barcode.
 =cut
 
         if ( defined($item->{'LatestLoanDate'}) && $item->{'LatestLoanDate'} ne '' &&
-             defined($item->{'LatestReturnDate'}) && $item->{'LatestReturnDate'} ne '' && $item->{'LatestLoanDate'} > $item->{'LatestReturnDate'} ) {
+             defined($item->{'LatestReturnDate'}) && $item->{'LatestReturnDate'} ne '' && dp($item->{'LatestLoanDate'}) > dp($item->{'LatestReturnDate'}) ) {
 	    $mmc->set('date_last_seen', fix_date( $item->{'LatestLoanDate'}) );
         } elsif ( defined($item->{'LatestReturnDate'}) && $item->{'LatestReturnDate'} ne '' ) {
             $mmc->set('date_last_seen', fix_date( $item->{'LatestReturnDate'} ));
@@ -718,10 +753,14 @@ Just add the itemtype in 942$c.
       }
 
       print IGNORED_BIBLIOS ($record->field('001')->data() . "\n") unless $includedItem || !$ignoredItem;
-      
-      $file->write( $record );
-      say MARC::File::XML::record( $record ) if $debug;
-      say "Record was ignored." if $debug && !($includedItem || !$ignoredItem);
+
+      if ($opt->xml_output) {
+	  $file->write( $record );
+      } else {
+	  print $file $record->as_usmarc;
+      }
+      say MARC::File::XML::record( $record ) if $opt->debug;
+      say "Record was ignored." if $opt->debug && !($includedItem || !$ignoredItem);
 
       # Count and cut off at the limit if one is given
       $count++;
@@ -729,7 +768,7 @@ Just add the itemtype in 942$c.
       last if $limit && $limit == $count;
 
     } # end foreach record
-    unless ($xml_input) {
+    unless ($opt->xml_input) {
 	$batch->close();
     }
 }
@@ -806,47 +845,6 @@ Prints this help message and exits.
 
 =cut
 
-sub get_options {
-
-    # Options
-    my $config_dir         = '';
-    my $default_branchcode = '';
-    my $input_file         = '';
-    my $flag_done          = '';
-    my $explicit_record_id = 0;
-    my $limit              = 0;
-    my $every              = '';
-    my $output_dir         = '';
-    my $format             = 'libra';
-    my $xml                = 0;
-    my $verbose            = '';
-    my $debug              = '';
-    my $help               = '';
-
-    GetOptions (
-        'c|config=s'           => \$config_dir,
-	'B|branchcode=s'       => \$default_branchcode,
-        'i|infile=s'           => \$input_file,
-        'f|flag_done'          => \$flag_done,
-        'l|limit=i'            => \$limit,
-        'e|every=i'            => \$every,
-        'o|outputdir=s'        => \$output_dir,
-        'E|explicit-record-id' => \$explicit_record_id,
-	'F|format=s'           => \$format,
-	'X|xml'                => \$xml,
-        'v|verbose'            => \$verbose,
-        'd|debug'              => \$debug,
-        'h|?|help'             => \$help
-    );
-
-    pod2usage( -exitval => 0 ) if $help;
-    pod2usage( -msg => "\nMissing Argument: -c, --config required\n",  -exitval => 1 ) if !$config_dir;
-    pod2usage( -msg => "\nMissing Argument: -i, --infile required\n",  -exitval => 1 ) if !$input_file;
-
-    return ( $config_dir, $input_file, $default_branchcode, $flag_done, $limit, $every, $output_dir, $verbose, $debug, $explicit_record_id, $format, $xml );
-
-}
-
 ## Internal subroutines.
 
 sub fix_date {
@@ -861,7 +859,7 @@ sub num_records_ {
     my $n = 0;
     foreach my $f (glob $input_file) {
 	my $batch;
-	if ($xml_input) {
+	if ($opt->xml_input) {
 	    $batch = MARC::Batch->new('XML', $f);
 	} else {
 	    $batch = MARC::File::USMARC->in( $f );
@@ -869,7 +867,7 @@ sub num_records_ {
 	while ($batch->next()) {
 	    $n++;
 	}
-	unless ($xml_input) {
+	unless ($opt->xml_input) {
 	    $batch->close();
 	}
     }
@@ -1019,7 +1017,7 @@ sub refine_itemtype {
     my  $children = (defined($ccall) && $ccall =~ /hc(f|g|(,u))/i) or (defined $classificationcode && $classificationcode =~ /,u/);
 
     if ($original_itemtype eq 'LJUDBOK') {
-	if ($ccall =~ /mp3/i) {
+	if (defined($ccall) && $ccall =~ /mp3/i) {
 	    $itemtype = $children ? 'BARNMP3' : 'MP3';
 	} elsif ($children) {
 	    $itemtype = 'BARN LJUD';

@@ -8,7 +8,6 @@ $VERSION     = 1.00;
 use strict;
 use Modern::Perl;
 use Data::Dumper;
-use File::BOM;
 use Text::CSV;
 
 use Getopt::Long::Descriptive;
@@ -32,7 +31,11 @@ sub create_file_hash {
 
 sub build_table_info {
     my $opt = shift;
-	
+
+    if ($opt->use_bom) {
+	use File::BOM;
+    }
+
     
     my $csvfiles  = create_file_hash($opt->dir, '(.*)' . $opt->ext . '$');
     my $specfiles = create_file_hash($opt->spec, '(.*)spec.txt$');
@@ -48,7 +51,13 @@ sub build_table_info {
 	my $base = $_;
 	my $fh;
 	my $csvfile = $opt->dir . "/" . $csvfiles->{$base}->{filename};
-	open $fh, ("<:encoding(" . $opt->encoding . "):via(File::BOM)"), $csvfile or die ($csvfile . ": $!");
+	print STDERR "Open csv file: $csvfile\n" if $opt->verbose;
+	if ($opt->use_bom) {
+	    open $fh, ("<:encoding(" . $opt->encoding . "):via(File::BOM)"), $csvfile or die ($csvfile . ": $!");
+	} else {
+	    open $fh, ("<:encoding(" . $opt->encoding . ")"), $csvfile or die ($csvfile . ": $!");
+	}
+	print STDERR "Done open\n" if $opt->verbose;
 	my $csv = Text::CSV->new({
 	    quote_char => $opt->quote,
 	    sep_char => $opt->columndelimiter,
@@ -73,10 +82,13 @@ sub build_table_info {
 	close $fh;
 	if (!$csvfiles->{$_}->{missingspec}) {
 	    my $specfile = $opt->spec . "/" . $specfiles->{$base}->{filename};
+	    print STDERR ("Opening spec file $specfile encoding: " . $opt->specencoding . "\n") if $opt->verbose;
 	    open $fh, ("<:encoding(" . $opt->specencoding . ")"), $specfile;
+	    print STDERR "Done open" if $opt->verbose;
 	    my %columns_spec = ();
 	    $i = 0;
 	    while (<$fh>) {
+		next if /^\#/;
 		s/\r\n//g;
 		my @col = split "\t";
 		my $name = $col[0];

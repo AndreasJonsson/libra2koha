@@ -61,6 +61,7 @@ my ($opt, $usage) = describe_options(
     [ 'specencoding=s',  'character encoding of specfile',      { default => 'utf-8' } ],
     [ 'quote=s',  'quote character' ],
     [ 'escape=s', 'escape character', { default => "\\" } ],
+    [ 'use-bom', 'Use File::BOM', { default => 0 } ],
     [ 'headerrows=i', 'number of header rows',  { default => 0 } ],
            [],
            [ 'verbose|v',  "print extra stuff"            ],
@@ -68,6 +69,12 @@ my ($opt, $usage) = describe_options(
          );
 
 print $usage->text if ($opt->help);
+
+print STDERR "Create tables: " . (join ', ',  @{$opt->tables}) . "\n" if $opt->verbose;
+print STDERR "Tables: " . $opt->dir . "\n" if $opt->verbose;;
+print STDERR "ext: " . $opt->ext . "\n" if $opt->verbose;;
+print STDERR "spec: " . $opt->spec . "\n" if $opt->verbose;;
+print STDERR "specencoding: " . $opt->specencoding . "\n" if $opt->verbose;;
 
 my  ($csvfiles, $specfiles, $missingcsvs, $missingspecs) =
     build_table_info($opt);
@@ -79,7 +86,7 @@ my $TIME_STRTODATE = strtodate($TIME_FORMATS{$opt->format});
 sub bool_conversion {
     my $s = shift;
 
-    return "IF($s = '', NULL, IF($s REGEXP '^(T(rue)?)|(Y(es))\$', TRUE, FALSE))";
+    return "IF($s = '', NULL, IF($s REGEXP '^(T(rue)?)|(Y(es))|1\$', TRUE, FALSE))";
 }
 
 sub strtodate {
@@ -116,7 +123,7 @@ my $tt2 = Template->new( $ttconfig ) || die Template->error(), "\n";
 
 foreach my $table (@{$opt->tables}) {
 
-    if (1 && $opt->verbose) {
+    if ($opt->verbose) {
 	print STDERR "Creating table $table\n";
     }
     
@@ -129,6 +136,7 @@ foreach my $table (@{$opt->tables}) {
     for my $c (@{$csvfiles->{$table}->{columnlist}}) {
 	my $s = $specfiles->{$table}->{columns}->{$c};
 	if (! defined($s->{type})) {
+	    die "No type on $table $c: " . Dumper($specfiles->{$table});
 	    # print Dumper($specfiles);
 	}
 	
