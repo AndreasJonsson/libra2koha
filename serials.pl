@@ -6,8 +6,8 @@ use Pod::Usage;
 use DBI;
 use Getopt::Long;
 use Data::Dumper;
-use DateTime::Format::Builder;
 use Template;
+use TimeUtils;
 
 =head1 OPTIONS
 
@@ -69,6 +69,7 @@ our $dbh = DBI->connect( $config->{'db_dsn'},
                         $config->{'db_pass'},
                         { RaiseError => 1, AutoCommit => 1 } );
 
+init_time_utils(sub { $dbh->quote(shift); });
 # Configure Template Toolkit
 my $ttconfig = {
     INCLUDE_PATH => '', 
@@ -78,28 +79,9 @@ my $ttconfig = {
 my $tt2 = Template->new( $ttconfig ) || die Template->error(), "\n";
 
 my $sth = $dbh->prepare( 'SELECT Issues.*, ISBN_ISSN, TITLE_NO FROM Issues JOIN CA_CATALOG ON CA_CATALOG_ID=IdCat ORDER BY IdCat' );
-my $serialitems_sth = $dbh->prepare( 'SELECT IdItem, BarCode  From Items JOIN ItemBarCodes USING(IdItem) WHERE IdIssue = ?' );
+my $serialitems_sth = $dbh->prepare( 'SELECT IdItem, BarCode  From Items JOIN BarCodes USING(IdItem) WHERE IdIssue = ?' );
 
 # CONCAT(LCASE(REPLACE(ExtractValue(metadata, '//controlfield[\@tag=\"003\"]'), '-', '')), ExtractValue(metadata, '//controlfield[\@tag=\"001\"]'))
-
-our $date_parser = DateTime::Format::Builder->new()->parser( regex => qr/^(\d{4})(\d\d)(\d\d)$/,
-                                                            params => [qw(year month day)] );
-sub dp {
-    my $ds = shift;
-    if (!defined($ds) || $ds eq '') {
-        return undef;
-    }
-    return $date_parser->parse_datetime($ds);
-}
-
-sub ds {
-    my $d = shift;
-    if (defined($d)) {
-       return $dbh->quote($d->strftime( '%F' ));
-    } else {
-       return "NULL";
-    }
-}
 
 my $ret = $sth->execute();
 die "Failed to query serials!" unless (defined($ret));
@@ -145,14 +127,14 @@ while (my $row = $sth->fetchrow_hashref()) {
         issn         => $dbh->quote($row->{ISBN_ISSN}),
 	titleno      => $dbh->quote(uc($row->{TITLE_NO})),
 	branchcode_str => $dbh->quote($branchcode),
-	barcodes     => []
+	original_ids => []
     };
 
     $ret = $serialitems_sth->execute( $row->{IdIssue} );
     die "Failed to query serialitems" unless defined($ret);
 
     while (my $item_row = $serialitems_sth->fetchrow_hashref()) {
-        push @{$tt->{barcodes}},  $dbh->quote($item_row->{BarCode}) if $item_row->{BarCode};
+	push @{$tt->{original_ids}}, $item_row->{IdItem};
     }
 
     $tt2->process( 'serials.tt', $tt, \*SERIALS,  {binmode => ':utf8' } ) || die $tt2->error();

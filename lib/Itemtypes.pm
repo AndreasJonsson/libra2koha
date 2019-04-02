@@ -141,7 +141,7 @@ sub get_itemtype {
             ( $record->subfield( '852', 'h' ) && $record->subfield( '852', 'h' ) =~ m/DAISY/gi )
         )
     ) {
-        $itemtype = 'DAISY';
+        $itemtype = 'TALBOK';
     } elsif ( $record->subfield( '852', 'h' ) && $record->subfield( '852', 'h' ) =~ m/ljudbok/gi ) {
         $itemtype = 'LJUDBOK';
     } elsif ( $record->subfield( '852', 'h' ) && $record->subfield( '852', 'h' ) =~ m/talböcker/gi ) {
@@ -184,7 +184,7 @@ sub get_itemtype {
     # Daisy
     # http://libra-hjalp.axiell.com/daisy
     } elsif ( $f000p6 eq 'i' && $f007p0 eq 'c' ) {
-        $itemtype = 'DAISY';
+        $itemtype = 'TALBOK';
 
     # Monografisk resurs i form av mångfaldigad text
     # http://www.kb.se/katalogisering/Formathandboken/Bibliografiska-formatet/008/Monografisk-resurs/

@@ -3,9 +3,7 @@ SET @BORROWERNUMBER = NULL;
 SET @ITEMNUMBER = NULL;
 SET @ISSUE_ID = NULL;
 
-SELECT borrowernumber FROM borrowers WHERE [% cardnumber %] IS NOT NULL AND cardnumber = [% cardnumber %] OR [% cardnumber %] IS NULL AND cardnumber IS NULL AND surname = [% surname %] AND firstname = [% firstname %] AND branchcode = [% branchcode %] AND dateenrolled = [% dateenrolled %] LIMIT 1 INTO @BORROWERNUMBER;
-
-SET @HAS_BORROWER = EXISTS (SELECT borrowernumber FROM borrowers WHERE [% cardnumber %] IS NOT NULL AND cardnumber = [% cardnumber %] OR [% cardnumber %] IS NULL AND cardnumber IS NULL AND surname = [% surname %] AND firstname = [% firstname %] AND branchcode = [% branchcode %] AND dateenrolled = [% dateenrolled %]);
+SELECT borrowernumber FROM k_borrower_idmap WHERE original_id = [% original_borrower_id %] INTO @BORROWERNUMBER;
 
 [% IF DebtName != 'Reservationsavgift' %]
 SELECT @ISSUE_ID := issue_id, itemnumber FROM
@@ -14,8 +12,12 @@ SELECT @ISSUE_ID := issue_id, itemnumber FROM
   SELECT issue_id, itemnumber FROM items LEFT OUTER JOIN old_issues USING (itemnumber) WHERE borrowernumber=@BORROWERNUMBER AND barcode = [% barcode %] AND issuedate = [% issuedate %]) AS T LIMIT 1;
 [% END %]
 
-SELECT @ITEMNUMBER := itemnumber FROM items WHERE [% barcode %] = barcode;
+[% IF original_item_id -%]
+SELECT itemnumber FROM k_items_idmap WHERE original_id = [% original_item_id %] INTO @ITEMNUMBER;
+[% END -%]
 
 INSERT INTO accountlines
 (borrowernumber, accountno, itemnumber, date, amount, description, accounttype, amountoutstanding, lastincrement, timestamp)
-SELECT @BORROWERNUMBER, [% accountno %], @ITEMNUMBER, [% date %], [% amount %], [% description %], [% accounttype %], [% amountoutstanding %], [% lastincrement %], [% timestamp %] WHERE @HAS_BORROWER AND @BORROWERNUMBER IS NOT NULL AND NOT EXISTS (SELECT * FROM accountlines WHERE borrowernumber = @BORROWERNUMBER AND accountno = [% accountno %]);
+SELECT @BORROWERNUMBER, [% accountno %], @ITEMNUMBER, [% date %], [% amount %], [% description %], [% accounttype %], [% amountoutstanding %], [% lastincrement %], [% timestamp %] FROM DUAL WHERE @BORROWERNUMBER IS NOT NULL AND NOT EXISTS (SELECT * FROM accountlines WHERE borrowernumber = @BORROWERNUMBER AND accountno = [% accountno %]);
+
+

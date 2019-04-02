@@ -1,0 +1,20 @@
+SET @BIBLIONUMBER = NULL;
+
+SELECT biblionumber FROM
+(
+ SELECT biblionumber FROM k_biblio_identification
+ WHERE [% IF marc003 == 'NULL' %]marc003 IS NULL [% ELSE %]marc003 = [% marc003 %][% END %] AND marc001 = [% marc001 %]
+UNION
+ SELECT biblionumber FROM k_merged_records
+ WHERE [% IF marc003 == 'NULL' %]marc003 IS NULL [% ELSE %]marc003 = [% marc003 %][% END %] AND marc001 = [% marc001 %]
+) AS T LIMIT 1 INTO @BIBLIONUMBER;
+
+SELECT biblioitemnumber FROM biblioitems WHERE biblionumber=@BIBLIONUMBER INTO @BIBLIOITEMNUMBER;
+
+[% FOREACH item IN items -%]
+INSERT INTO items SET
+biblionumber=@BIBLIONUMBER,
+biblioitemnumber=@BIBLIOITEMNUMBER
+  [% FOREACH col IN item.defined_columns -%],[% col %][% END -%];
+INSERT INTO k_items_idmap VALUES ([% item.original_id %], (SELECT LAST_INSERT_ID() FROM DUAL), [% batch %]);
+[% END -%]

@@ -13,7 +13,7 @@ borrowers.pl - Extract information about borrowers and format for import into Ko
 =cut
 
 use DBI;
-use Getopt::Long;
+use Getopt::Long::Descriptive;
 use YAML::Syck qw( LoadFile );
 use Term::ProgressBar;
 use Template;
@@ -34,10 +34,26 @@ sub fix_charcode {
 
 $|=1; # Flush output
 
+my ($opt, $usage) = describe_options(
+    '%c %o <some-arg>',
+    [ 'config=s', 'config directory', { required => 1 } ],
+    [ 'batch=i', 'batch number', { required => 1 } ],
+    [ 'limit=i', 'Limit processing to this number of items.  0 means process all.', { default => 0 } ],
+    [ 'every=i', 'Process every nth item', { default => 1 } ],
+    [ 'format=s', 'Input database format', { required => 1 }],
+    [],
+    [ 'verbose|v',  "print extra stuff"            ],
+    [ 'debug',      "Enable debug output" ],
+    [ 'help',       "print usage message and exit", { shortcircuit => 1 } ],
+);
 
-# Get options
-my ( $config_dir, $limit, $every, $format, $verbose, $debug ) = get_options();
+if ($opt->help) {
+    print $usage->text;
+    exit 0;
+}
 
+my $config_dir = $opt->config;
+my $limit = $opt->limit;
 
 =head1 CONFIG FILES
 
@@ -86,7 +102,7 @@ if ( -f $config_dir . '/patroncategories.yaml' ) {
 
 # Set up the database connection
 my $dbh = DBI->connect( $config->{'db_dsn'}, $config->{'db_user'}, $config->{'db_pass'}, { RaiseError => 1, AutoCommit => 1 } );
-my $preparer = new StatementPreparer(format => $format, dbh => $dbh);
+my $preparer = new StatementPreparer(format => $opt->format, dbh => $dbh);
 init_time_utils(sub { return $dbh->quote(shift); });
 
 if (!defined($limit) || $limit == 0) {
@@ -108,7 +124,7 @@ my $addresses_sth = $preparer->prepare('select_borrower_addresses');
 my $phone_sth = $preparer->prepare('select_borrower_phone');
 
 my $message_sth;
-if ($format eq 'bookit') {
+if ($opt->format eq 'bookit') {
     $message_sth = $dbh->prepare('SELECT MODIFY_DATETIME AS date, MESSAGE AS message FROM CI_BORR_MESSAGE WHERE CI_BORR_ID = ?');
 }
 
@@ -118,7 +134,7 @@ Walk through all borrowers and perform necesarry actions.
 
 =cut
 
-say "Starting borrower iteration" if $verbose;
+say "Starting borrower iteration" if $opt->verbose;
 my $count = 0;
 
 # Configure Template Toolkit
@@ -138,20 +154,21 @@ my $auto_count = 1;
 
 print <<EOF;
 
-DROP TABLE IF EXISTS import_table_borrower_idmap;
-CREATE TABLE import_table_borrower_idmap (
-  `source_id` int PRIMARY KEY NOT NULL,
-  `target_id` int UNIQUE KEY NOT NULL
+CREATE TABLE IF NOT EXISTS k_borrower_idmap (
+  `original_id` int PRIMARY KEY NOT NULL,
+  `borrowernumber` int UNIQUE KEY NOT NULL,
+  `batch`     int,
+  FOREIGN KEY (`borrowernumber`) REFERENCES `borrowers`(`borrowernumber`) ON DELETE CASCADE ON UPDATE CASCADE
 );
 
 EOF
 
 RECORD: while ( my $borrower = $sth->fetchrow_hashref() ) {
 
-    say Dumper $borrower if $debug;
+    say Dumper $borrower if $opt->debug;
 
     # Only do every x record
-    if ( $every && ( $count % $every != 0 ) ) {
+    if ( $opt->every && ( $count % $opt->every != 0 ) ) {
         $count++;
         next RECORD;
     }
@@ -181,7 +198,7 @@ RECORD: while ( my $borrower = $sth->fetchrow_hashref() ) {
     #	push @messages, { text => $dbh->quote($borrower->{'Comment'}) };
     #}
 
-    if ($format eq 'bookit') {
+    if ($opt->format eq 'bookit') {
 	$message_sth->execute($borrower->{'IdBorrower'});
 	while (my $row = $message_sth->fetchrow_hashref()) {
 	    push @messages, { text => $dbh->quote(fix_charcode($row->{message})), date => ds($row->{date}) };
@@ -248,6 +265,8 @@ RECORD: while ( my $borrower = $sth->fetchrow_hashref() ) {
 	$borrower->{'Password'} = hash_password($borrower->{'Password'});
     }
     _quote(\$borrower->{'Password'});
+
+    $borrower->{batch} = $opt->batch;
 
     $tt2->process( 'borrowers.tt', $borrower, \*STDOUT,  {binmode => ':utf8'} ) || die $tt2->error();
 
@@ -328,34 +347,6 @@ Prints this help message and exits.
                                                                
 =cut
  
-sub get_options {
- 
-    # Options
-    my $config_dir  = '';
-    my $limit       = 0;
-    my $every       = '';
-    my $verbose     = '';
-    my $debug       = '';
-    my $help        = '';
-    my $format      = 'libra';
- 
-    GetOptions (
-        'c|config=s'  => \$config_dir,
-        'l|limit=i'   => \$limit,
-        'e|every=i'   => \$every,
-	'F|format=s'  => \$format,
-        'v|verbose'   => \$verbose,
-        'd|debug'     => \$debug,
-        'h|?|help'    => \$help
-    );
- 
-    pod2usage( -exitval => 0 ) if $help;
-    pod2usage( -msg => "\nMissing Argument: -c, --config required\n",  -exitval => 1 ) if !$config_dir;
- 
-    return ( $config_dir, $limit, $every, $format, $verbose, $debug );
- 
-}
-
 sub _quote {
     my $s = shift;
 

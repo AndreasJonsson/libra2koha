@@ -2,15 +2,15 @@ SELECT
   ISBN_ISSN,
   TITLE_NO,
   Reservations.*,
-  BorrowerBarCodes.BarCode as BarCode,
-  ItemBarCodes.BarCode AS ItemBarCode,
+  bbc.BarCode as BarCode,
+  ibc.BarCode AS ItemBarCode,
   FirstName,
   LastName,
   Title,
   Author
-FROM Reservations JOIN BorrowerBarCodes USING (IdBorrower)
+FROM Reservations JOIN BarCodes as bbc USING (IdBorrower)
                   JOIN Borrowers USING(IdBorrower)
 		  JOIN CA_CATALOG ON CA_CATALOG_ID=Reservations.IdCat
 		  LEFT OUTER JOIN Items ON (Items.IdItem = Reservations.IdItem)
-		  LEFT OUTER JOIN ItemBarCodes ON (ItemBarCodes.IdItem = Items.IdItem)
+		  LEFT OUTER JOIN BarCodes as ibc ON (ibc.IdItem = Items.IdItem)
 ORDER BY IdCat, RegDate ASC, RegTime ASC

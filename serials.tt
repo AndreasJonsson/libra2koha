@@ -1,8 +1,14 @@
 
 SET @BIBLIONUMBER = NULL;
 
-SELECT bi.biblionumber
-FROM biblioitems AS bi JOIN k_biblio_identification AS id USING(biblionumber) LEFT OUTER JOIN k_merged_records as m USING (biblionumber)  WHERE CONCAT(IFNULL(id.marc003, ''), id.marc001) = [% titleno %] OR CONCAT(IFNULL(m.marc003, ''), m.marc001) = [% titleno %] LIMIT 1 INTO @BIBLIONUMBER;
+SELECT biblionumber FROM
+(
+ SELECT biblionumber FROM k_biblio_identification
+ WHERE CONCAT(IFNULL(marc003, ''), marc001) = [% titleno %]
+UNION
+ SELECT biblionumber FROM k_merged_records
+ WHERE CONCAT(IFNULL(marc003, ''), marc001) = [% titleno %]
+) AS T LIMIT 1 INTO @BIBLIONUMBER;
 
 SELECT @BIBLIONUMBER IS NOT NULL AND (@PREVBIBLIONUMBER IS NULL OR @BIBLIONUMBER != @PREVBIBLIONUMBER) INTO @CREATE_NEW_SUBSCRIPTION;
 SELECT IFNULL(@BIBLIONUMBER, @PREVBIBLIONUMBER) INTO @PREVBIBLIONUMBER;
@@ -18,7 +24,7 @@ WHERE @BIBLIONUMBER IS NOT NULL;
 
 SELECT IF (@BIBLIONUMBER IS NOT NULL, LAST_INSERT_ID(), @SERIALID) INTO @SERIALID;
 
-[% FOREACH barcode IN barcodes -%]
-  INSERT INTO `serialitems` (`itemnumber`, `serialid`) SELECT itemnumber,  @SERIALID FROM items WHERE @BIBLIONUMBER IS NOT NULL AND barcode = [% barcode %];
+[% FOREACH original_id IN original_ids -%]
+  INSERT INTO `serialitems` (`itemnumber`, `serialid`) SELECT itemnumber,  @SERIALID FROM k_items_idmap WHERE @BIBLIONUMBER IS NOT NULL AND original_id = [% original_id %];
 [% END -%]
 

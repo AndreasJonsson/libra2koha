@@ -44,6 +44,7 @@ open IGNORED_BIBLIOS, ">ignored_biblios.txt";
 my ($opt, $usage) = describe_options(
     '%c %o <some-arg>',
     [ 'config=s', 'config directory', { required => 1 } ],
+    [ 'batch=i', 'batch number', { required => 1 } ],
     [ 'infile=s', 'input file', { required => 1 } ],
     [ 'default-branchcode=s', 'Default branchcode', { default => '' } ],
     [ 'outputdir=s', 'output directory', { required => 1 } ],
@@ -113,22 +114,23 @@ my $mmc = MarcUtil::WrappedMarcMappingCollection::marc_mappings(
     'holdingbranch'                    => { itemcol => 'holdingbranch', map => { '952' => 'b' } },
     'localshelf'                       => { itemcol => 'location', map => { '952' => 'c' } },
     'date_acquired'                    => { itemcol => 'dateaccessioned', map => { '952' => 'd' } },
-    'price'                            => { itemcol => ['price', 'replacementprice'],  map => { '952' => [ 'g', 'v' ] } },
-    'total_number_of_checkouts'        => { itemcol => 'issues', map => { '952' => 'l' } },
+    'price'                            => { numeric => 1, itemcol => ['price', 'replacementprice'],  map => { '952' => [ 'g', 'v' ] } },
+    'total_number_of_checkouts'        => { numeric => 1, itemcol => 'issues', map => { '952' => 'l' } },
     'call_number'                      => { itemcol => 'itemcallnumber', map => { '952' => 'o' } },
     'barcode'                          => { itemcol => 'barcode', map => { '952' => 'p' } },
     'date_last_seen'                   => { itemcol => 'datelastseen', map => { '952' => 'r' } },
     'date_last_checkout'               => { itemcol => 'datelastborrowed', map => { '952' => 's' } },
     'internal_staff_note'              => { itemcol => 'itemnotes_nonpublic', map => { '952' => 'x' } },
     'itemtype'                         => { itemcol => 'itype', map => { '952' => 'y' } },
-    'lost_status'                      => { itemcol => 'itemlost', avcategory => 'LOST', map => { '952' => '1' } },
-    'damaged_status'                   => { itemcol => 'damaged', avcategory => 'DAMAGED', map => { '952' => '4' } },
-    'not_for_loan'                     => { itemcol => 'notforloan', avcategory => 'NOT_LOAN', map => { '952' => '7' } },
+    'lost_status'                      => { itemcol => 'itemlost', av => 'LOST', map => { '952' => '1' } },
+    'damaged_status'                   => { itemcol => 'damaged', av => 'DAMAGED', map => { '952' => '4' } },
+    'not_for_loan'                     => { itemcol => 'notforloan', av=> 'NOT_LOAN', map => { '952' => '7' } },
     'collection_code'                  => { itemcol => 'ccode', map => { '952' => '8' } },
     'subjects'                         => { map => { '653' => 'b' } },
     'libra_subjects'                   => { map => { '976' => 'b' } },
     'biblioitemtype'                    => { map => { '942' => 'c' }, append => 0 }
     );
+
 
 =head1 CONFIG FILES
 
@@ -223,8 +225,7 @@ my $progress = Term::ProgressBar->new( $limit );
 
 # Set up the database connection
 my $dbh = DBI->connect( $config->{'db_dsn'}, $config->{'db_user'}, $config->{'db_pass'}, { RaiseError => 1, AutoCommit => 1 } );
-
-$dbh->do('SET profiling=1');
+$mmc->quote(sub { return $dbh->quote(shift); });
 
 # Query for selecting items connected to a given record
 
@@ -243,6 +244,23 @@ if ($format eq 'micromarc') {
 my $has_ca_catalog = 1;
 
 my $preparer = new StatementPreparer(format => $format, dbh => $dbh);
+
+my $item_context = {
+    batch => $opt->batch,
+    items => []
+};
+my $batchno = $opt->batch;
+
+open ITEM_OUTPUT, ">:utf8", "$output_dir/items.sql" or die "Failed to open $output_dir/items.sql: $!";
+
+print ITEM_OUTPUT <<EOF;
+CREATE TABLE IF NOT EXISTS k_items_idmap (
+    original_id INT PRIMARY KEY,
+    itemnumber INT UNIQUE,
+    batch INT,
+    FOREIGN KEY (itemnumber) REFERENCES items(itemnumber) ON DELETE CASCADE ON UPDATE CASCADE
+);
+EOF
 
 unless ($opt->explicit_record_id) {
     if ($has_ca_catalog) {
@@ -277,6 +295,15 @@ if ($opt->xml_output) {
 } else {
     open $file, ">:raw:utf8", $output_file or die "Failed to open '$output_file': $!";
 }
+
+# Configure Template Toolkit
+my $ttconfig = {
+    INCLUDE_PATH => '', 
+    ENCODING => 'utf8'  # ensure correct encoding
+};
+binmode( STDOUT, ":utf8" );
+# create Template object
+my $tt2 = Template->new( $ttconfig ) || die Template->error(), "\n";
 
 =head1 PROCESS RECORDS
 
@@ -391,15 +418,19 @@ L<http://wiki.koha-community.org/wiki/Holdings_data_fields_%289xx%29>
 	  }
 	  # Get the record ID from 001 and 003
 	  my $f001 = $record->field( '001' )->data();
+	  $item_context->{marc001} = $dbh->quote($f001);
+	  my $f003;
 	  my $recordid;
+	  unless ($record->field( '003' )) {
+	      warn 'Record does not have 003! catid: ' . $catid . ' default to ';
+	      $f003 = '';
+	      $item_context->{marc003} = 'NULL';
+	  } else {
+	      $f003 = lc $record->field( '003' )->data();
+	      $f003 =~ s/[^a-zæøåöA-ZÆØÅÖ\d]//g;
+	      $item_context->{marc003} = $dbh->quote($f003);
+	  }
 	  if ($format eq 'libra') {
-	      my $f003;
-	      unless ($record->field( '003' )) {
-		  warn 'Record does not have 003! catid: ' . $catid . ' default to ';
-		  $f003 = '';
-	      } else {
-		  $f003 = lc $record->field( '003' )->data();
-	      }
 	      say STDERR "Record does not have 001 and 003!", next RECORD unless $f001 && $f003;
 	      $recordid = lc "$f003$f001";
 	  } else {
@@ -422,6 +453,7 @@ L<http://wiki.koha-community.org/wiki/Holdings_data_fields_%289xx%29>
 	  } else {
 	      $sth->execute( $recordid, $catid ) or die "Failed to query items for $recordid";
 	  }
+
 	  # $items = $sth->fetchall_arrayref({});
       } else {
 	  my $f = $record->field( $ExplicitRecordNrField::RECORD_NR_FIELD );
@@ -443,6 +475,8 @@ L<http://wiki.koha-community.org/wiki/Holdings_data_fields_%289xx%29>
 
     ITEM: while (my $item = $sth->fetchrow_hashref) {
         say Dumper $item if $opt->debug;
+
+	$mmc->new_item($item->{'IdItem'});
 
 	if ($branchcodes->{$item->{'IdBranchCode'}} eq '') {
 	    $ignoredItem++;
@@ -656,26 +690,15 @@ FIXME This should be done with a mapping file!
         }
 
 	if (defined($item->{'StatusName'})) {
-	    if ( $item->{'StatusName'} eq 'Påstås återlämnad' ) {
-		$mmc->set('lost_status', '4');
+	    my $status = $item->{'StatusName'};
+	    if (defined($notforloan->{$status})) {
+		$mmc->set('not_for_loan', $notforloan->{$status});
 	    }
-	    elsif ( $item->{'StatusName'} eq 'I väntan på hårdgallring' ) {
-		$mmc->set('lost_status', '2');
+	    if (defined($lost->{$status})) {
+		$mmc->set('lost_status', $lost->{$status});
 	    }
-	    elsif ( $item->{'StatusName'} eq 'Under arbete') {
-		$mmc->set('damaged_status', '2');
-	    }
-	    elsif ( $item->{'StatusName'} eq 'Inbindning') {
-		$mmc->set('damaged_status', '2');
-	    }
-	    elsif ( $item->{'StatusName'} eq 'Försvunnen') {
-		$mmc->set('lost_status', '4');
-	    }
-	    elsif ( $item->{'StatusName'} eq 'Betald räkning') {
-		$mmc->set('lost_status', '3');
-	    }
-	    elsif ( $item->{'StatusName'} eq 'På räkning') {
-		$mmc->set('lost_status', '1');
+	    if (defined($damaged->{$status})) {
+		$mmc->set('damaged_status', $damaged->{$status});
 	    }
 	}
 
@@ -686,55 +709,59 @@ FIXME This should be done with a mapping file!
 
 =cut
 	if ($item->{'Hidden'}) {
-	    $mmc->set('not_for_loan', 4);
+	    #$mmc->set('not_for_loan', 4);
+	    warn "Hidden item: " . $item->{IdItem};
 	}
 
 	my %loanperiods = (
-	    'DVD' => ['itemtype' => 'FILM'],
-	    'tillfälligt korttidslån' => ['itemtype' => 'KORTLON'],
-	    'Fjärrlån. Går att låna hem' => ['not_for_loan' => 3, 'itemtype' => 'FJARRLAN'],
-	    'Fjärrlån.  Ej för hemlån.' => ['not_for_loan' => 3, 'itemtype' => 'FJARRLAN'],
-	    'Korttidslån' => ['itemtype' => 'KORTLAN'],
-	    'Ej hemlån' => ['not_for_loan' => 1],
-	    'Tidskrifter' => ['not_for_loan' => 2, 'itemtype' => 'TIDSKRIFT'],
-	    'Talböcker deponerade' => ['itemtype' => 'DAISY'],
-	    'Stavgång' => ['itemtype' => 'STAVGANG'],
-	    'CD-ROM' => ['itemtype' => 'ELEKRESURS'],
-	    'Film' => ['itemtype' => 'FILM'],
-	    'Långlån' => [],
-	    'Flygelnyckel' => ['itemtype' => 'FLYGELNYCK'],
-	    'Fjärr-kopia' => [],
-	    'depositioner på Språkhyllan' => [],
-	    'Barn tidskrifter' => ['itemtype' => 'BARN TIDSK', 'not_for_loan' => 2],
-	    'Språkdepositioner' => [],
-	    'Korttidslån ny litteratur' => ['itemtype' => 'KORTLAN'],
-	    'Fjärrlån => öppen lånetid', ['not_for_loan' => 3, 'itemtype' => 'FJARRLAN'],
-	    'Daisyspelare' => [],
-	    'Bilaga' => [],
-	    'E-media' => ['itemtype' => 'ELEKRESURS']);
+	    'Normallån' => [],
+	    '3-dagars' => [],
+	    '7-dagars' => [],
+	    '14-dagars' => [],
+	    'Sommarlån' => [],
+	    'Fjärrlån' => [],
+	    'Referens' => [],
+	    'Kortlån 7-dagar' => [],
+	    'Förskolelån' => [],
+	    'Kortlån 14-dagar' => [],
+	    'Bokkassar' => ['itemtype' => 'TEMAVUXEN'],
+
+	    #'DVD' => ['itemtype' => 'FILM'],
+	    #'tillfälligt korttidslån' => ['itemtype' => 'KORTLON'],
+	    #'Fjärrlån. Går att låna hem' => ['not_for_loan' => 3, 'itemtype' => 'FJARRLAN'],
+	    #'Fjärrlån.  Ej för hemlån.' => ['not_for_loan' => 3, 'itemtype' => 'FJARRLAN'],
+	    #'Korttidslån' => ['itemtype' => 'KORTLAN'],
+	    #'Ej hemlån' => ['not_for_loan' => 1],
+	    #'Tidskrifter' => ['not_for_loan' => 2, 'itemtype' => 'TIDSKRIFT'],
+	    #'Talböcker deponerade' => ['itemtype' => 'DAISY'],
+	    #'Stavgång' => ['itemtype' => 'STAVGANG'],
+	    #'CD-ROM' => ['itemtype' => 'ELEKRESURS'],
+	    #'Film' => ['itemtype' => 'FILM'],
+	    #'Långlån' => [],
+	    #'Flygelnyckel' => ['itemtype' => 'FLYGELNYCK'],
+	    #'Fjärr-kopia' => [],
+	    #'depositioner på Språkhyllan' => [],
+	    #'Barn tidskrifter' => ['itemtype' => 'BARN TIDSK', 'not_for_loan' => 2],
+	    #'Språkdepositioner' => [],
+	    #'Korttidslån ny litteratur' => ['itemtype' => 'KORTLAN'],
+	    #'Fjärrlån => öppen lånetid', ['not_for_loan' => 3, 'itemtype' => 'FJARRLAN'],
+	    #'Daisyspelare' => [],
+	    #'Bilaga' => [],
+	    #'E-media' => ['itemtype' => 'ELEKRESURS']);
+	    );
 	if (defined($item->{'LoanPeriodName'}) && exists($loanperiods{$item->{'LoanPeriodName'}})) {
 	    my @lp = @{$loanperiods{$item->{'LoanPeriodName'}}};
 	    for (my $i = 0; $i < scalar(@lp); $i+=2) {
 		$mmc->set($lp[$i], $lp[$i + 1]);
 	    }
-	} elsif (defined($item->{'LoanPeriodName'})) {
-	    if ($item->{'LoanPeriodName'} eq 'Fjärrlån') {
-		$mmc->set('not_for_loan', 3);
-	    } elsif ($item->{'LoanPeriodName'} eq 'Tidskrifter') {
-		$mmc->set('not_for_loan', 2);
-	    } elsif ($item->{'LoanPeriodName'} eq 'Referenslån' || $item->{'LoanPeriodName'} eq 'Referens') {
-		$mmc->set('not_for_loan', 1);
-	    } elsif (defined($item->{'StatusName'}) and ($item->{'StatusName'} eq 'Inköp')) {
-		$mmc->set('not_for_loan', 5);
-	    }
 	}
-
+	
+	    
         # Mark the item as done, if we are told to do so
         #if ( $flag_done ) {
 	#   $sth_done->execute( $item->{'IdItem'} );
         #}
 
-	$mmc->reset();
         $count_items++;
 
       } # end foreach items
@@ -762,6 +789,12 @@ Just add the itemtype in 942$c.
       say MARC::File::XML::record( $record ) if $opt->debug;
       say "Record was ignored." if $opt->debug && !($includedItem || !$ignoredItem);
 
+      $item_context->{items} = $mmc->get_items_set_sql;
+
+      $tt2->process( 'items.tt', $item_context, \*ITEM_OUTPUT,  {binmode => ':utf8'} ) || die $tt2->error();      
+
+      $mmc->reset();
+      
       # Count and cut off at the limit if one is given
       $count++;
       $progress->update( $count );
@@ -937,7 +970,7 @@ sub refine_itemtype {
     # Media med klassifikation Hcf/o, hcg/o, uHc/o ska till kategorin ”Blandad resurs bok och cd barn”
 
     if ($checkccall->('((hc[fg])|(uhce?))\/o')) {
-	return 'BOK+CDBARN';
+	return 'BCDBOK';
     }
     # 
     # 59 resultat hittade för 'callnum,wrdl: hce/o or callnum,wrdl: hc/o' med begränsningar: 'TIDA' i Bibliotek Mellansjö katalog.
@@ -945,7 +978,7 @@ sub refine_itemtype {
     # Media med klassifikation hc/o och hce/o ska till kategorin ”blandad resurs bok och cd”
 
     if ($checkccall->('hce?\/o')) {
-	return 'BOK+CD';
+	return 'CDBOK';
     }
 
     # 
@@ -956,7 +989,7 @@ sub refine_itemtype {
     #
 
     if ($original_itemtype eq 'TIDSKRIFT' && defined($ccode) && $ccode =~ /^((Barn)|(Ungdom)|(BoU$))/i) {
-	return 'BARN TIDSK';
+	return 'BTIDSK';
     }
     
     #  
@@ -965,8 +998,8 @@ sub refine_itemtype {
     # 164 talböcker som ska till ”barn talbok”
     #
 
-    if (($original_itemtype eq 'DAISY' || defined($localshelf) && $localshelf =~ /daisy/i ) && defined($ccode) && $ccode =~ /^((Barn)|(Ungdom)|(BoU$))/i) {
-	return 'BARNTAL';
+    if (($original_itemtype eq 'TALBOK' || defined($localshelf) && $localshelf =~ /talbok/i ) && defined($ccode) && $ccode =~ /^((Barn)|(Ungdom)|(BoU$))/i) {
+	return 'BTALBOK';
     }
     
     #  
@@ -991,7 +1024,7 @@ sub refine_itemtype {
     #
 
     if ($checkccall->('((hc[fg])|(uhce?))\/cd')) {
-	return 'BARN LJUD';
+	return 'BCDBOK';
     }
     
     #  
@@ -1001,7 +1034,15 @@ sub refine_itemtype {
     #
 
     if (($original_itemtype eq 'MP3' || defined($localshelf) && $localshelf =~ /mp3/i ) && defined($ccode) && $ccode =~ /^((Barn)|(Ungdom)|(BoU$))/i) {
-	return 'BARNMP3';
+	return 'BMP3';
+    }
+
+    if (($original_itemtype eq 'FILM' && defined($ccode)  && $ccode =~ /^((Barn)|(Ungdom)|(BoU$))/i)) {
+	return 'BFILM';
+    }
+
+    if (($original_itemtype eq 'NOTER' && defined($ccode)  && $ccode =~ /^((Barn)|(Ungdom)|(BoU$))/i)) {
+	return 'BNOTER';
     }
     
     #  
@@ -1010,7 +1051,11 @@ sub refine_itemtype {
     # 10289 barnböcker under kategorin ”bok” som ska till kategori ”barnbok”
 
     if ($original_itemtype eq 'BOK' && defined($ccode) && $ccode =~ /^((Barn)|(Ungdom)|(BoU$))/i) {
-	return 'BARNBOK';
+	return 'BBOK';
+    }
+
+    if ($original_itemtype eq 'TEMAVUXEN' && defined($ccode) && $ccode =~ /^((Barn)|(Ungdom)|(BoU$))/i) {
+	return 'TEMABARN';
     }
  
 
@@ -1018,22 +1063,24 @@ sub refine_itemtype {
 
     if ($original_itemtype eq 'LJUDBOK') {
 	if (defined($ccall) && $ccall =~ /mp3/i) {
-	    $itemtype = $children ? 'BARNMP3' : 'MP3';
+	    $itemtype = $children ? 'BMP3' : 'MP3';
 	} elsif ($children) {
-	    $itemtype = 'BARN LJUD';
+	    $itemtype = 'BCDBOK';
+	} else {
+	    $itemtype = 'CDBOK'
 	}
     } elsif ($original_itemtype eq 'TIDSKRIFT') {
 	$children = $children || check_multi_fields($mmc, ['okontrollerad_term',  'genre_form_uppgift_eller_fokusterm'],
 						   ['Barn', 'Ungdom', 'Barn och ungdom']);
 	if ($children) {
-	    $itemtype = 'BARN TIDSK';
+	    $itemtype = 'BTIDSKRIFT';
 	}
     } elsif ($original_itemtype eq 'BOK') {
 	$children = $children || check_multi_fields($mmc, ['okontrollerad_term',  'genre_form_uppgift_eller_fokusterm'],
 				    ['Barnbok', 'Barnböcker', 'Ungdomsbok', 'Ungdomsböcker',
 				     'Barn och ungdom', 'Barn och ungdsomsbok', 'Barn och ungdomsböcker']);
 	if ($children) {
-	    $itemtype = 'BARNBOK';
+	    $itemtype = 'BBOK';
 	}
     }
 

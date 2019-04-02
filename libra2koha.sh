@@ -178,7 +178,7 @@ fi
 if [[ "$FULL" == "yes" || ! -e "$OUTPUTDIR"/records.marc ]]; then
     ## Get the relevant info out of the database and into a .marcxml file
     echo "Going to transform records... "
-    records.pl --default-branchcode "$BRANCHCODE" --config $CONFIG --format $SOURCE_FORMAT --infile "$MARC" --outputdir "$OUTPUTDIR" $RECORDS_PARAMS $RECORDS_INPUT_FORMAT
+    records.pl --batch "$BATCH" --default-branchcode "$BRANCHCODE" --config $CONFIG --format $SOURCE_FORMAT --infile "$MARC" --outputdir "$OUTPUTDIR" $RECORDS_PARAMS $RECORDS_INPUT_FORMAT
 fi
 echo "done"
 
@@ -198,7 +198,7 @@ if [[ "$FULL" == "yes" || ! -e $BORROWERSSQL ]]; then
     TMPPERLIO=$PERLIO
     ## Koha's hash_password function fails if PERLIO is set to :utf8
     unset PERLIO
-    perl borrowers.pl  --verbose --debug --format "$SOURCE_FORMAT" --config "$CONFIG" > $BORROWERSSQL
+    perl borrowers.pl --batch "$BATCH" --format "$SOURCE_FORMAT" --config "$CONFIG" > $BORROWERSSQL
     export PERLIO=$TMPPERLIO
     echo "done"
 fi
@@ -221,16 +221,25 @@ if [[ "$FULL" == "yes" || ! -e $ISSUESSQL ]]; then
   echo "done writing to $ISSUESSQL"
 fi
 
-#echo "Serials"
-#serials.pl --branchcode "$BRANCHCODE" --outputdir "$OUTPUTDIR" --config "$CONFIG"
-echo "Reservations"
-reservations.pl --format "$SOURCE_FORMAT" --configdir "$CONFIG" > "$OUTPUTDIR"/reservations.sql
+if [[ "$FULL" == "yes" || ! -e "$OUTPUTDIR"/serials.sql ]]; then
+    echo "Serials"
+    serials.pl --branchcode "$BRANCHCODE" --outputdir "$OUTPUTDIR" --config "$CONFIG"
+fi
+
+
+if [[ "$FULL" == "yes" || ! -e "$OUTPUTDIR"/reservations.sql ]]; then
+    echo "Reservations"
+    reservations.pl --format "$SOURCE_FORMAT" --configdir "$CONFIG" > "$OUTPUTDIR"/reservations.sql
+fi
 if [[ "$FULL" == "yes" || ! -e "$OUTPUTDIR"/old_issues.sql ]]; then
   echo "Old issues"
   old_issues.pl  --format "$SOURCE_FORMAT" --configdir "$CONFIG" --branchcode "$BRANCHCODE" > "$OUTPUTDIR"/old_issues.sql
 fi
 #echo "Account lines"
-#accountlines.pl  --format "$SOURCE_FORMAT" --configdir "$CONFIG" > "$OUTPUTDIR"/accountlines.sql
+if [[ "$FULL" == "yes" || ! -e "$OUTPUTDIR"/accountlines.sql ]]; then
+    echo "Accountlines"
+    accountlines.pl  --format "$SOURCE_FORMAT" --configdir "$CONFIG" > "$OUTPUTDIR"/accountlines.sql
+fi
 
 exit 0
 if [[ $LIBRA2KOHA_NOCONFIRM != '1' ]]; then

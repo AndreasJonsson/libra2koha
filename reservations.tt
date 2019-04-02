@@ -5,15 +5,20 @@ SET @BIBLIONUMBER=NULL;
 SET @ITEMNUMBER=NULL;
 SET @BORROWERNUMBER=NULL;
 
-SELECT biblionumber FROM import_table_biblionumbers WHERE f001 = [% titleno %]
-LIMIT 1
-INTO @BIBLIONUMBER;
+SELECT biblionumber FROM
+(
+ SELECT biblionumber FROM k_biblio_identification
+ WHERE CONCAT(IFNULL(marc003, ''), marc001) = [% titleno %]
+UNION
+ SELECT biblionumber FROM k_merged_records
+ WHERE CONCAT(IFNULL(marc003, ''), marc001) = [% titleno %]
+) AS T LIMIT 1 INTO @BIBLIONUMBER;
 
 SELECT [% IF item_barcode != 'NULL' %] itemnumber FROM items WHERE barcode = [% item_barcode %] [% ELSE %] NULL [% END %] INTO @ITEMNUMBER;
 SELECT [% IF item_barcode != 'NULL' %] itemcallnumber FROM items WHERE barcode = [% item_barcode %] [% ELSE %] NULL [% END %] INTO @ITEMCALLNUMBER;
 SELECT [% IF item_barcode != 'NULL' %] count(*) > 0 FROM items JOIN hold_fill_targets using(itemnumber) WHERE barcode = [% item_barcode %] [% ELSE %] FALSE [% END %] INTO @ALREADYRESERVED;
 
-SELECT target_id FROM import_table_borrower_idmap WHERE source_id = [% IdBorrower %] INTO @BORROWERNUMBER;
+SELECT borrowernumber FROM k_borrower_idmap WHERE original_id = [% IdBorrower %] INTO @BORROWERNUMBER;
 
 INSERT INTO reserves (borrowernumber, reservedate, biblionumber, branchcode,  reservenotes, priority, found, timestamp, itemnumber, expirationdate)
    SELECT @BORROWERNUMBER, [% reservedate %], @BIBLIONUMBER, [% pickbranch %], [% reservenotes %], [% priority %], (@FOUND := [% found %]), [% timestamp %], @ITEMNUMBER, [% expirationdate %]

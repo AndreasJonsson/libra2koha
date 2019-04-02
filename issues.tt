@@ -6,7 +6,7 @@ SELECT CONCAT("Exemplar redan utlånat: ", @ITEMNUMBER) FROM DUAL WHERE @ITEM_BO
 
 INSERT INTO issues ( borrowernumber, itemnumber, date_due, branchcode, renewals, issuedate, note )
   SELECT
-    ( SELECT target_id AS borrowernumber FROM import_table_borrower_idmap WHERE source_id = [% IdBorrower %] ),
+    ( SELECT borrowernumber FROM k_borrower_idmap WHERE original_id = [% IdBorrower %] ),
     ( @ITEMNUMBER ),
     [% date_due %], -- date_due
     '[% branchcode %]', -- branchcode

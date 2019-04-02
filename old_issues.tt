@@ -4,19 +4,27 @@ SELECT IF(min(issue_id)>0, 0, min(issue_id)) - 1 FROM old_issues INTO @ISSUE_ID;
 SET @ISSUE_ID = IF(@ISSUE_ID IS NULL, 0, @ISSUE_ID);
 
 SET @BORROWERNUMBER=NULL;
-SELECT target_id AS borrowernumber FROM import_table_borrower_idmap WHERE source_id = [% IdBorrower %] INTO @BORROWERNUMBER;
+SELECT borrowernumber FROM k_borrower_idmap WHERE original_id = [% IdBorrower %] INTO @BORROWERNUMBER;
 
 CREATE TEMPORARY TABLE k_tmp_biblionumbers (biblionumber INT(11) PRIMARY KEY);
 
 INSERT INTO k_tmp_biblionumbers
-  SELECT biblionumber FROM import_table_biblionumbers WHERE f001 = [% title_no %];
+SELECT biblionumber FROM
+(
+ SELECT biblionumber FROM k_biblio_identification
+ WHERE CONCAT(IFNULL(marc003, ''), marc001) = [% titleno %]
+UNION
+ SELECT biblionumber FROM k_merged_records
+ WHERE CONCAT(IFNULL(marc003, ''), marc001) = [% titleno %]
+) AS T;
 
 SELECT IF(@BORROWERNUMBER IS NULL, [% branchcode %], (SELECT branchcode FROM borrowers WHERE borrowernumber = @BORROWERNUMBER)) INTO @BRANCHCODE;
 
-SET @HAS_MATCHING_ITEM_CALLNUMBER = EXISTS (SELECT * FROM items WHERE EXISTS (SELECT * FROM k_tmp_biblionumbers WHERE  items.biblionumber=k_tmp_biblionumbers.biblionumber) AND itemcallnumber = [% callnumber %] AND homebranch = @BRANCHCODE);
+SET @HAS_MATCHING_ITEM_CALLNUMBER = EXISTS (SELECT * FROM items JOIN k_tmp_biblionumbers USING(biblionumber) WHERE itemcallnumber = [% callnumber %] AND homebranch = @BRANCHCODE);
 
-SET @HAS_MATCHING_ITEM = EXISTS (SELECT * FROM items WHERE EXISTS (SELECT * FROM k_tmp_biblionumbers WHERE  items.biblionumber=k_tmp_biblionumbers.biblionumber) AND homebranch = @BRANCHCODE);
+SET @HAS_MATCHING_ITEM = EXISTS (SELECT * FROM items JOIN k_tmp_biblionumbers USING(biblionumber) WHERE homebranch = @BRANCHCODE);
 
+SET @ITEMNUMBER=NULL;
 SELECT itemnumber FROM items WHERE @HAS_MATCHING_ITEM AND EXISTS (SELECT * FROM k_tmp_biblionumbers
   WHERE items.biblionumber=k_tmp_biblionumbers.biblionumber) AND
     (NOT @HAS_MATCHING_ITEM_CALLNUMBER OR itemcallnumber = [% callnumber %]) AND

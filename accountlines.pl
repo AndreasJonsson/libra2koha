@@ -12,7 +12,7 @@ use TimeUtils;
 
 sub fix_charcode {
     my $s = shift;
-    utf8::decode($s);
+    #utf8::decode($s);
     return $s;
 }
 
@@ -177,6 +177,8 @@ while (next_borrower()) {
 
 	if (!defined($accounts{$accountid})) {
 	    $account = {
+		original_borrower_id => $row->{IdBorrower},
+		original_item_id => $row->{IdItem},
 		accounttype => account_type($row),
 		amount => $row->{Amount},
 		amountoutstanding => $row->{Amount},

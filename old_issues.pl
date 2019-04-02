@@ -97,7 +97,7 @@ while (my $row = $sth->fetchrow_hashref()) {
     }
     
     my $params = {
-	title_no => $dbh->quote($row->{TITLE_NO}),
+	titleno => $dbh->quote($row->{TITLE_NO}),
 	cardnumber => $barcode,
 	callnumber => $dbh->quote($row->{Location_Marc}),
 	returndate => ds($row->{RegDate}),

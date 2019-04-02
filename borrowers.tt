@@ -67,9 +67,9 @@ VALUES (
     NULL, -- altcontactcountry
     NULL, -- altcontactphone
     NULL, -- smsalertnumber
-    ''    -- privacy
+    IF('forever' = (SELECT default_privacy FROM categories WHERE categorycode = [% categorycode %]), 0, 1)  -- privacy
 );
-SELECT LAST_INSERT_ID() INTO @BORROWERNUMBER;
+SELECT LAST_INSERT_ID() FROM DUAL INTO @BORROWERNUMBER;
 [% FOREACH message IN messages -%]
 INSERT INTO messages (borrowernumber,     branchcode,         message_type, message,       message_date,       manager_id)
 VALUES               (@BORROWERNUMBER, [% branchcode %], 'L',  [% message.text %], [% IF message.date %] [% message.date %] [% ELSE %] CURDATE() [% END %], 1);
@@ -85,4 +85,4 @@ SELECT @BORROWERNUMBER, 'USERID', [% userid_str %] FROM DUAL WHERE @USERID_COLLI
 INSERT INTO borrower_attributes (borrowernumber, code, attribute)
 SELECT @BORROWERNUMBER, 'CARDNUMBER', [% cardnumber_str %] FROM DUAL WHERE @CARDNUMBER_COLLISSION;
 
-INSERT INTO import_table_borrower_idmap (target_id, source_id) VALUES (@BORROWERNUMBER, [% IdBorrower %]);
+INSERT INTO k_borrower_idmap (borrowernumber, original_id, batch) VALUES (@BORROWERNUMBER, [% IdBorrower %], [% batch %]);
