@@ -284,9 +284,9 @@ EOF
 }
 
 # Query for setting done = 1 if --flag_done is set
-#my $sth_done = $dbh->prepare("
-#    UPDATE Items SET done = 1 WHERE IdItem = ?
-#");
+my $sth_done = $dbh->prepare("
+    UPDATE Items SET done = 1 WHERE IdItem = ?
+");
 
 # Create a file output object
 my $file;
@@ -758,9 +758,9 @@ FIXME This should be done with a mapping file!
 	
 	    
         # Mark the item as done, if we are told to do so
-        #if ( $flag_done ) {
-	#   $sth_done->execute( $item->{'IdItem'} );
-        #}
+        if ( $opt->flag_done ) {
+	   $sth_done->execute( $item->{'IdItem'} );
+        }
 
         $count_items++;
 
@@ -950,6 +950,7 @@ sub refine_itemtype {
 	return defined($ccall)              &&              $ccall =~ /$re/i ||
                defined($classificationcode) && $classificationcode =~ /$re/i;
     };
+
 
     # Alla böcker med Hyllplats ”Storstil” ska även till exemplarkategori ”Storstil”
     # 555 resultat hittade för 'location,wrdl: *storstil*' med begränsningar: 'mc-itype,phr:BOK TIDA' i Bibliotek Mellansjö katalog.

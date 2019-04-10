@@ -180,7 +180,7 @@ fi
 if [[ "$FULL" == "yes" || ! -e "$OUTPUTDIR"/records.marc ]]; then
     ## Get the relevant info out of the database and into a .marcxml file
     echo "Going to transform records... "
-    records.pl --batch "$BATCH" --default-branchcode "$BRANCHCODE" --config $CONFIG --format $SOURCE_FORMAT --infile "$MARC" --outputdir "$OUTPUTDIR" $RECORDS_PARAMS $RECORDS_INPUT_FORMAT
+    records.pl --flag-done --batch "$BATCH" --default-branchcode "$BRANCHCODE" --config $CONFIG --format $SOURCE_FORMAT --infile "$MARC" --outputdir "$OUTPUTDIR" $RECORDS_PARAMS $RECORDS_INPUT_FORMAT
 fi
 echo "done"
 

@@ -429,7 +429,7 @@ sub set_address {
             $borrower->{"${pre}streetnumber"} = '';
         } elsif ($addr->{Address1} =~ /^(.*?)[ ]*(\d+(?:(?:[a-zA-Z]+)|(?:,[ ]*\d+tr\.))?)$/) {
 	    push @lines, clean_control($addr->{Address1});
-            $borrower->{"${pre}streetnumber"} = clean_control($2);
+            $borrower->{"${pre}streetnumber"} = '';
         } else {
 	    push @lines, clean_control($addr->{Address1});
             $borrower->{"${pre}streetnumber"} = '';
