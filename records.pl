@@ -689,8 +689,8 @@ FIXME This should be done with a mapping file!
             return $a;
         }
 
-	if (defined($item->{'StatusName'})) {
-	    my $status = $item->{'StatusName'};
+	if (defined($item->{'IdStatusCode'})) {
+	    my $status = $item->{'IdStatusCode'};
 	    if (defined($notforloan->{$status})) {
 		$mmc->set('not_for_loan', $notforloan->{$status});
 	    }

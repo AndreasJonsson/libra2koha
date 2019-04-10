@@ -1,6 +1,7 @@
 #!/usr/bin/env perl
  
 # Copyright 2015 Magnus Enger Libriotech
+# Copyright 2019 andreas.jonsson@kreablo.se
  
 =head1 NAME
 
@@ -22,7 +23,7 @@ use Modern::Perl;
 use Data::Dumper;
 use Email::Valid;
 use StatementPreparer;
-use TimeUtils qw(ds ts init_time_utils);
+use TimeUtils qw(dp ds ts init_time_utils);
 use Koha::AuthUtils qw(hash_password);
 use utf8;
 
@@ -41,6 +42,11 @@ my ($opt, $usage) = describe_options(
     [ 'limit=i', 'Limit processing to this number of items.  0 means process all.', { default => 0 } ],
     [ 'every=i', 'Process every nth item', { default => 1 } ],
     [ 'format=s', 'Input database format', { required => 1 }],
+    [ 'expire-all', 'Set all borrowers to expired', { default => 0 } ],
+    [ 'child-age=i', 'Set child borrower age.  Used when --children-category is enabled. (default 15)', { default => 15 } ],
+    [ 'children-category=s', 'Set children borrower category (default disabled)', { default => '' } ],
+    [ 'yout-age=i', 'Set youth borrower age.  Used when --children-category is enabled. (default 18)', { default => 18 } ],
+    [ 'youth-category=s', 'Set youth borrower category (default disabled)', { default => '' } ],
     [],
     [ 'verbose|v',  "print extra stuff"            ],
     [ 'debug',      "Enable debug output" ],
@@ -117,7 +123,7 @@ my $progress = Term::ProgressBar->new( $limit );
 # Query for selecting all borrowers, with relevant data
 my $sth = $preparer->prepare('select_borrower_info');
 
-my $blocked_sth; # = $dbh->prepare('SELECT * FROM BorrowerBlocked WHERE IdBorrower = ?');
+my $blocked_sth = $preparer->prepare('select_borrower_debarments');
 
 my $addresses_sth = $preparer->prepare('select_borrower_addresses');
 
@@ -183,20 +189,20 @@ RECORD: while ( my $borrower = $sth->fetchrow_hashref() ) {
     }
 
     set_address( $borrower );
-    #set_debarments( $borrower );
+    set_debarments( $borrower );
     $borrower->{debarredcomment} = 'NULL';
     $borrower->{debarred} = 'NULL';
 
     my $isKohaMarked = 0;
     my @messages = ();
-    # if ($borrower->{'Message'}) {
-    # $isKohaMarked = $borrower->{'Message'} =~ /\bkoha\b/i;
-    # push @messages, { text => $dbh->quote($borrower->{'Message'})};
-    #}
-    #if ($borrower->{'Comment'}) {
-    #	$isKohaMarked = $isKohaMarked or $borrower->{'Comment'} =~ /\bkoha\b/i;
-    #	push @messages, { text => $dbh->quote($borrower->{'Comment'}) };
-    #}
+    if ($borrower->{'Message'}) {
+       #$isKohaMarked = $borrower->{'Message'} =~ /\bkoha\b/i;
+       push @messages, { text => $dbh->quote($borrower->{'Message'})};
+    }
+    if ($borrower->{'Comment'}) {
+     	#$isKohaMarked = $isKohaMarked or $borrower->{'Comment'} =~ /\bkoha\b/i;
+    	push @messages, { text => $dbh->quote($borrower->{'Comment'}) };
+    }
 
     if ($opt->format eq 'bookit') {
 	$message_sth->execute($borrower->{'IdBorrower'});
@@ -212,7 +218,7 @@ RECORD: while ( my $borrower = $sth->fetchrow_hashref() ) {
     $borrower->{'branchcode'} = defined($borrower->{'IdBranchCode'}) ? $branchcodes->{ $borrower->{'IdBranchCode'} } : $branchcodes->{ '10000' };
     next RECORD if (!defined($borrower->{'branchcode'}) or $borrower->{'branchcode'} eq '');
     _quoten(\$borrower->{'branchcode'});
-    # Fix the format of dates
+    
     $borrower->{'dateofbirth'} = ds($borrower->{'BirthDate'});
     $borrower->{'dateenrolled'} = ds($borrower->{'RegDate'});
     if ($borrower->{'Expires'}) {
@@ -220,10 +226,13 @@ RECORD: while ( my $borrower = $sth->fetchrow_hashref() ) {
     } else {
 	$borrower->{'dateexpiry'} = "'" . DateTime->now->add( 'years' => 3 )->strftime( '%F' ) . "'";
     }
+    if ($opt->expire_all) {
+	$borrower->{'dateexpiry'}  = '"' . DateTime->now->subtract( 'days' => 1 )->strftime( '%F' ) . '"';
+    }
+
     #if ($isKohaMarked) {
     # $borrower->{'dateexpiry'}   = '"' . DateTime->now->add( 'years' => 1000 )->strftime( '%F' ) . '"';
     #} else {
-    #$borrower->{'dateexpiry'}   = '"' . DateTime->now->subtract( 'days' => 1 )->strftime( '%F' ) . '"';
     #}
     #if (!defined($patroncategories->{ $borrower->{'IdBorrowerCategory'} })) {
     #print STDERR "IdBorrowerCategory not defined:\n";
@@ -231,8 +240,23 @@ RECORD: while ( my $borrower = $sth->fetchrow_hashref() ) {
     #}
     $borrower->{'categorycode'} = $patroncategories->{ $borrower->{'IdBorrowerCategory'} };
     next if (!defined($borrower->{'categorycode'}) or $borrower->{'categorycode'} eq '');
-    _quoten(\$borrower->{'categorycode'});
 
+    my $dateofbirth = dp($borrower->{'BirthDate'});
+    if (defined $dateofbirth) {
+	my $age = DateTime->now() - $dateofbirth;
+	if ($opt->youth_category ne '') {
+	    if ($age->years <= $opt->youth_age) {
+		$borrower->{'categorycode'} = $opt->youth_category;
+	    }
+	}
+	if ($opt->children_category ne '') {
+	    if ($age->years < $opt->child_age) {
+		$borrower->{'categorycode'} = $opt->children_category;
+	    }
+	}
+    }
+    _quoten(\$borrower->{'categorycode'});
+    
     $borrower->{'userid_str'} = 'NULL';
 
     if (defined($borrower->{'BarCode'}) && $borrower->{'BarCode'} ne '') {
@@ -545,7 +569,7 @@ sub set_debarments {
 	if (defined($max)) {
 	    $borrower->{debarred} = $max_ds;
 	} else {
-	    $borrower->{debarred} = ds('99991231');
+	    $borrower->{debarred} = ds('9999-12-31');
 	}
     } else {
 	$borrower->{debarredcomment} = 'NULL';

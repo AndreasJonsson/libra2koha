@@ -15,6 +15,8 @@ FULL=no
 QUICK=yes
 BUILD_MARC_FILE=no
 TRANSFORM_TABLES=yes
+EXPIRE_ALL_BORROWERS=no
+CHILDREN_CATEGORY=
 
 SOURCE_FORMAT=bookit
 
@@ -198,7 +200,15 @@ if [[ "$FULL" == "yes" || ! -e $BORROWERSSQL ]]; then
     TMPPERLIO=$PERLIO
     ## Koha's hash_password function fails if PERLIO is set to :utf8
     unset PERLIO
-    perl borrowers.pl --batch "$BATCH" --format "$SOURCE_FORMAT" --config "$CONFIG" > $BORROWERSSQL
+    BORROWERS_FLAGS="--batch $(printf %q "$BATCH") --format $(printf %q "$SOURCE_FORMAT") --config $(printf %q "$CONFIG")"
+    if [[ "$EXPIRE_ALL_BORROWERS" == "yes" ]]; then
+	BORROWERS_FLAGS="$BORROWERS_FLAGS --expire-all"
+    fi
+    if [[ -n "$CHILDREN_CATEGORY" ]]; then
+	BORROWERS_FLAGS="$BORROWERS_FLAGS --children-category=$(printf %q "$CHILDREN_CATEGORY")"
+    fi
+    echo perl borrowers.pl $BORROWERS_FLAGS
+    perl borrowers.pl $BORROWERS_FLAGS > $BORROWERSSQL
     export PERLIO=$TMPPERLIO
     echo "done"
 fi

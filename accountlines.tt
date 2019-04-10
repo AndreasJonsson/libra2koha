@@ -5,12 +5,11 @@ SET @ISSUE_ID = NULL;
 
 SELECT borrowernumber FROM k_borrower_idmap WHERE original_id = [% original_borrower_id %] INTO @BORROWERNUMBER;
 
-[% IF DebtName != 'Reservationsavgift' %]
-SELECT @ISSUE_ID := issue_id, itemnumber FROM
- (SELECT issue_id, itemnumber FROM items LEFT OUTER JOIN issues USING (itemnumber) WHERE borrowernumber=@BORROWERNUMBER AND barcode = [% barcode %] AND issuedate = [% issuedate %]
+SELECT issue_id FROM
+ (SELECT issue_id FROM items LEFT OUTER JOIN issues USING (itemnumber) WHERE borrowernumber=@BORROWERNUMBER AND barcode = [% barcode %] AND issuedate = [% issuedate %]
   UNION
-  SELECT issue_id, itemnumber FROM items LEFT OUTER JOIN old_issues USING (itemnumber) WHERE borrowernumber=@BORROWERNUMBER AND barcode = [% barcode %] AND issuedate = [% issuedate %]) AS T LIMIT 1;
-[% END %]
+  SELECT issue_id FROM items LEFT OUTER JOIN old_issues USING (itemnumber) WHERE borrowernumber=@BORROWERNUMBER AND barcode = [% barcode %] AND issuedate = [% issuedate %]) AS T LIMIT 1
+INTO @ISSUE_ID;
 
 [% IF original_item_id -%]
 SELECT itemnumber FROM k_items_idmap WHERE original_id = [% original_item_id %] INTO @ITEMNUMBER;
