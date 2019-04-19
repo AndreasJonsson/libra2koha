@@ -43,9 +43,9 @@ my ($opt, $usage) = describe_options(
     [ 'every=i', 'Process every nth item', { default => 1 } ],
     [ 'format=s', 'Input database format', { required => 1 }],
     [ 'expire-all', 'Set all borrowers to expired', { default => 0 } ],
-    [ 'child-age=i', 'Set child borrower age.  Used when --children-category is enabled. (default 15)', { default => 15 } ],
+    [ 'children-maxage=i', 'Set child borrower age.  Used when --children-category is enabled. (default 15)', { default => 15 } ],
     [ 'children-category=s', 'Set children borrower category (default disabled)', { default => '' } ],
-    [ 'yout-age=i', 'Set youth borrower age.  Used when --children-category is enabled. (default 18)', { default => 18 } ],
+    [ 'youth-maxage=i', 'Set youth borrower age.  Used when --children-category is enabled. (default 18)', { default => 18 } ],
     [ 'youth-category=s', 'Set youth borrower category (default disabled)', { default => '' } ],
     [],
     [ 'verbose|v',  "print extra stuff"            ],
@@ -245,12 +245,12 @@ RECORD: while ( my $borrower = $sth->fetchrow_hashref() ) {
     if (defined $dateofbirth) {
 	my $age = DateTime->now() - $dateofbirth;
 	if ($opt->youth_category ne '') {
-	    if ($age->years <= $opt->youth_age) {
+	    if ($age->years <= $opt->youth_maxage) {
 		$borrower->{'categorycode'} = $opt->youth_category;
 	    }
 	}
 	if ($opt->children_category ne '') {
-	    if ($age->years < $opt->child_age) {
+	    if ($age->years <= $opt->children_maxage) {
 		$borrower->{'categorycode'} = $opt->children_category;
 	    }
 	}
@@ -556,13 +556,15 @@ sub set_debarments {
 	my $max;
 	my $max_ds;
 	for my $d (@debarments) {
-	    if (!defined($max)) {
-		$max = $d->{expiration_date};
-		$max_ds = $d->{expiration};
-	    } else {
-		if (DateTime->compare($max, $d->{expiration_date}) < 0) {
+	    if (defined($d->{expiration})) {
+		if (!defined($max)) {
 		    $max = $d->{expiration_date};
 		    $max_ds = $d->{expiration};
+		} else {
+		    if (DateTime->compare($max, $d->{expiration_date}) < 0) {
+			$max = $d->{expiration_date};
+			$max_ds = $d->{expiration};
+		    }
 		}
 	    }
 	}

@@ -106,7 +106,10 @@ my $mmc = MarcUtil::WrappedMarcMappingCollection::marc_mappings(
     'catid'                            => { map => { '035' => 'a' } },
     'klassifikationskod'               => { map => { '084' => 'a' } },
     'klassifikationsdel_av_uppställningssignum' => { map => { '852' => 'h' } },
+    'titel'                            => { map => { '245' => 'a' } },
     'beståndsuppgift'                  => { map => { '866' => 'a' } },
+    'anmärkning_allmän'                => { map => { '500' => 'a' } },
+    'ämnesord'                         => { map => { '650' => 'a' } },
     'okontrollerad_term'               => { map => { '653' => 'a' } },
     'fysisk_beskrivning'               => { map => { '300' => 'e' } },
     'genre_form_uppgift_eller_fokusterm' => { map => { '655' => 'a' } },
@@ -149,6 +152,7 @@ See config-sample.yaml for an example.
 
 my $config;
 if ( -f $config_dir . '/config.yaml' ) {
+    print STDERR "Loading config.yaml\n" if $opt->verbose;
     $config = LoadFile( $config_dir . '/config.yaml' );
 }
 my $output_file = $output_dir ? "$output_dir/records.marc" : $config->{'output_marc'};
@@ -163,6 +167,7 @@ mapping.
 
 my $branchcodes;
 if ( -f $config_dir . '/branchcodes.yaml' ) {
+    print STDERR "Loading branchcodes.yaml\n" if $opt->verbose;
     $branchcodes = LoadFile( $config_dir . '/branchcodes.yaml' );
 }
 
@@ -176,6 +181,7 @@ should go into this mapping.
 
 my $loc;
 if ( -f $config_dir . '/loc.yaml' ) {
+    print STDERR "Loading loc.yaml\n" if $opt->verbose;
     $loc = LoadFile( $config_dir . '/loc.yaml' );
 }
 
@@ -191,21 +197,25 @@ To generate a skeleton for this file:
 
 my $ccode;
 if ( -f $config_dir . '/ccode.yaml' ) {
+    print STDERR "Loading ccode.yaml\n" if $opt->verbose;
     $ccode = LoadFile( $config_dir . '/ccode.yaml' );
 }
 
 my $notforloan = {};
 if ( -f $config_dir . '/notforloan.yaml' ) {
+    print STDERR "Loading notforloan.yaml\n" if $opt->verbose;
     $notforloan = LoadFile( $config_dir . '/notforloan.yaml');
 }
 
 my $damaged = {};
 if ( -f $config_dir . '/damaged.yaml' ) {
+    print STDERR "Loading damaged.yaml\n" if $opt->verbose;
     $damaged = LoadFile( $config_dir . '/damaged.yaml');
 }
 
 my $lost = {};
 if ( -f $config_dir . '/lost.yaml' ) {
+    print STDERR "Loading lost.yaml\n" if $opt->verbose;
     $lost = LoadFile( $config_dir . '/lost.yaml');
 }
 
@@ -216,8 +226,8 @@ if (  scalar(@input_files) < 1 ) {
     exit;
 }
 
-#$limit = 33376;
-$limit = num_records_($input_file) if $limit == 0;
+$limit = 66611;
+#$limit = num_records_($input_file) if $limit == 0;
 
 print "There are $limit records in $input_file\n";
 
@@ -624,6 +634,18 @@ We base this on the Departments table and the value of Items.IdDepartment value.
 	    next ITEM;
 	};
 
+	# RANSTA SPECIAL
+	if (defined($branchcodes->{$item->{'IdBranchCode'}}) && $branchcodes->{$item->{'IdBranchCode'}} eq 'RANSTA') {
+	    my  $children = defined($item->{DepartmentName}) && $item->{DepartmentName} eq 'Barn';
+	    if ($children) {
+		unless (defined($item->{'IdLocalShelf'}) && ($loc->{ $item->{'IdLocalShelf'} } eq 'BILDERBOK' || $loc->{ $item->{'IdLocalShelf'} } eq 'BPEK'
+			|| $loc->{ $item->{'IdLocalShelf'} } eq 'BSAGOR' || $item->{'IdLocalShelf'} == 76)) {
+		    $ignoredItem++;
+		    next ITEM;
+		}
+	    }
+	}
+
 	$includedItem++;
 
 	$mmc->set('collection_code',  $iddepartment ) if defined($iddepartment);
@@ -691,13 +713,13 @@ FIXME This should be done with a mapping file!
 
 	if (defined($item->{'IdStatusCode'})) {
 	    my $status = $item->{'IdStatusCode'};
-	    if (defined($notforloan->{$status})) {
+	    if (defined($notforloan->{$status}) && $notforloan->{$status} ne '') {
 		$mmc->set('not_for_loan', $notforloan->{$status});
 	    }
-	    if (defined($lost->{$status})) {
+	    if (defined($lost->{$status}) && $lost->{$status} ne '') {
 		$mmc->set('lost_status', $lost->{$status});
 	    }
-	    if (defined($damaged->{$status})) {
+	    if (defined($damaged->{$status}) && $damaged->{$status} ne '') {
 		$mmc->set('damaged_status', $damaged->{$status});
 	    }
 	}
@@ -710,7 +732,7 @@ FIXME This should be done with a mapping file!
 =cut
 	if ($item->{'Hidden'}) {
 	    #$mmc->set('not_for_loan', 4);
-	    warn "Hidden item: " . $item->{IdItem};
+	    #warn "Hidden item: " . $item->{IdItem};
 	}
 
 	my %loanperiods = (
@@ -720,8 +742,8 @@ FIXME This should be done with a mapping file!
 	    '14-dagars' => [],
 	    'Sommarlån' => [],
 	    'Fjärrlån' => [],
-	    'Referens' => [],
-	    'Kortlån 7-dagar' => [],
+	    'Referens' => ['itemtype' => 'REF'],
+	    'Kortlån 7-dagar' => ['itemtype' => 'SNABBLAN'],
 	    'Förskolelån' => [],
 	    'Kortlån 14-dagar' => [],
 	    'Bokkassar' => ['itemtype' => 'TEMAVUXEN'],
@@ -795,10 +817,9 @@ Just add the itemtype in 942$c.
 
       $mmc->reset();
       
-      # Count and cut off at the limit if one is given
       $count++;
       $progress->update( $count );
-      last if $limit && $limit == $count;
+      #last if $limit && $limit == $count;
 
     } # end foreach record
     unless ($opt->xml_input) {
@@ -928,6 +949,21 @@ sub check_multi_fields {
     return 0;
 }
 
+sub check_multi_fields_re {
+    my $mmc = shift;
+    my $fields = shift;
+    my $re = shift;
+
+    for my $field (@$fields) {
+	for my $v ($mmc->get($field)) {
+	    if (defined($v) && $v =~ /$re/) {
+		return 1;
+	    }
+	}
+    }
+    return 0;
+}
+
 sub refine_itemtype {
     my $mmc = shift;
     my $record = shift;
@@ -951,9 +987,78 @@ sub refine_itemtype {
                defined($classificationcode) && $classificationcode =~ /$re/i;
     };
 
+    my  $children = defined($item->{DepartmentName}) && $item->{DepartmentName} eq 'Barn';
 
-    my  $children = (defined($ccall) && $ccall =~ /hc(f|g|(,u))/i) or (defined $classificationcode && $classificationcode =~ /,u/);
+    my $mp3 = check_multi_fields($mmc, ['anmärkning_allmän'], ['Ljudbok (mp3)']) ||
+	(defined $localshelf && $localshelf eq 'MP3');
 
+    if ($children) {
+	# TEMABARN
+	# Barn Bokkasse
+	# Har ämnesord Bokkasse10 st. Ryggsäck 18 st har titel Ryggsäck (och ngt mer) + Medietyp Föremål.
+	# Dessa är så få att det går att fixa manuellt efter migreringen.
+
+	if (check_multi_fields($mmc, ['ämnesord'], ['Bokkasse']) || check_multi_fields_re($mmc, ['titel'], '^Ryggsäck\s+')) {
+	    return 'TEMABARN'
+	}
+	if ($original_itemtype eq 'FILM') {
+	    return 'BFILM';
+	}
+	if ($mp3 || $original_itemtype eq 'MP3') {
+	    return 'BMP3';
+	}
+	if ($original_itemtype eq 'MUSIK') {
+	    return 'BNOTER';
+	}
+	if ($original_itemtype eq 'MUSIKCD' || $original_itemtype eq 'MUSIKLP' || $original_itemtype eq 'KASSETT') {
+	    return 'BMUSIKCD';
+	}
+	if ($original_itemtype eq 'TALBOK') {
+	    return 'BTALBOK';
+	}
+    }
+
+    if ($mp3 or $original_itemtype eq 'MP3') {
+	return 'MP3';
+    }
+
+    if ($children && ($original_itemtype eq 'TIDSKRIFT' || (defined $localshelf && $localshelf eq 'TIDSKRIFT'))) {
+	return 'BTIDSKRIFT';
+    }
+
+    if (defined($item->{DepartmentName}) && $item->{DepartmentName} eq 'Fjärrlån') {
+	return 'FJARRLAN';
+    }
+
+    if ($original_itemtype eq 'MUSIK') {
+	return 'NOTER';
+    }
+	
+    #  
+    # 208 resultat hittade för 'callnum,wrdl: hcf/cd or callnum,wrdl: hcf/lc' med begränsningar: 'TIDA' i Bibliotek Mellansjö katalog.
+    # 
+    # Dessa 208 ska tillhöra kategori ”barn ljudbok cd”
+    # 
+    #  
+    # 140 resultat hittade för 'callnum,wrdl: hcg/cd or callnum,wrdl: hcg/lc' med begränsningar: 'TIDA' i Bibliotek Mellansjö katalog.
+    # 
+    # Dessa 140 ska tillhöra kategori ”barn ljudbok cd”
+    # 
+    #  
+    # 32 resultat hittade för 'callnum,wrdl: uhc/cd or callnum,wrdl: uhc/lc' med begränsningar: 'TIDA' i Bibliotek Mellansjö katalog.
+    # 
+    # Dessa 32 ska tillhöra kategori ”barn ljudbok cd”
+    # 
+    #  
+    # 35 resultat hittade för 'callnum,wrdl: uhce/cd or callnum,wrdl: uhce/lc' med begränsningar: 'TIDA' i Bibliotek Mellansjö katalog.
+    # 
+    # Dessa 35 ska tillhöra kategori ”barn ljudbok cd”
+    #
+
+    if ($checkccall->('((hc[fg])|(uhce?))\/cd')) {
+       return 'BCDBOK';
+    }
+   
     if ($original_itemtype eq 'LJUDBOK') {
 	if (defined($ccall) && $ccall =~ /mp3/i) {
 	    $itemtype = $children ? 'BMP3' : 'MP3';
@@ -985,6 +1090,8 @@ sub refine_itemtype {
 =head1 AUTHOR
 
 Magnus Enger, <magnus [at] libriotech.no>
+Andreas Jonsson, <andreas.jonsson@kreablo.se>
+
 
 =head1 LICENSE
 

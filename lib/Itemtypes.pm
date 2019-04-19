@@ -111,6 +111,10 @@ sub get_itemtype {
 	} else {
 	    $itemtype = "MUSIKCD";
 	}
+    } elsif ($f007p0 eq 's' && $f007p1 eq 'd') {
+	$itemtype = 'TALBOK';
+    } elsif ($f007p0 eq 't' && $f007p1 eq 'b') {
+	$itemtype = 'STORSTIL';
     # Spelfilmer
     # http://www.kb.se/katalogisering/Formathandboken/Bibliografiska-formatet/007/Spelfilm/
     # http://www.kb.se/katalogisering/Formathandboken/Bibliografiska-formatet/008/Grafisk-resurs-/

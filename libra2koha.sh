@@ -17,6 +17,9 @@ BUILD_MARC_FILE=no
 TRANSFORM_TABLES=yes
 EXPIRE_ALL_BORROWERS=no
 CHILDREN_CATEGORY=
+CHILDREN_MAXAGE=15
+YOUTH_CATEGORY=
+YOUT_MAXAGE=18
 
 SOURCE_FORMAT=bookit
 
@@ -206,6 +209,15 @@ if [[ "$FULL" == "yes" || ! -e $BORROWERSSQL ]]; then
     fi
     if [[ -n "$CHILDREN_CATEGORY" ]]; then
 	BORROWERS_FLAGS="$BORROWERS_FLAGS --children-category=$(printf %q "$CHILDREN_CATEGORY")"
+    fi
+    if [[ -n "$CHILDREN_MAXAGE" ]]; then
+	BORROWERS_FLAGS="$BORROWERS_FLAGS --children-maxage=$(printf %q "%CHILDREN_MAXAGE")"
+    fi
+    if [[ -n "$YOUTH_CATEGORY" ]]; then
+	BORROWERS_FLAGS="$BORROWERS_FLAGS --youth-category=$(printf %q "$YOUTH_CATEGORY")"
+    fi
+    if [[ -n "$YOUT_MAXAGE" ]]; then
+	BORROWERS_FLAGS="$BORROWERS_FLAGS --youth-maxage=$(printf %q "%YOUTH_MAXAGE")"
     fi
     echo perl borrowers.pl $BORROWERS_FLAGS
     perl borrowers.pl $BORROWERS_FLAGS > $BORROWERSSQL

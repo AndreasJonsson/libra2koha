@@ -146,6 +146,12 @@ while ( my $issue = $sth->fetchrow_hashref() ) {
     }
 
     $issue->{'barcode'} = $barcode;
+    if (defined($issue->{'IdItem'})) {
+	$issue->{original_item_id} = $issue->{'IdItem'};
+    } else {
+	$issue->{original_item_id} = 'NULL';
+    }
+
 
     if ($issue->{'branchcode'} eq '') {
 	warn "No branchcode for issue: " . Dumper($issue);
