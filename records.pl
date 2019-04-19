@@ -55,6 +55,8 @@ my ($opt, $usage) = describe_options(
     [ 'format=s', 'Input database format', { required => 1 }],
     [ 'xml-input', 'Expect XML input', { default => 0 }],
     [ 'xml-output', 'Generate XML output', { default => 0 }],
+    [ 'ordered-statuses=s@', 'The notforloan codes to indicate "ordered"' ],
+    [ 'clear-barcodes-on-ordered', 'Do not set barcode on ordered items'],
     [],
     [ 'verbose|v',  "print extra stuff"            ],
     [ 'debug',      "Enable debug output" ],
@@ -574,7 +576,15 @@ From BarCodes.Barcode.
 
 =cut
 
-	$mmc->set('barcode', $item->{'BarCode'}) if $item->{'BarCode'};
+	my $skipBarcode = !defined $item->{'BarCode'};
+	if ($opt->clear_barcodes_on_ordered && !$skipBarcode && defined $item->{IdStatusCode}) {
+	    my $status = $item->{IdStatusCode};
+	    if (defined($notforloan->{$status}) && grep {$notforloan->{$status} eq $_} @opt->ordered-statuses) {
+		$skipBarcode = 1;
+	    }
+	}
+
+	$mmc->set('barcode', $item->{'BarCode'}) unless $skipBarcode;
 
 	say STDERR "Item without barcode: " . $item->{'IdItem'} unless $item->{'BarCode'};
 

@@ -19,7 +19,8 @@ EXPIRE_ALL_BORROWERS=no
 CHILDREN_CATEGORY=
 CHILDREN_MAXAGE=15
 YOUTH_CATEGORY=
-YOUT_MAXAGE=18
+YOUTH_MAXAGE=18
+CLEAR_BARCODES_ON_ORDERED=no
 
 SOURCE_FORMAT=bookit
 
@@ -183,7 +184,10 @@ fi
 if [[ "$FULL" == "yes" || ! -e "$OUTPUTDIR"/records.marc ]]; then
     ## Get the relevant info out of the database and into a .marcxml file
     echo "Going to transform records... "
-    records.pl --flag-done --batch "$BATCH" --default-branchcode "$BRANCHCODE" --config $CONFIG --format $SOURCE_FORMAT --infile "$MARC" --outputdir "$OUTPUTDIR" $RECORDS_PARAMS $RECORDS_INPUT_FORMAT
+    RECORDS_FLAGS=
+    if [[ "$CLEAR_BARCODES_ON_ORDERED" == "yes" ]]; then
+	RECORDS_FLAGS+=" --clear-barcodes-on-ordered"
+    records.pl $RECORDS_FLAGS --flag-done --batch "$BATCH" --default-branchcode "$BRANCHCODE" --config $CONFIG --format $SOURCE_FORMAT --infile "$MARC" --outputdir "$OUTPUTDIR" $RECORDS_PARAMS $RECORDS_INPUT_FORMAT
 fi
 echo "done"
 
@@ -211,13 +215,13 @@ if [[ "$FULL" == "yes" || ! -e $BORROWERSSQL ]]; then
 	BORROWERS_FLAGS="$BORROWERS_FLAGS --children-category=$(printf %q "$CHILDREN_CATEGORY")"
     fi
     if [[ -n "$CHILDREN_MAXAGE" ]]; then
-	BORROWERS_FLAGS="$BORROWERS_FLAGS --children-maxage=$(printf %q "%CHILDREN_MAXAGE")"
+	BORROWERS_FLAGS="$BORROWERS_FLAGS --children-maxage=$(printf %q "$CHILDREN_MAXAGE")"
     fi
     if [[ -n "$YOUTH_CATEGORY" ]]; then
 	BORROWERS_FLAGS="$BORROWERS_FLAGS --youth-category=$(printf %q "$YOUTH_CATEGORY")"
     fi
     if [[ -n "$YOUT_MAXAGE" ]]; then
-	BORROWERS_FLAGS="$BORROWERS_FLAGS --youth-maxage=$(printf %q "%YOUTH_MAXAGE")"
+	BORROWERS_FLAGS="$BORROWERS_FLAGS --youth-maxage=$(printf %q "$YOUTH_MAXAGE")"
     fi
     echo perl borrowers.pl $BORROWERS_FLAGS
     perl borrowers.pl $BORROWERS_FLAGS > $BORROWERSSQL
