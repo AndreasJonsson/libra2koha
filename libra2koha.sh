@@ -21,6 +21,9 @@ CHILDREN_MAXAGE=15
 YOUTH_CATEGORY=
 YOUTH_MAXAGE=18
 CLEAR_BARCODES_ON_ORDERED=no
+ORDERED_STATUSES=
+HIDDEN_ARE_ORDERED=no
+MANAGER_ID=1
 
 SOURCE_FORMAT=bookit
 
@@ -31,8 +34,9 @@ QUOTE_CHAR='"'
 ESCAPE_CHAR='\\'
 HEADER_ROWS=1
 
-
-if [[ -e "$dir"/config.inc ]]; then
+if [[ -n "$1" ]]; then
+    . "$1"
+elif [[ -e "$dir"/config.inc ]]; then
     . "$dir"/config.inc
 fi
 
@@ -184,9 +188,16 @@ fi
 if [[ "$FULL" == "yes" || ! -e "$OUTPUTDIR"/records.marc ]]; then
     ## Get the relevant info out of the database and into a .marcxml file
     echo "Going to transform records... "
-    RECORDS_FLAGS=
+    RECORDS_FLAGS="$ORDERED_STATUSES"
     if [[ "$CLEAR_BARCODES_ON_ORDERED" == "yes" ]]; then
 	RECORDS_FLAGS+=" --clear-barcodes-on-ordered"
+    fi
+    if [[ "$TRUNCATE_PLESSEY" == "yes" ]]; then
+	RECORDS_FLAGS+=" --truncate-plessey"
+    fi
+    if [[ "$HIDDEN_ARE_ORDERED" == "yes" ]]; then
+	RECORDS_FLAGS+=" --hidden-are-ordered"
+    fi
     records.pl $RECORDS_FLAGS --flag-done --batch "$BATCH" --default-branchcode "$BRANCHCODE" --config $CONFIG --format $SOURCE_FORMAT --infile "$MARC" --outputdir "$OUTPUTDIR" $RECORDS_PARAMS $RECORDS_INPUT_FORMAT
 fi
 echo "done"
@@ -220,8 +231,11 @@ if [[ "$FULL" == "yes" || ! -e $BORROWERSSQL ]]; then
     if [[ -n "$YOUTH_CATEGORY" ]]; then
 	BORROWERS_FLAGS="$BORROWERS_FLAGS --youth-category=$(printf %q "$YOUTH_CATEGORY")"
     fi
-    if [[ -n "$YOUT_MAXAGE" ]]; then
+    if [[ -n "$YOUTH_MAXAGE" ]]; then
 	BORROWERS_FLAGS="$BORROWERS_FLAGS --youth-maxage=$(printf %q "$YOUTH_MAXAGE")"
+    fi
+    if [[ -n "$MANAGER_ID" ]]; then
+	BORROWERS_FLAGS+=" --manager-id=$MANAGER_ID"
     fi
     echo perl borrowers.pl $BORROWERS_FLAGS
     perl borrowers.pl $BORROWERS_FLAGS > $BORROWERSSQL
@@ -243,46 +257,28 @@ fi
 ISSUESSQL="$OUTPUTDIR/issues.sql"
 if [[ "$FULL" == "yes" || ! -e $ISSUESSQL ]]; then
   echo "Going to transform issues... "
-  issues.pl --format "$SOURCE_FORMAT" --config $CONFIG >> $ISSUESSQL
+  issues.pl --batch "$BATCH" --format "$SOURCE_FORMAT" --config $CONFIG >> $ISSUESSQL
   echo "done writing to $ISSUESSQL"
 fi
 
 if [[ "$FULL" == "yes" || ! -e "$OUTPUTDIR"/serials.sql ]]; then
     echo "Serials"
-    serials.pl --branchcode "$BRANCHCODE" --outputdir "$OUTPUTDIR" --config "$CONFIG"
+    serials.pl --batch "$BATCH" --format "$SOURCE_FORMAT" --branchcode "$BRANCHCODE" --outputdir "$OUTPUTDIR" --config "$CONFIG"
 fi
 
 
 if [[ "$FULL" == "yes" || ! -e "$OUTPUTDIR"/reservations.sql ]]; then
     echo "Reservations"
-    reservations.pl --format "$SOURCE_FORMAT" --configdir "$CONFIG" > "$OUTPUTDIR"/reservations.sql
+    reservations.pl --batch "$BATCH" --format "$SOURCE_FORMAT" --configdir "$CONFIG" > "$OUTPUTDIR"/reservations.sql
 fi
 if [[ "$FULL" == "yes" || ! -e "$OUTPUTDIR"/old_issues.sql ]]; then
   echo "Old issues"
   old_issues.pl  --format "$SOURCE_FORMAT" --configdir "$CONFIG" --branchcode "$BRANCHCODE" > "$OUTPUTDIR"/old_issues.sql
 fi
-#echo "Account lines"
+
 if [[ "$FULL" == "yes" || ! -e "$OUTPUTDIR"/accountlines.sql ]]; then
     echo "Accountlines"
     accountlines.pl  --format "$SOURCE_FORMAT" --configdir "$CONFIG" > "$OUTPUTDIR"/accountlines.sql
 fi
 
-exit 0
-if [[ $LIBRA2KOHA_NOCONFIRM != '1' ]]; then
-    confirm="no"
-    read -e -i no -p "Are you prepared to import to $INSTANCE? (This will delete existing records.)" confirm
-
-    if [[ "$confirm" != "yes" ]]; then
-        echo "Answer is not 'yes', exiting..." 1>&2
-        exit 0
-    fi
-fi
-
-##
-## XXX
-##
-echo "TODO: The -idmap parameter to the bulkmarcimport.pl script doesn't work as expected.  To make this work you will need to hack the bulkmarcimport.pl script." 2>&1
-echo "      (This is only needed to generate serials.sql, though)." 2>&1
-exit 0
-sudo koha-shell -c "/usr/share/koha/bin/migration_tools/bulkmarcimport.pl -b -file '$OUTPUTDIR'/records.marc -v -commit 100 -m MARCXML -d -fk -idmap '$IDMAP'" "$INSTANCE"
 

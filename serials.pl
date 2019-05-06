@@ -4,64 +4,33 @@ use Modern::Perl;
 use YAML::Syck qw( LoadFile );
 use Pod::Usage;
 use DBI;
-use Getopt::Long;
+use Getopt::Long::Descriptive;
 use Data::Dumper;
 use Template;
+use StatementPreparer;
 use TimeUtils;
 
-=head1 OPTIONS
+my ($opt, $usage) = describe_options(
+    '%c %o <some-arg>',
+    [ 'config=s', 'config directory', { required => 1 } ],
+    [ 'outputdir=s', 'output directory', { required => 1 } ],
+    [ 'branchcode=s', 'branchcode', { required => 1 } ],
+    [ 'batch=i', 'batch number', { required => 1 } ],
+    [ 'format=s', 'Input database format', { required => 1 }],
+    [],
+    [ 'verbose|v',  "print extra stuff"            ],
+    [ 'debug',      "Enable debug output" ],
+    [ 'help',       "print usage message and exit", { shortcircuit => 1 } ],
+);
 
-=over 4
-
-=item B<-c, --config>
-
-Path to directory that contains config files. See the section on
-L</"CONFIG FILES"> above for more details.
-
-=item B<-o, --outputdir>
-
-Directory where the resulting sql files will be written.
-
-=item B<-v --verbose>
-
-More verbose output.
-
-=item B<-d --debug>
-
-Even more verbose output.
-
-=item B<-h, -?, --help>
-
-Prints this help message and exits.
-
-=back
-
-=cut
-
-my $config_dir;
-my $output_dir;
-my $debug = 0;
-my $verbose = 0;
-my $help = 0;
-my $branchcode;
-
-
-GetOptions (
-    'c|config=s'           => \$config_dir,
-    'o|outputdir=s'        => \$output_dir,
-    'b|branchcode=s'       => \$branchcode,
-    'v|verbose'            => \$verbose,
-    'd|debug'              => \$debug,
-    'h|?|help'             => \$help
-    );
-
-pod2usage( -exitval => 0 ) if $help;
-pod2usage( -msg => "\nMissing Argument: -c, --config required\n",  -exitval => 1 ) if !$config_dir;
-pod2usage( -msg => "\nMissing Argument: -o, --outputdir required\n",  -exitval => 1 ) if !$output_dir;
+if ($opt->help) {
+    print $usage->text;
+    exit 0;
+}
 
 my $config;
-if ( -f ($config_dir . '/config.yaml') ) {
-    $config = LoadFile( $config_dir . '/config.yaml' );
+if ( -f ($opt->config . '/config.yaml') ) {
+    $config = LoadFile( $opt->config . '/config.yaml' );
 }
 
 our $dbh = DBI->connect( $config->{'db_dsn'},
@@ -78,17 +47,24 @@ my $ttconfig = {
 # create Template object
 my $tt2 = Template->new( $ttconfig ) || die Template->error(), "\n";
 
-my $sth = $dbh->prepare( 'SELECT Issues.*, ISBN_ISSN, TITLE_NO FROM Issues JOIN CA_CATALOG ON CA_CATALOG_ID=IdCat ORDER BY IdCat' );
-my $serialitems_sth = $dbh->prepare( 'SELECT IdItem, BarCode  From Items JOIN BarCodes USING(IdItem) WHERE IdIssue = ?' );
+my $preparer = new StatementPreparer(format => $opt->format, dbh => $dbh);
 
-# CONCAT(LCASE(REPLACE(ExtractValue(metadata, '//controlfield[\@tag=\"003\"]'), '-', '')), ExtractValue(metadata, '//controlfield[\@tag=\"001\"]'))
+my $sth = $preparer->prepare( 'select_serials' );
+my $serialitems_sth = $preparer->prepare( 'select_serialitems' );
 
 my $ret = $sth->execute();
 die "Failed to query serials!" unless (defined($ret));
 
-open SERIALS, ">:encoding(UTF-8)", "$output_dir/serials.sql" or die "Failed to open serials.sql for writing: $!";
+open SERIALS, ">:encoding(UTF-8)", ($opt->outputdir . "/serials.sql") or die "Failed to open serials.sql for writing: $!";
 
-my $prev_biblio = -1;
+print SERIALS <<EOF;
+CREATE TABLE IF NOT EXISTS k_serial_idmap (
+    original_id INT PRIMARY KEY,
+    serialid INT UNIQUE,
+    batch INT,
+    FOREIGN KEY (serialid) REFERENCES serial(serialid) ON DELETE CASCADE ON UPDATE CASCADE
+);
+EOF
 
 while (my $row = $sth->fetchrow_hashref()) {
     #say Dumper($row);
@@ -126,7 +102,9 @@ while (my $row = $sth->fetchrow_hashref()) {
 	publisheddate_str => $publisheddate_str,
         issn         => $dbh->quote($row->{ISBN_ISSN}),
 	titleno      => $dbh->quote(uc($row->{TITLE_NO})),
-	branchcode_str => $dbh->quote($branchcode),
+	branchcode_str => $dbh->quote($opt->branchcode),
+	original_serial_id => $row->{IdIssue},
+	batch        => $opt->batch,
 	original_ids => []
     };
 

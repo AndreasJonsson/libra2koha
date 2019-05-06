@@ -75,6 +75,8 @@ my ($opt, $usage) = describe_options(
     [ 'headerrows=i', 'number of header rows',  { default => 0 } ],
     [ 'key=i', 'index of key column', { required => 1} ],
     [ 'value=i', 'index of value column' ],
+    [ 'filtercol=i', 'filter on column string equality (requires filterval)', { default => undef } ],
+    [ 'filterval=s', 'filter on column string equality (requires filtercol)', { default => undef } ],
     [ 'comment=i@', 'index of columns to include as comments' ],
     [],
     [ 'verbose|v',  "print extra stuff"            ],
@@ -122,6 +124,13 @@ while (my $row = $csv->getline( $fh ) ) {
     my $value   = '';
     if (defined($opt->value)) {
 	$value = $row->[$opt->value];
+    }
+    if (defined($opt->filterval) && defined($opt->filtercol)) {
+	my $filterval = $row->[$opt->filtercol];
+	my $filtercol = $opt->filtercol;
+	my $optval = $opt->filterval;
+	print STDERR "Compare $filtercol column '$filterval' ne '$optval'\n";
+	next if ($filterval ne $opt->filterval);
     }
     my @comments = map { $row->[$_] } @{$opt->comment};
 

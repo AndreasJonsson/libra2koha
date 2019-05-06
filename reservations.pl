@@ -113,6 +113,7 @@ use TimeUtils;
 my ($opt, $usage) = describe_options(
     '%c %o <some-arg>',
     [ 'configdir=s',  'config directory' , { required => 1 } ],
+    [ 'batch=i', 'batch number', { required => 1 } ],
     [ 'format=s',  'Source format' , { default => 'libra' } ],
 
            [],
@@ -155,6 +156,16 @@ my $ret = $sth->execute();
 die "Failed to execute sql query." unless $ret;
 
 my %priorities = ();
+
+print <<EOF;
+CREATE TABLE IF NOT EXISTS k_reservations_idmap (
+    original_id INT PRIMARY KEY,
+    reserve_id INT UNIQUE,
+    batch INT,
+    FOREIGN KEY (reserve_id) REFERENCES reserves(reserve_id) ON DELETE CASCADE ON UPDATE CASCADE
+);
+EOF
+
 
 while (my $row = $sth->fetchrow_hashref()) {
 
@@ -224,7 +235,9 @@ while (my $row = $sth->fetchrow_hashref()) {
 	title            => $dbh->quote($row->{Title}),
 	author           => $dbh->quote($row->{Author}),
 	IdBorrower       => $row->{IdBorrower},
-	original_item_id => $row->{original_item_id}
+	original_item_id => $row->{original_item_id},
+	original_reservation_id => $row->{IdReservation},
+	batch            => $opt->batch
     };
 
     

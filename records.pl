@@ -57,6 +57,8 @@ my ($opt, $usage) = describe_options(
     [ 'xml-output', 'Generate XML output', { default => 0 }],
     [ 'ordered-statuses=s@', 'The notforloan codes to indicate "ordered"' ],
     [ 'clear-barcodes-on-ordered', 'Do not set barcode on ordered items'],
+    [ 'truncate-plessey', 'Truncate check code from plessey barcodes.', { default => 0}],
+    [ 'hidden-are-ordered', 'Hidden items are ordered items.', { default => 0 }],
     [],
     [ 'verbose|v',  "print extra stuff"            ],
     [ 'debug',      "Enable debug output" ],
@@ -127,9 +129,9 @@ my $mmc = MarcUtil::WrappedMarcMappingCollection::marc_mappings(
     'date_last_checkout'               => { itemcol => 'datelastborrowed', map => { '952' => 's' } },
     'internal_staff_note'              => { itemcol => 'itemnotes_nonpublic', map => { '952' => 'x' } },
     'itemtype'                         => { itemcol => 'itype', map => { '952' => 'y' } },
-    'lost_status'                      => { itemcol => 'itemlost', av => 'LOST', map => { '952' => '1' } },
-    'damaged_status'                   => { itemcol => 'damaged', av => 'DAMAGED', map => { '952' => '4' } },
-    'not_for_loan'                     => { itemcol => 'notforloan', av=> 'NOT_LOAN', map => { '952' => '7' } },
+    'lost_status'                      => { itemcol => 'itemlost', map => { '952' => '1' } },
+    'damaged_status'                   => { itemcol => 'damaged', map => { '952' => '4' } },
+    'not_for_loan'                     => { itemcol => 'notforloan', map => { '952' => '7' } },
     'collection_code'                  => { itemcol => 'ccode', map => { '952' => '8' } },
     'subjects'                         => { map => { '653' => 'b' } },
     'libra_subjects'                   => { map => { '976' => 'b' } },
@@ -228,8 +230,8 @@ if (  scalar(@input_files) < 1 ) {
     exit;
 }
 
-$limit = 66611;
-#$limit = num_records_($input_file) if $limit == 0;
+#limit = 66715;
+$limit = num_records_($input_file) if $limit == 0;
 
 print "There are $limit records in $input_file\n";
 
@@ -449,7 +451,7 @@ L<http://wiki.koha-community.org/wiki/Holdings_data_fields_%289xx%29>
 	      say STDERR "Record does not have 001!", next RECORD unless $f001;
 	      $recordid = $f001;
 	  }
-	  # Remove any non alphanumerics
+  # Remove any non alphanumerics
 	  $recordid =~ s/[^a-zæøåöA-ZÆØÅÖ\d]//g;
 	  say "catid: $catid" if $opt->verbose;
 	  # add_catitem_stat($catid);
@@ -487,6 +489,18 @@ L<http://wiki.koha-community.org/wiki/Holdings_data_fields_%289xx%29>
 
     ITEM: while (my $item = $sth->fetchrow_hashref) {
         say Dumper $item if $opt->debug;
+
+	# RANSTA SPECIAL
+	if (defined($branchcodes->{$item->{'IdBranchCode'}}) && $branchcodes->{$item->{'IdBranchCode'}} eq 'RANSTA') {
+	    my  $children = defined($item->{DepartmentName}) && $item->{DepartmentName} eq 'Barn';
+	    if ($children) {
+		unless (defined($item->{'IdLocalShelf'}) && ($loc->{ $item->{'IdLocalShelf'} } eq 'BILDERBOK' || $loc->{ $item->{'IdLocalShelf'} } eq 'BPEK'
+			|| $loc->{ $item->{'IdLocalShelf'} } eq 'BSAGOR' || $item->{'IdLocalShelf'} == 76)) {
+		    $ignoredItem++;
+		    next ITEM;
+		}
+	    }
+	}
 
 	$mmc->new_item($item->{'IdItem'});
 
@@ -576,17 +590,29 @@ From BarCodes.Barcode.
 
 =cut
 
-	my $skipBarcode = !defined $item->{'BarCode'};
-	if ($opt->clear_barcodes_on_ordered && !$skipBarcode && defined $item->{IdStatusCode}) {
+	my $isOrdered = $opt->hidden_are_ordered && $item->{Hidden};
+	if (defined $item->{IdStatusCode}) {
 	    my $status = $item->{IdStatusCode};
-	    if (defined($notforloan->{$status}) && grep {$notforloan->{$status} eq $_} @opt->ordered-statuses) {
-		$skipBarcode = 1;
+	    if (defined($notforloan->{$status}) && grep {$notforloan->{$status} eq $_} @{$opt->ordered_statuses}) {
+		$isOrdered = 1;
 	    }
 	}
+	if ($isOrdered && $opt->hidden_are_ordered) {
+	    $item->{IdStatusCode} = '';
+	    $mmc->set('not_for_loan', $opt->ordered_statuses->[0]);
+	}
+	my $skipBarcode = !defined $item->{'BarCode'} || $opt->clear_barcodes_on_ordered && $isOrdered;
 
-	$mmc->set('barcode', $item->{'BarCode'}) unless $skipBarcode;
+	if (!$skipBarcode) {
+	    my $barcode = $item->{'BarCode'};
+	    if ($opt->truncate_plessey) {
+		$barcode = truncate_plessey($barcode);
+	    }
 
-	say STDERR "Item without barcode: " . $item->{'IdItem'} unless $item->{'BarCode'};
+	    $mmc->set('barcode', $barcode);
+	    say STDERR "Item without barcode: " . $item->{'IdItem'} unless $item->{'BarCode'};
+	}
+
 
 =head3 952$r Date last seen
 
@@ -643,18 +669,6 @@ We base this on the Departments table and the value of Items.IdDepartment value.
 	    $ignoredItem++;
 	    next ITEM;
 	};
-
-	# RANSTA SPECIAL
-	if (defined($branchcodes->{$item->{'IdBranchCode'}}) && $branchcodes->{$item->{'IdBranchCode'}} eq 'RANSTA') {
-	    my  $children = defined($item->{DepartmentName}) && $item->{DepartmentName} eq 'Barn';
-	    if ($children) {
-		unless (defined($item->{'IdLocalShelf'}) && ($loc->{ $item->{'IdLocalShelf'} } eq 'BILDERBOK' || $loc->{ $item->{'IdLocalShelf'} } eq 'BPEK'
-			|| $loc->{ $item->{'IdLocalShelf'} } eq 'BSAGOR' || $item->{'IdLocalShelf'} == 76)) {
-		    $ignoredItem++;
-		    next ITEM;
-		}
-	    }
-	}
 
 	$includedItem++;
 
@@ -1095,6 +1109,48 @@ sub refine_itemtype {
 
     
     return $itemtype;
+}
+
+sub bitrev4 {
+    my $x = shift;
+
+    no warnings;
+    $x = ((($x & 0xaaaaaaaaaaaaaaaa) >> 1) | (($x & 0x5555555555555555) << 1));
+    return ((($x & 0xcccccccccccccccc) >> 2) | (($x & 0x3333333333333333) << 2));
+    use warnings;
+}
+
+
+sub plessey {
+    my $b = shift;
+    my $verify = shift;
+
+    if ($b =~ /^([a-fA-F0-9]{11})([a-fA-F0-9]{2})?$/) {
+	no warnings;
+	my $n = bitrev4(hex($verify ? "$1$2" : $1) << ($verify ? 0 : 8));
+	use warnings;
+	my $p = 0x1e9;
+	my $m = 0x100;
+	for (my $i = 44 + 8 - 9; $i >= 0; $i--) {
+	    $n ^= ($p << $i) if ($n & ($m << $i));
+	}
+	if ($verify) {
+	    return !$n;
+	}
+	return sprintf "%x", bitrev4($n);
+    }
+
+    return undef;
+}
+
+sub truncate_plessey  {
+    my $barcode = shift;
+
+    if (plessey($barcode, 1)) {
+	$barcode = substr($barcode, 0, 11); 
+    }
+
+    return $barcode
 }
 
 =head1 AUTHOR

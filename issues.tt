@@ -1,5 +1,6 @@
 
 SET @ITEM_BORROWED=0;
+SET @ITEMNUMBER=NULL;
 
 SELECT [% IF original_item_id != 'NULL' %] itemnumber FROM k_items_idmap WHERE original_id = [% original_item_id %] [% ELSE %] NULL [% END %] INTO @ITEMNUMBER;
 
@@ -16,6 +17,9 @@ INSERT INTO issues ( borrowernumber, itemnumber, date_due, branchcode, renewals,
     [% issuedate %], -- issuedate
     [% note %]
   FROM DUAL WHERE @ITEMNUMBER IS NOT NULL AND NOT @ITEM_BORROWED;
+
+INSERT INTO k_issues_idmap (original_id, issue_id, batch)
+  SELECT [% original_issue_id %], LAST_INSERT_ID(), [% batch %] FROM DUAL WHERE @ITEMNUMBER IS NOT NULL AND NOT @ITEM_BORROWED;
   
 UPDATE items SET onloan = [% issuedate %] WHERE @ITEMNUMBER=itemnumber AND NOT @ITEM_BORROWED;
 

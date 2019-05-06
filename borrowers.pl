@@ -47,6 +47,7 @@ my ($opt, $usage) = describe_options(
     [ 'children-category=s', 'Set children borrower category (default disabled)', { default => '' } ],
     [ 'youth-maxage=i', 'Set youth borrower age.  Used when --children-category is enabled. (default 18)', { default => 18 } ],
     [ 'youth-category=s', 'Set youth borrower category (default disabled)', { default => '' } ],
+    [ 'manager-id=i', 'Set borrowernumber of a manager to set as sender on borrower messages, if none can be determined from source data.', { default => 1} ],
     [],
     [ 'verbose|v',  "print extra stuff"            ],
     [ 'debug',      "Enable debug output" ],
@@ -190,8 +191,6 @@ RECORD: while ( my $borrower = $sth->fetchrow_hashref() ) {
 
     set_address( $borrower );
     set_debarments( $borrower );
-    $borrower->{debarredcomment} = 'NULL';
-    $borrower->{debarred} = 'NULL';
 
     my $isKohaMarked = 0;
     my @messages = ();
@@ -212,6 +211,7 @@ RECORD: while ( my $borrower = $sth->fetchrow_hashref() ) {
     }
 
     $borrower->{'messages'} = \@messages;
+    $borrower->{'manager_id'} = $opt->manager_id;
 
     # Do transformations
     # Add a branchcode

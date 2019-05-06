@@ -26,12 +26,16 @@ fi
 if [ ! -f "$CONFIG/damaged.yaml" ]; then
     echo "Missing $CONFIG/damaged.yaml"
     MISSING_FILE=1
+    table2config.pl --encoding=$TABLEENC --columndelim="$COLUMN_DELIMITER" --headerrows=$HEADER_ROWS  --dir="$DIR" --name='CA_NOT_AVAILABLE_CAUSE' --key=0 --comment=2 > "$CONFIG/damaged.yaml"
 fi
 if [ ! -f "$CONFIG/lost.yaml" ]; then
     echo "Missing $CONFIG/lost.yaml"
     MISSING_FILE=1
+    table2config.pl --encoding=$TABLEENC --columndelim="$COLUMN_DELIMITER" --headerrows=$HEADER_ROWS  --dir="$DIR" --name='CA_NOT_AVAILABLE_CAUSE' --key=0 --comment=2 > "$CONFIG/lost.yaml"
 fi
 if [ ! -f "$CONFIG/notforloan.yaml" ]; then
     echo "Missing $CONFIG/notforloan.yaml"
+    table2config.pl --encoding=$TABLEENC --columndelim="$COLUMN_DELIMITER" --headerrows=$HEADER_ROWS  --dir="$DIR" --name='CI_CAT' --key=0 --comment=3 --filterval=0 --filtercol=4 > "$CONFIG/notforloan.yaml"
+    
     MISSING_FILE=1
 fi
