@@ -1,0 +1,7 @@
+SELECT
+	NULL AS BlockedUntil,
+	NULL AS Reason,
+	NULL AS RegDate,
+	NULL AS RegTime,
+	NULL AS UpdatedDate
+FROM CI_BORR WHERE CI_BORR_ID = ? AND BORR_BLOCKED;
