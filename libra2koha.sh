@@ -19,11 +19,12 @@ EXPIRE_ALL_BORROWERS=no
 CHILDREN_CATEGORY=
 CHILDREN_MAXAGE=15
 YOUTH_CATEGORY=
-YOUTH_MAXAGE=18
+YOUTH_MAXAGE=17
 CLEAR_BARCODES_ON_ORDERED=no
 ORDERED_STATUSES=
 HIDDEN_ARE_ORDERED=no
 MANAGER_ID=1
+DEFAULT_CATEGORY=STANDARD
 
 SOURCE_FORMAT=bookit
 
@@ -36,15 +37,25 @@ HEADER_ROWS=1
 
 if [[ -n "$1" ]]; then
     . "$1"
+    if [[ -z "$DBNAME" ]]; then
+	DBNAME="$1";
+    fi
 elif [[ -e "$dir"/config.inc ]]; then
     . "$dir"/config.inc
+    if [[ -z "$DBNAME" ]]; then
+	DBNAME="libra2koha";
+    fi
 fi
 
-INSTANCE="$3"
+if [[ -e "$dir"/overrides.inc ]]; then
+    . "$dir"/overrides.inc
+fi
+
+INSTANCE="$1"
 EXPORTCAT="$DIR/exportCat.txt"
-OUTPUTDIR="$DIR/out"
+OUTPUTDIR="$DIR/../out"
 IDMAP="$OUTPUTDIR/IdMap.txt"
-MYSQL_CREDENTIALS="-u libra2koha -ppass libra2koha"
+MYSQL_CREDENTIALS="-u libra2koha -ppass $DBNAME"
 MYSQL="mysql $MYSQL_CREDENTIALS"
 MYSQL_LOAD="mysql $MYSQL_CREDENTIALS --local-infile=1 --init-command='SET max_heap_table_size=4294967295;'"
 
@@ -53,7 +64,7 @@ echo "Source format: $SOURCE_FORMAT"
 RECORDS_INPUT_FORMAT=
 
 if [[ $SOURCE_FORMAT == bookit ]]; then
-    MARC="$DIR/*.iso2709"
+    MARC="$DIR/*iso2709*"
 elif [[ $SOURCE_FORMAT == micromarc ]]; then
     BUILD_MARC_FILE=yes
     MARC="$OUTPUTDIR/catalogue.marc"
@@ -237,6 +248,9 @@ if [[ "$FULL" == "yes" || ! -e $BORROWERSSQL ]]; then
     if [[ -n "$MANAGER_ID" ]]; then
 	BORROWERS_FLAGS+=" --manager-id=$MANAGER_ID"
     fi
+    if [[ -n "$DEFAULT_CATEGORY" ]]; then
+	BORROWERS_FLAGS+=" --default-category=$DEFAULT_CATEGORY"
+    fi
     echo perl borrowers.pl $BORROWERS_FLAGS
     perl borrowers.pl $BORROWERS_FLAGS > $BORROWERSSQL
     export PERLIO=$TMPPERLIO
@@ -244,7 +258,6 @@ if [[ "$FULL" == "yes" || ! -e $BORROWERSSQL ]]; then
 fi
 
 ### ACTIVE ISSUES/LOANS ###
-
 
 if [[ "$QUICK"z != "yesz" ]]; then
 # Create tables and load the datafiles
@@ -261,20 +274,22 @@ if [[ "$FULL" == "yes" || ! -e $ISSUESSQL ]]; then
   echo "done writing to $ISSUESSQL"
 fi
 
+if [[ "$FULL" == "yes" || ! -e "$OUTPUTDIR"/reservations.sql ]]; then
+    echo "Reservations"
+    reservations.pl --batch "$BATCH" --format "$SOURCE_FORMAT" --configdir "$CONFIG" > "$OUTPUTDIR"/reservations.sql
+fi
+
+if [[ "$FULL" == "yes" || ! -e "$OUTPUTDIR"/old_issues.sql ]]; then
+  echo "Old issues"
+  old_issues.pl  --batch "$BATCH" --format "$SOURCE_FORMAT" --configdir "$CONFIG" --branchcode "$BRANCHCODE" > "$OUTPUTDIR"/old_issues.sql
+fi
+
+
 if [[ "$FULL" == "yes" || ! -e "$OUTPUTDIR"/serials.sql ]]; then
     echo "Serials"
     serials.pl --batch "$BATCH" --format "$SOURCE_FORMAT" --branchcode "$BRANCHCODE" --outputdir "$OUTPUTDIR" --config "$CONFIG"
 fi
 
-
-if [[ "$FULL" == "yes" || ! -e "$OUTPUTDIR"/reservations.sql ]]; then
-    echo "Reservations"
-    reservations.pl --batch "$BATCH" --format "$SOURCE_FORMAT" --configdir "$CONFIG" > "$OUTPUTDIR"/reservations.sql
-fi
-if [[ "$FULL" == "yes" || ! -e "$OUTPUTDIR"/old_issues.sql ]]; then
-  echo "Old issues"
-  old_issues.pl  --format "$SOURCE_FORMAT" --configdir "$CONFIG" --branchcode "$BRANCHCODE" > "$OUTPUTDIR"/old_issues.sql
-fi
 
 if [[ "$FULL" == "yes" || ! -e "$OUTPUTDIR"/accountlines.sql ]]; then
     echo "Accountlines"

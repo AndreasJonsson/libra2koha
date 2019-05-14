@@ -1,18 +1,18 @@
-GE_ADDR_ID	varchar	1024
-GE_ORG_ID	varchar	1024
-CI_COUNTRY_ID	varchar	1024
-ADDR_NAME	varchar	1024
-SY_USER_ID_CREATE	varchar	1024
-CREATE_DATETIME	varchar	1024
-SY_USER_ID_MODIFY	varchar	1024
-MODIFY_DATETIME	varchar	1024
-FAX	varchar	1024
-NAME	varchar	1024
-CONTACT	varchar	1024
-ADDRESS	varchar	1024
-POST_CODE	varchar	1024
-CITY	varchar	1024
-OLD_ID	varchar	1024
-PHONE	varchar	1024
-EMAIL	varchar	1024
+GE_ADDR_ID	int
+GE_ORG_ID	int
+CI_COUNTRY_ID	int
+ADDR_NAME	varchar	256
+SY_USER_ID_CREATE	int
+CREATE_DATETIME	datetime
+SY_USER_ID_MODIFY	int
+MODIFY_DATETIME	datetime
+FAX	varchar	32
+NAME	varchar	32
+CONTACT	varchar	32
+ADDRESS	varchar	256
+POST_CODE	varchar	16
+CITY	varchar	32
+OLD_ID	int
+PHONE	varchar	32
+EMAIL	varchar	256
 INFO	varchar	1024

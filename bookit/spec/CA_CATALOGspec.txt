@@ -1,4 +1,5 @@
 ca_catalog.ca_catalog_id	int
+ca_catalog.ca_catalog_external_id	int
 ca_catalog.ca_catalog_type_id	int
 ca_catalog.ca_supplier_id	int
 ca_catalog.title_no	varchar	128

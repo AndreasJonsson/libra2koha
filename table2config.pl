@@ -74,10 +74,11 @@ my ($opt, $usage) = describe_options(
     [ 'quote=s',  'quote character' ],
     [ 'headerrows=i', 'number of header rows',  { default => 0 } ],
     [ 'key=i', 'index of key column', { required => 1} ],
+    [ 'stringkey', 'Is key a string.' ],
     [ 'value=i', 'index of value column' ],
     [ 'filtercol=i', 'filter on column string equality (requires filterval)', { default => undef } ],
     [ 'filterval=s', 'filter on column string equality (requires filtercol)', { default => undef } ],
-    [ 'comment=i@', 'index of columns to include as comments' ],
+    [ 'comment=i@', 'index of columns to include as comments', { default => [] }],
     [],
     [ 'verbose|v',  "print extra stuff"            ],
     [ 'help',       "print usage message and exit", { shortcircuit => 1 } ],
@@ -135,6 +136,10 @@ while (my $row = $csv->getline( $fh ) ) {
     my @comments = map { $row->[$_] } @{$opt->comment};
 
     my $comment = join(", ", @comments);
+    if ($opt->stringkey) {
+	$key =~ s/["\\]/\\$&/g;
+	$key = '"' . $key . '"';
+    }
     say "$key: '$value' # $comment";
 
 }

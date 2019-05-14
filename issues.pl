@@ -131,10 +131,13 @@ $sth->execute();
 
 print <<EOF;
 CREATE TABLE IF NOT EXISTS k_issues_idmap (
-    original_id INT PRIMARY KEY,
-    issue_id INT UNIQUE,
-    batch INT,
-    FOREIGN KEY (issue_id) REFERENCES issues(issue_id) ON DELETE CASCADE ON UPDATE CASCADE
+    `original_id` INT NOT NULL,
+    `issue_id` INT NOT NULL,
+    `batch` INT,
+    PRIMARY KEY (`original_id`,`batch`),
+    UNIQUE KEY `issue_id` (`issue_id`),
+    KEY `k_issues_idmap_original_id` (`original_id`),
+    FOREIGN KEY (`issue_id`) REFERENCES `issues`(`issue_id`) ON DELETE CASCADE ON UPDATE CASCADE
 );
 EOF
 
@@ -180,8 +183,8 @@ while ( my $issue = $sth->fetchrow_hashref() ) {
     $issue->{batch} = $opt->batch;
 
 
-    if ($issue->{'branchcode'} eq '') {
-	warn "No branchcode for issue: " . Dumper($issue);
+    if ($issue->{'branchcode'} ne '') {
+	next;
     } else {
 	$tt2->process( 'issues.tt', $issue, \*STDOUT, {binmode => ':utf8'} ) || die $tt2->error();
 

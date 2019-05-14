@@ -33,6 +33,9 @@ SELECT itemnumber FROM items WHERE @HAS_MATCHING_ITEM AND EXISTS (SELECT * FROM 
 INSERT INTO old_issues (issue_id, borrowernumber, itemnumber, date_due, branchcode, returndate, lastreneweddate, renewals, auto_renew, auto_renew_error, timestamp, issuedate, onsite_checkout, note, notedate) VALUES
  (@ISSUE_ID, @BORROWERNUMBER, @ITEMNUMBER, NULL, @BRANCHCODE, [% returndate %], NULL, NULL, NULL, NULL, [% timestamp %], NULL, 0, NULL, NULL);
 
+INSERT INTO k_old_issues_idmap (original_id, issue_id, batch)
+  SELECT [% original_issue_id %], LAST_INSERT_ID(), [% batch %] FROM DUAL WHERE @ITEMNUMBER IS NOT NULL AND NOT @ITEM_BORROWED;
+
 DROP TABLE k_tmp_biblionumbers;
 
 COMMIT;

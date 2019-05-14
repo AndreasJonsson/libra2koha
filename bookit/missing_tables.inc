@@ -39,3 +39,9 @@ if [ ! -f "$CONFIG/notforloan.yaml" ]; then
     
     MISSING_FILE=1
 fi
+if [ ! -f "$CONFIG/media_types.yaml" ]; then
+    echo "Missing $CONFIG/media_types.yaml"
+    table2config.pl --stringkey --encoding=$TABLEENC --columndelim="$COLUMN_DELIMITER" --headerrows=$HEADER_ROWS  --dir="$DIR" --name='CA_MEDIA_TYPE' --key=2 > "$CONFIG/media_types.yaml"
+    
+    MISSING_FILE=1
+fi

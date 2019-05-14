@@ -43,6 +43,7 @@ my ($opt, $usage) = describe_options(
     [ 'every=i', 'Process every nth item', { default => 1 } ],
     [ 'format=s', 'Input database format', { required => 1 }],
     [ 'expire-all', 'Set all borrowers to expired', { default => 0 } ],
+    [ 'default-category=s', 'Set the default patron category when missing' ],
     [ 'children-maxage=i', 'Set child borrower age.  Used when --children-category is enabled. (default 15)', { default => 15 } ],
     [ 'children-category=s', 'Set children borrower category (default disabled)', { default => '' } ],
     [ 'youth-maxage=i', 'Set youth borrower age.  Used when --children-category is enabled. (default 18)', { default => 18 } ],
@@ -162,9 +163,12 @@ my $auto_count = 1;
 print <<EOF;
 
 CREATE TABLE IF NOT EXISTS k_borrower_idmap (
-  `original_id` int PRIMARY KEY NOT NULL,
-  `borrowernumber` int UNIQUE KEY NOT NULL,
+  `original_id` int NOT NULL,
+  `borrowernumber` int NOT NULL,
   `batch`     int,
+  PRIMARY KEY (`original_id`,`batch`),
+  UNIQUE KEY `borrowernumber` (`borrowernumber`),
+  KEY `k_borrower_idmap_original_id` (`original_id`),
   FOREIGN KEY (`borrowernumber`) REFERENCES `borrowers`(`borrowernumber`) ON DELETE CASCADE ON UPDATE CASCADE
 );
 
@@ -238,7 +242,11 @@ RECORD: while ( my $borrower = $sth->fetchrow_hashref() ) {
     #print STDERR "IdBorrowerCategory not defined:\n";
     #print STDERR Dumper( $borrower );
     #}
-    $borrower->{'categorycode'} = $patroncategories->{ $borrower->{'IdBorrowerCategory'} };
+    if (!defined($borrower->{'IdBorrowerCategory'})) {
+	$borrower->{'categorycode'} = $opt->default_category;
+    } else {
+	$borrower->{'categorycode'} = $patroncategories->{ $borrower->{'IdBorrowerCategory'} };
+    }
     next if (!defined($borrower->{'categorycode'}) or $borrower->{'categorycode'} eq '');
 
     my $dateofbirth = dp($borrower->{'BirthDate'});
@@ -284,6 +292,7 @@ RECORD: while ( my $borrower = $sth->fetchrow_hashref() ) {
 
     _quote(\$borrower->{'FirstName'});
     _quote(\$borrower->{'LastName'});
+    _quote(\$borrower->{'Sex'});
 
     if (defined($borrower->{'Password'})) {
 	$borrower->{'Password'} = hash_password($borrower->{'Password'});

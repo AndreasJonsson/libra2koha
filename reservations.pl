@@ -159,10 +159,13 @@ my %priorities = ();
 
 print <<EOF;
 CREATE TABLE IF NOT EXISTS k_reservations_idmap (
-    original_id INT PRIMARY KEY,
-    reserve_id INT UNIQUE,
-    batch INT,
-    FOREIGN KEY (reserve_id) REFERENCES reserves(reserve_id) ON DELETE CASCADE ON UPDATE CASCADE
+    `original_id` INT NOT NULL,
+    `reserve_id` INT NOT NULL,
+    `batch` INT NOT NULL,
+    PRIMARY KEY (`original_id`,`batch`),
+    UNIQUE KEY `reserve_id` (`reserve_id`),
+    KEY `k_reservations_idmap_original_id` (`original_id`),
+    FOREIGN KEY (`reserve_id`) REFERENCES `reserves`(`reserve_id`) ON DELETE CASCADE ON UPDATE CASCADE
 );
 EOF
 

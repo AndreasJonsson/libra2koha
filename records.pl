@@ -111,6 +111,7 @@ my $mmc = MarcUtil::WrappedMarcMappingCollection::marc_mappings(
     'klassifikationskod'               => { map => { '084' => 'a' } },
     'klassifikationsdel_av_uppställningssignum' => { map => { '852' => 'h' } },
     'titel'                            => { map => { '245' => 'a' } },
+    'allmän_medieterm'                 => { map => { '245' => 'h' } },
     'beståndsuppgift'                  => { map => { '866' => 'a' } },
     'anmärkning_allmän'                => { map => { '500' => 'a' } },
     'ämnesord'                         => { map => { '650' => 'a' } },
@@ -223,6 +224,12 @@ if ( -f $config_dir . '/lost.yaml' ) {
     $lost = LoadFile( $config_dir . '/lost.yaml');
 }
 
+my $media_types = {};
+if ( -f $config_dir . '/media_types.yaml' ) {
+    print STDERR "Loading media_types.yaml\n" if $opt->verbose;
+    $media_types = LoadFile( $config_dir . '/media_types.yaml');
+}
+
 my @input_files = glob $input_file;
 # Check that the input file exists
 if (  scalar(@input_files) < 1 ) {
@@ -269,10 +276,13 @@ open ITEM_OUTPUT, ">:utf8", "$output_dir/items.sql" or die "Failed to open $outp
 
 print ITEM_OUTPUT <<EOF;
 CREATE TABLE IF NOT EXISTS k_items_idmap (
-    original_id INT PRIMARY KEY,
-    itemnumber INT UNIQUE,
-    batch INT,
-    FOREIGN KEY (itemnumber) REFERENCES items(itemnumber) ON DELETE CASCADE ON UPDATE CASCADE
+    `original_id` INT,
+    `itemnumber` INT,
+    `batch` INT,
+    PRIMARY KEY (`original_id`,`batch`),
+    UNIQUE KEY `itemnumber` (`itemnumber`),
+    KEY `k_items_idmap_original_id` (`original_id`),
+    FOREIGN KEY (`itemnumber`) REFERENCES `items`(`itemnumber`) ON DELETE CASCADE ON UPDATE CASCADE
 );
 EOF
 
@@ -298,9 +308,8 @@ EOF
 }
 
 # Query for setting done = 1 if --flag_done is set
-my $sth_done = $dbh->prepare("
-    UPDATE Items SET done = 1 WHERE IdItem = ?
-");
+my $sth_done = $preparer->prepare('mark_done');
+
 
 # Create a file output object
 my $file;
@@ -390,13 +399,24 @@ Bookit format ISBN is in  350 00 c and ISSN in 350 10 c
 		  }
 	      }
 	  }
-	  $isbn_issn_sth->execute(int($record->field( '001' )->data()), $first_isbn, $first_issn)
-	      or warn "Failed to insert isbn '$first_isbn' and issn '$first_issn'!";
-	  for my $f081 ($record->field('081')) {
-	      my $signum = $f081->subfield('h');
-	      if (defined($signum)) {
-		  $mmc->set('klassifikationsdel_av_uppställningssignum', $signum);
-		  $record->delete_fields( $f081 );
+	  my $f001 = $record->field( '001' );
+	  if (!defined($f001)) {
+	      if (scalar($record->fields()) > 0) {
+		  warn "No 001 on record!";
+		  say STDERR MARC::File::XML::record( $record );
+	      } else {
+		  # warn "Record has no fields!"
+	      }
+	      next RECORD;
+	  } else {
+	      $isbn_issn_sth->execute(int($record->field( '001' )->data()), $first_isbn, $first_issn)
+		  or warn "Failed to insert isbn '$first_isbn' and issn '$first_issn'!";
+	      for my $f081 ($record->field('081')) {
+		  my $signum = $f081->subfield('h');
+		  if (defined($signum)) {
+		      $mmc->set('klassifikationsdel_av_uppställningssignum', $signum);
+		      $record->delete_fields( $f081 );
+		  }
 	      }
 	  }
       }
@@ -436,7 +456,6 @@ L<http://wiki.koha-community.org/wiki/Holdings_data_fields_%289xx%29>
 	  my $f003;
 	  my $recordid;
 	  unless ($record->field( '003' )) {
-	      warn 'Record does not have 003! catid: ' . $catid . ' default to ';
 	      $f003 = '';
 	      $item_context->{marc003} = 'NULL';
 	  } else {
@@ -1000,6 +1019,18 @@ sub refine_itemtype {
     my $localshelf;
     if (defined($item)) {
 	$localshelf = defined($item->{'IdLocalShelf'}) ? $loc->{ $item->{'IdLocalShelf'} } : (defined($item->{'LocalShelf'}) ? $item->{'LocalShelf'} : undef);
+    }
+
+    my $media_type = $mmc->get('allmän_medieterm');
+    if (defined $media_type && $media_type =~ /\[(.*)\]/) {
+	$media_type = $1;
+    } else {
+	$media_type = 0;
+    }
+
+    if ($media_type && defined $media_types->{$media_type} && $media_types->{$media_type} ne '') {
+	$original_itemtype = $media_types->{$media_type};
+	print STDERR "original itemtype: $original_itemtype\n";
     }
 
     my $classificationcode = $mmc->get('klassifikationskod');

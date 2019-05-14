@@ -34,6 +34,7 @@ use TimeUtils;
 my ($opt, $usage) = describe_options(
     '%c %o <some-arg>',
     [ 'configdir=s',  'config directory' , { required => 1 } ],
+    [ 'batch=i', 'batch number', { required => 1 } ],
     [ 'format=s',  'Source format' , { default => 'libra' } ],
            [],
     [ 'verbose|v',  "print extra stuff"            ],
@@ -74,6 +75,19 @@ my $sth = $preparer->prepare('select_old_issues_info');
 my $ret = $sth->execute();
 die "Failed to execute sql query." unless $ret;
 
+print <<EOF;
+CREATE TABLE IF NOT EXISTS k_old_issues_idmap (
+    `original_id` INT NOT NULL,
+    `issue_id` INT NOT NULL,
+    `batch` INT,
+    PRIMARY KEY (`original_id`,`batch`),
+    UNIQUE KEY `issue_id` (`issue_id`),
+    KEY `k_issues_idmap_original_id` (`original_id`),
+    FOREIGN KEY (`issue_id`) REFERENCES `issues`(`issue_id`) ON DELETE CASCADE ON UPDATE CASCADE
+);
+EOF
+
+
 while (my $row = $sth->fetchrow_hashref()) {
 
     my $branchcode = defined($row->{IdBranchCode}) && defined($branchcodes->{$row->{IdBranchCode}}) ? $branchcodes->{$row->{IdBranchCode}} : $opt->branchcode;
@@ -107,7 +121,8 @@ while (my $row = $sth->fetchrow_hashref()) {
 	firstname =>  $dbh->quote($row->{FirstName}),
 	dateenrolled => ds( $row->{DateEnrolled} ),
 	item_barcode     => $dbh->quote($row->{ItemBarCode}),
-	IdBorrower => $row->{IdBorrower}
+	IdBorrower => $row->{IdBorrower},
+	original_issue_id => $row->{IdTransactionsSaved}
     };
 
     $tt2->process( 'old_issues.tt', $params, \*STDOUT, {binmode => ':utf8'}) || die $tt2->error();

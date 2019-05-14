@@ -58,11 +58,14 @@ die "Failed to query serials!" unless (defined($ret));
 open SERIALS, ">:encoding(UTF-8)", ($opt->outputdir . "/serials.sql") or die "Failed to open serials.sql for writing: $!";
 
 print SERIALS <<EOF;
-CREATE TABLE IF NOT EXISTS k_serial_idmap (
-    original_id INT PRIMARY KEY,
-    serialid INT UNIQUE,
-    batch INT,
-    FOREIGN KEY (serialid) REFERENCES serial(serialid) ON DELETE CASCADE ON UPDATE CASCADE
+CREATE TABLE IF NOT EXISTS `k_serial_idmap` (
+    `original_id` INT NOT NULL,
+    `serialid` INT NOT NULL,
+    `batch` INT,
+    PRIMARY KEY (`original_id`,`batch`),
+    UNIQUE KEY `serialid` (`serialid`),
+    KEY `k_serial_idmap_original_id` (`original_id`),
+    FOREIGN KEY (`serialid`) REFERENCES `serial`(`serialid`) ON DELETE CASCADE ON UPDATE CASCADE
 );
 EOF
 

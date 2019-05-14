@@ -2,7 +2,7 @@ SELECT CI_LOAN.GE_ORG_ID_UNIT AS IdBranchCode,
        CI_ACCOUNT.GE_ORG_ID AS BorrowerIdBranchCode,
        LABEL AS ItemBarcode,
        barcodes.barcodes AS BorrowerBarcode,
-       CI_BORR_ID AS IdBorrower,
+       CI_LOAN.CI_BORR_ID AS IdBorrower,
        LOAN_DATETIME AS RegDate,
        DUE_DATETIME AS EstReturnDate
 FROM

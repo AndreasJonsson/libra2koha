@@ -149,6 +149,7 @@ foreach my $table (@{$opt->tables}) {
 	my $size;
 	if (defined($s->{typeextra}) and $s->{typeextra} ne '') {
 	    $size = $s->{typeextra};
+	    chomp $size;
 	}
 	if ($type eq 'nvarchar') {
 	    $type = 'varchar';
@@ -157,7 +158,7 @@ foreach my $table (@{$opt->tables}) {
 	} elsif ( $type eq 'uniqueidentifier' ) {
             $type = 'CHAR(38)';
 	    $size = ''
-        } elsif ( $type eq 'bit' ) {
+        } elsif ( $type eq 'bit' or $type eq 'bool' or $type eq 'boolean') {
 	    $type = 'BOOLEAN';
 	    $size = '';
 	} elsif ( $type eq 'float' ) {
@@ -190,6 +191,7 @@ foreach my $table (@{$opt->tables}) {
 	    $coldecl->{tmpname} = "\@tmp_int_$count";
 	    $coldecl->{conversion} = "NULLIF($coldecl->{tmpname}, '')";
 	} elsif ($type eq 'BOOLEAN') {
+	    $coldecl->{type} = 'boolean';
 	    $coldecl->{tmpname} = "\@tmp_int_$count";
 	    $coldecl->{conversion} = bool_conversion($coldecl->{tmpname});
 	}

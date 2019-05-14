@@ -7,7 +7,7 @@ CREATE INDEX catalog_isbn_issn_id ON catalog_isbn_issn(CA_CATALOG_ID);
 CREATE INDEX catalog_isbn_issn_isbn ON catalog_isbn_issn(isbn);
 CREATE INDEX catalog_isbn_issn_issn ON catalog_isbn_issn(issn);
 ALTER TABLE CA_COPY ADD COLUMN done INT(1) DEFAULT 0;
-CREATE UNIQUE INDEX ca_catalog_title_no_index  ON CA_CATALOG (`ca_catalog.title_no`);
+CREATE INDEX ca_catalog_title_no_index  ON CA_CATALOG (`ca_catalog.title_no`);
 CREATE INDEX ca_catalog_id_index  ON CA_CATALOG (`ca_catalog.ca_catalog_id`);
 CREATE UNIQUE INDEX items_itemid_index ON CA_COPY (CA_COPY_ID);
 CREATE INDEX items_catalog_id_index ON CA_COPY (CA_CATALOG_ID);

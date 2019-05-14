@@ -21,3 +21,6 @@ POST_CODE	varchar	256
 REMOVED_ELG_DATETIME	datetime
 GE_ORG_ID_CLASS	varchar	256
 CI_CLASS_ID	int
+STAFF_HIST	varchar	256
+SY_SEX_ID	int
+

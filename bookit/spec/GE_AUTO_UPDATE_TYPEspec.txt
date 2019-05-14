@@ -1,3 +1,3 @@
-GE_AUTO_UPDATE_TYPE_ID	varchar	1024
-CODE	varchar	1024
+GE_AUTO_UPDATE_TYPE_ID	int
+CODE	varchar	32
 DESCR	varchar	1024
