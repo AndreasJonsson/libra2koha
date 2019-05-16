@@ -122,7 +122,8 @@ while (my $row = $sth->fetchrow_hashref()) {
 	dateenrolled => ds( $row->{DateEnrolled} ),
 	item_barcode     => $dbh->quote($row->{ItemBarCode}),
 	IdBorrower => $row->{IdBorrower},
-	original_issue_id => $row->{IdTransactionsSaved}
+	original_issue_id => $row->{IdTransactionsSaved},
+	batch => $opt->batch
     };
 
     $tt2->process( 'old_issues.tt', $params, \*STDOUT, {binmode => ':utf8'}) || die $tt2->error();

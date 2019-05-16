@@ -252,9 +252,11 @@ $mmc->quote(sub { return $dbh->quote(shift); });
 
 my $sth;
 
+my $preparer = new StatementPreparer(format => $format, dbh => $dbh);
+
 my $isbn_issn_sth;
 if ($format eq 'bookit') {
-    $isbn_issn_sth  = $dbh->prepare("INSERT INTO catalog_isbn_issn (CA_CATALOG_ID, isbn, issn) VALUES (?, ?, ?)");
+    $isbn_issn_sth  = $preparer->prepare('isbn_issn');
 }
 
 my $is_documentgroup_sth;
@@ -264,7 +266,6 @@ if ($format eq 'micromarc') {
 
 my $has_ca_catalog = 1;
 
-my $preparer = new StatementPreparer(format => $format, dbh => $dbh);
 
 my $item_context = {
     batch => $opt->batch,
@@ -409,7 +410,8 @@ Bookit format ISBN is in  350 00 c and ISSN in 350 10 c
 	      }
 	      next RECORD;
 	  } else {
-	      $isbn_issn_sth->execute(int($record->field( '001' )->data()), $first_isbn, $first_issn)
+	      my $id = $record->field( '001' )->data();
+	      $isbn_issn_sth->execute($id, $id, $id, $first_isbn, $first_issn)
 		  or warn "Failed to insert isbn '$first_isbn' and issn '$first_issn'!";
 	      for my $f081 ($record->field('081')) {
 		  my $signum = $f081->subfield('h');

@@ -24,7 +24,6 @@ use Data::Dumper;
 use Email::Valid;
 use StatementPreparer;
 use TimeUtils qw(dp ds ts init_time_utils);
-use Koha::AuthUtils qw(hash_password);
 use utf8;
 
 sub fix_charcode {
@@ -48,6 +47,7 @@ my ($opt, $usage) = describe_options(
     [ 'children-category=s', 'Set children borrower category (default disabled)', { default => '' } ],
     [ 'youth-maxage=i', 'Set youth borrower age.  Used when --children-category is enabled. (default 18)', { default => 18 } ],
     [ 'youth-category=s', 'Set youth borrower category (default disabled)', { default => '' } ],
+    [ 'passwords', 'Include passwords if available.' ],
     [ 'manager-id=i', 'Set borrowernumber of a manager to set as sender on borrower messages, if none can be determined from source data.', { default => 1} ],
     [],
     [ 'verbose|v',  "print extra stuff"            ],
@@ -62,6 +62,10 @@ if ($opt->help) {
 
 my $config_dir = $opt->config;
 my $limit = $opt->limit;
+
+if ($opt->passwords) {
+    use Koha::AuthUtils qw(hash_password);
+}
 
 =head1 CONFIG FILES
 
@@ -294,7 +298,7 @@ RECORD: while ( my $borrower = $sth->fetchrow_hashref() ) {
     _quote(\$borrower->{'LastName'});
     _quote(\$borrower->{'Sex'});
 
-    if (defined($borrower->{'Password'})) {
+    if ($opt->passwords && defined($borrower->{'Password'})) {
 	$borrower->{'Password'} = hash_password($borrower->{'Password'});
     }
     _quote(\$borrower->{'Password'});
@@ -500,6 +504,7 @@ sub set_address {
 		  $pre = 'B_';
 	      } else {
 		  print(STDERR ("Borrower has more than 2 phone numbers: " . $borrower->{IdBorrower} . "\n"));
+		  print STDERR "Skipping '" . $phone->{PhoneNumber} . "'\n";
 	      }
 
 	      $n_phone++;

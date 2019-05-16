@@ -193,7 +193,7 @@ while (my $row = $sth->fetchrow_hashref()) {
 	$status_str = "'T'";
     }
 
-    $row->{BarCode} = (split ';', $row->{BarCode})[0];
+    $row->{BarCode} = (split ';', $row->{BarCode})[0] if defined($row->{BarCode});
 
     my @parts = split ' ', $row->{RegDate};
     if (scalar(@parts) > 1) {

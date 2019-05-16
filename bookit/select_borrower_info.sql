@@ -1,4 +1,5 @@
-SELECT CI_ACCOUNT.GE_ORG_ID AS IdBranchCode,
+SELECT DISTINCT CI_ACCOUNT.GE_ORG_ID AS IdBranchCode,
+       CI_BORR.CI_BORR_ID AS IdBorrower,
        barcodes.barcodes AS BarCode,
        CI_BORR.NOTE AS Comment,
        IF(valid_personnummer(SO_SEC_NO) OR valid_samordningsnummer(SO_SEC_NO), SO_SEC_NO, persnr.CI_BORR_CARD_ID) AS RegId,
@@ -11,7 +12,6 @@ SELECT CI_ACCOUNT.GE_ORG_ID AS IdBranchCode,
             IF(FIRST_NAME_4 != '', CONCAT(' ', FIRST_NAME_4), ''),
             IF(FIRST_NAME_5 != '', CONCAT(' ', FIRST_NAME_5), '')) AS FirstName,
        SURNAME AS LastName,
-       CI_BORR.CI_BORR_ID AS IdBorrower,
        IF(LENGTH(CI_BORR.PIN_CODE) >= 4, CI_BORR.PIN_CODE, NULL) AS Password,
        IF(SY_SEX_ID = 1, 'M', IF(SY_SEX_ID = 2, 'F', NULL)) AS Sex
 FROM CI_BORR

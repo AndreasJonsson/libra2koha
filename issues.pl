@@ -183,7 +183,7 @@ while ( my $issue = $sth->fetchrow_hashref() ) {
     $issue->{batch} = $opt->batch;
 
 
-    if ($issue->{'branchcode'} ne '') {
+    if ($issue->{'branchcode'} eq '') {
 	next;
     } else {
 	$tt2->process( 'issues.tt', $issue, \*STDOUT, {binmode => ':utf8'} ) || die $tt2->error();

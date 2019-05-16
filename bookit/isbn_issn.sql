@@ -1,0 +1,1 @@
+INSERT INTO catalog_isbn_issn (CA_CATALOG_ID, isbn, issn) VALUES (IF(? REGEXP '^[0-9]+$', CAST(? AS UNSIGNED INTEGER), (SELECT `ca_catalog.ca_catalog_id` FROM CA_CATALOG WHERE `ca_catalog.title_no` = ? LIMIT 1)), ?, ?);

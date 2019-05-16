@@ -1,4 +1,5 @@
 SELECT
+     CI_BORR_EVENT.CI_BORR_EVENT_ID AS IdTransactionsSaved,
      GE_ORG_ID_OWNER AS IdBranchCode,
      `ca_catalog.title_no` AS TITLE_NO,
      barcodes.barcodes AS BarCode,

@@ -4,7 +4,7 @@ SELECT IF(min(issue_id)>0, 0, min(issue_id)) - 1 FROM old_issues INTO @ISSUE_ID;
 SET @ISSUE_ID = IF(@ISSUE_ID IS NULL, 0, @ISSUE_ID);
 
 SET @BORROWERNUMBER=NULL;
-SELECT borrowernumber FROM k_borrower_idmap WHERE original_id = [% IdBorrower %] INTO @BORROWERNUMBER;
+SELECT borrowernumber FROM k_borrower_idmap WHERE original_id = [% IdBorrower %] AND batch = [% batch %] INTO @BORROWERNUMBER;
 
 CREATE TEMPORARY TABLE k_tmp_biblionumbers (biblionumber INT(11) PRIMARY KEY);
 

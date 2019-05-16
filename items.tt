@@ -1,5 +1,7 @@
 SET @BIBLIONUMBER = NULL;
 
+SET @DUPLICATE=(SELECT EXISTS (SELECT * FROM k_items_idmap WHERE original_id = [% item.original_id %] AND batch = [% batch %]));
+
 SELECT biblionumber FROM
 (
  SELECT biblionumber FROM k_biblio_identification
