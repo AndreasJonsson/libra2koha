@@ -1,0 +1,29 @@
+LÅNT.KOD2	varchar	8
+LÅNT.KOD1	varchar	8
+Lånt.kod3	varchar	32
+Lånt.typ	varchar	32
+Tot utlån	int
+Tot förny	int
+Nuv utlån	varchar	32
+Föd.datum	date
+Lånt.medd.	varchar	1024
+Skuld	int
+A-lån f n	int
+B-lån f n	int
+Cirk.aktiv	bool
+Valt språk	varchar	32
+Kravmetod	varchar	32
+Systemnr(Patron)	varchar	32
+Skapad(Patron)	datetime
+Uppdaterad(Patron)	datetime
+Ant revid.(Patron)	varchar	32
+NAMN	varchar	32
+ADRESS	varchar	32
+ADRESS2	varchar	32
+TELEFON	varchar	32
+TELEFON2	varchar	32
+PERSONNUMMER	varchar	32
+MEDDELANDE(Patron)	varchar	1024
+ANM	varchar	1024
+LÅNT.NR	int
+EPOSTADR	varchar	256

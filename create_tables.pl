@@ -31,21 +31,24 @@ my %DATE_FORMATS = (
     bookit => '%d-%b-%y',
     libra  => '%Y%m%d',
     #micromarc => '%d.%m.%Y'
-    micromarc => '%Y-%m-%d'
+    micromarc => '%Y-%m-%d',
+    sierra => '%Y-%m-%d'
     );
 
 my %DATETIME_FORMATS = (
     bookit => '%d-%b-%y %T',
     libra  => '%Y%m%d %T',
     #micromarc => '%d.%m.%Y %H.%i.%S'
-    micromarc => '%Y-%m-%d %H:%i:%S'
+    micromarc => '%Y-%m-%d %H:%i:%S',
+    sierra => '%Y-%m-%d %H:%i:%S',
     );
 
 my %TIME_FORMATS = (
     bookit => '%T',
     libra  => '%T',
     #micromarc => '%H.%i.%S'
-    micromarc => '%H:%i:%S'
+    micromarc => '%H:%i:%S',
+    sierra => '%H:%i:%S'
     );
 
 my ($opt, $usage) = describe_options(
@@ -54,7 +57,7 @@ my ($opt, $usage) = describe_options(
     [ 'format=s', 'Source format', { default => 'libra' } ],
     [ 'spec=s',    'spec directory',   { required => 1 } ],
     [ 'dir=s',     'tables directory', { required => 1 } ],
-    [ 'ext=s',     'table filename extension', { default => '.txt' } ],
+    [ 'ext=s',     'table filename extension', { default => '' } ],
     [ 'columndelimiter=s', 'column delimiter',  { default => '!*!' } ],
     [ 'rowdelimiter=s',  'row delimiter'      ],
     [ 'encoding=s',  'character encoding',      { default => 'utf-8' } ],
@@ -68,7 +71,10 @@ my ($opt, $usage) = describe_options(
            [ 'help',       "print usage message and exit", { shortcircuit => 1 } ],
          );
 
-print $usage->text if ($opt->help);
+if ($opt->help) {
+    print STDERR $usage->text;
+    exit 0;
+}
 
 print STDERR "Create tables: " . (join ', ',  @{$opt->tables}) . "\n" if $opt->verbose;
 print STDERR "Tables: " . $opt->dir . "\n" if $opt->verbose;;

@@ -1,0 +1,19 @@
+Hyllplats	varchar	32
+Streckkod	varchar	32
+Systemnummer	varchar	32
+Exemplarkod 2	varchar	32
+Placering	varchar	32
+Status	varchar	32
+Volym	varchar	32
+Meddelande	varchar	1024
+Intern anmärkning	varchar	1024
+Exemplarnummer	varchar	32
+Exemplarkod 1	varchar	32
+Exemplartyp	varchar	32
+Totalt förnyelser	int
+Totalt utlån	int
+OPAC-meddelande	varchar	1024
+Exemplarmeddelande	varchar	1024
+Bokning	int
+001	varchar	16
+003	varchar	16

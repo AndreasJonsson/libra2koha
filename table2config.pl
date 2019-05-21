@@ -62,6 +62,9 @@ use Modern::Perl;
 use Text::CSV;
 use Getopt::Long::Descriptive;
 use Data::Dumper;
+use TupleColumn;
+use YAML::Syck qw( Dump );
+use utf8;
 
 my ($opt, $usage) = describe_options(
     '%c %o <some-arg>',
@@ -69,11 +72,13 @@ my ($opt, $usage) = describe_options(
     [ 'name=s', 'table name', { required => 1 } ],
     [ 'columndelimiter=s', 'column delimiter',  { default => '!*!' } ],
     [ 'rowdelimiter=s',  'row delimiter'      ],
+    [ 'escape=s', 'escape character', { default => "\\" } ],
     [ 'encoding=s',  'character encoding',      { default => 'utf-16' } ],
+    [ 'ext=s',     'table filename extension', { default => '.txt' } ],
     [ 'timezone=s',  'time zone' ],
     [ 'quote=s',  'quote character' ],
     [ 'headerrows=i', 'number of header rows',  { default => 0 } ],
-    [ 'key=i', 'index of key column', { required => 1} ],
+    [ 'key=s', 'index of key column (integer or tuple of integers)', { required => 1} ],
     [ 'stringkey', 'Is key a string.' ],
     [ 'value=i', 'index of value column' ],
     [ 'filtercol=i', 'filter on column string equality (requires filterval)', { default => undef } ],
@@ -84,17 +89,27 @@ my ($opt, $usage) = describe_options(
     [ 'help',       "print usage message and exit", { shortcircuit => 1 } ],
     );
 
-print $usage->text if ($opt->help);
+if ($opt->help || !valid($opt)) {
+    print STDERR $usage->text;
+    exit 0;
+}
 
-my $filename = $opt->dir . '/' . $opt->name;
+sub valid {
+    my $opt = shift;
+
+    unless ($opt->key =~ /^\d+$/ or parse_tuple($opt->key)) {
+	return 0;
+    }
+
+    return 1;
+}
+
+my $filename = $opt->dir . '/' . $opt->name . $opt->ext;
 my $fh;
 
 my $found_file = 0;
-foreach my $suffix ('', '.txt', '.csv') {
-    if (open ($fh, "<:encoding(" . $opt->encoding . "):crlf", ($filename  . $suffix))) {
-	$found_file = 1;
-	last;
-    }
+if (open ($fh, "<:encoding(" . $opt->encoding . "):crlf", $filename)) {
+    $found_file = 1;
 }
 die ("Didn't find any table file for " . $opt->name) unless ($found_file);
 
@@ -113,15 +128,63 @@ say ''  ;
 my $csv = Text::CSV->new({
     quote_char => $opt->quote,
     sep_char => $opt->columndelimiter,
-    eol => $opt->rowdelimiter });
+    eol => $opt->rowdelimiter,
+    escape_char => $opt->escape
+ });
+
+say STDERR $csv->error_diag if $csv->error_diag;
 
 for (my $i = 0; $i < $opt->headerrows; $i++) {
     die "Filehandle is closed! $i" unless defined(fileno($fh));
     my $row = $csv->getline( $fh );
 }
 
+sub intkey {
+    return sub {
+	my $row = shift;
+
+	return $row->[ $opt->key ];
+    };
+}
+
+sub tuplekey {
+    my $tuple = shift;
+    return sub {
+	my $row = shift;
+	return encode_tuple(extract_tuple($row, $tuple));
+    };
+}
+
+my $keyextract;
+my $keyuniq;
+my %keys = ();
+$keyuniq = sub {
+    my $k = shift;
+    if (defined $keys{$k}) {
+	return 0;
+    }
+    $keys{$k} = 1;
+    return 1;
+};
+
+if ($opt->key =~ /^\d+$/) {
+    $keyextract = intkey();
+} else {
+    $keyextract = tuplekey(parse_tuple($opt->key));
+}
+
+my %config = ();
+
+$YAML::Syck::Headless = 1;
+$YAML::Syck::SingleQuote = 1;
+$YAML::Syck::ImplicitUnicode = 1;
+
 while (my $row = $csv->getline( $fh ) ) {
-    my $key     = $row->[ $opt->key ];
+    
+    my $key     = $keyextract->($row);
+
+    next unless $keyuniq->($key);
+
     my $value   = '';
     if (defined($opt->value)) {
 	$value = $row->[$opt->value];
@@ -130,7 +193,6 @@ while (my $row = $csv->getline( $fh ) ) {
 	my $filterval = $row->[$opt->filtercol];
 	my $filtercol = $opt->filtercol;
 	my $optval = $opt->filterval;
-	print STDERR "Compare $filtercol column '$filterval' ne '$optval'\n";
 	next if ($filterval ne $opt->filterval);
     }
     my @comments = map { $row->[$_] } @{$opt->comment};
@@ -140,8 +202,11 @@ while (my $row = $csv->getline( $fh ) ) {
 	$key =~ s/["\\]/\\$&/g;
 	$key = '"' . $key . '"';
     }
-    say "$key: '$value' # $comment";
-
+    #utf8::decode($key);
+    #utf8::decode($value);
+    my $line = Dump({ $key => $value });
+    chomp $line;
+    say $line, " # $comment";
 }
 
 close $fh;

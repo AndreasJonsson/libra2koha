@@ -1,4 +1,4 @@
-#!/usr/bin/env perl
+#!/usr/bin/perl
 
 # Copyright 2015 Magnus Enger Libriotech
 # Copyright 2017 Andreas Jonsson, andreas.jonsson@kreablo.se
@@ -26,7 +26,6 @@ use DateTime;
 use Pod::Usage;
 use Modern::Perl;
 use Itemtypes;
-use ExplicitRecordNrField;
 use MarcUtil::WrappedMarcMappingCollection;
 use StatementPreparer;
 use TimeUtils;
@@ -66,7 +65,7 @@ my ($opt, $usage) = describe_options(
 );
 
 if ($opt->help) {
-    print $usage->text;
+    print STDERR $usage->text;
     exit 0;
 }
 
@@ -110,6 +109,7 @@ my $mmc = MarcUtil::WrappedMarcMappingCollection::marc_mappings(
     'catid'                            => { map => { '035' => 'a' } },
     'klassifikationskod'               => { map => { '084' => 'a' } },
     'klassifikationsdel_av_uppställningssignum' => { map => { '852' => 'h' } },
+    'uppställningsord'                 => { map => { '852' => 'l' } },
     'titel'                            => { map => { '245' => 'a' } },
     'allmän_medieterm'                 => { map => { '245' => 'h' } },
     'beståndsuppgift'                  => { map => { '866' => 'a' } },
@@ -266,7 +266,6 @@ if ($format eq 'micromarc') {
 
 my $has_ca_catalog = 1;
 
-
 my $item_context = {
     batch => $opt->batch,
     items => []
@@ -343,7 +342,8 @@ for my $marc_file (glob $input_file) {
     if ($opt->xml_input) {
 	$batch = MARC::Batch->new( 'XML', $marc_file );
     } else {
-	$batch = MARC::File::USMARC->in( $marc_file );
+	open FH, "<:raw", $marc_file;
+	$batch = MARC::File::USMARC->in( \*FH );
     }
   RECORD: while (my $record = $batch->next()) {
 
@@ -491,15 +491,15 @@ L<http://wiki.koha-community.org/wiki/Holdings_data_fields_%289xx%29>
 
 	  # $items = $sth->fetchall_arrayref({});
       } else {
-	  my $f = $record->field( $ExplicitRecordNrField::RECORD_NR_FIELD );
+	  #my $f = $record->field( $ExplicitRecordNrField::RECORD_NR_FIELD );
 
-	  die "Explicit record nr field is missing!" unless defined $f;
+	  #die "Explicit record nr field is missing!" unless defined $f;
 
-	  $recordid = $f->subfield( $ExplicitRecordNrField::RECORD_NR_SUBFIELD );
+	  #$recordid = $f->subfield( $ExplicitRecordNrField::RECORD_NR_SUBFIELD );
 
-	  die "Explicit record nr subfield is missing!" unless defined $recordid;
+	  #die "Explicit record nr subfield is missing!" unless defined $recordid;
 
-	  $sth->execute( $recordid );
+	  #$sth->execute( $recordid );
 
 	  # $items = $sth->fetchall_arrayref({});
 
@@ -603,6 +603,11 @@ To see what is present in the data:
 	    } else {
 		$mmc->set('call_number', scalar($mmc->get('beståndsuppgift')));
             }
+
+	if (!$mmc->get('call_number')) {
+	    print STDERR MARC::File::XML::record( $record );
+        }
+	
         # }
 
 =head3 952$p Barcode (mandatory)
@@ -961,7 +966,8 @@ sub num_records_ {
 	if ($opt->xml_input) {
 	    $batch = MARC::Batch->new('XML', $f);
 	} else {
-	    $batch = MARC::File::USMARC->in( $f );
+	    open FH, "<:raw", $input_file;
+	    $batch = MARC::File::USMARC->in( \*FH );
 	}
 	while ($batch->next()) {
 	    $n++;

@@ -65,7 +65,6 @@ sub build_table_info {
 	    escape_char => $opt->escape
 				 });
 
-
 	my $columns = $csv->getline( $fh );
 
 	my %columns = ();

@@ -25,12 +25,14 @@ ORDERED_STATUSES=
 HIDDEN_ARE_ORDERED=no
 MANAGER_ID=1
 DEFAULT_CATEGORY=STANDARD
+CONST_BRANCHCODE=
+SPECENCODING=iso-8859-1
 
 SOURCE_FORMAT=bookit
 
 COLUMN_DELIMITER='|'
-ROW_DELIMITER="
-"
+ROW_DELIMITER='
+'
 QUOTE_CHAR='"'
 ESCAPE_CHAR='\\'
 HEADER_ROWS=1
@@ -38,7 +40,7 @@ HEADER_ROWS=1
 if [[ -n "$1" ]]; then
     . "$1"
     if [[ -z "$DBNAME" ]]; then
-	DBNAME="$1";
+	DBNAME="libra2koha";
     fi
 elif [[ -e "$dir"/config.inc ]]; then
     . "$dir"/config.inc
@@ -59,6 +61,12 @@ MYSQL_CREDENTIALS="-u libra2koha -ppass $DBNAME"
 MYSQL="mysql $MYSQL_CREDENTIALS"
 MYSQL_LOAD="mysql $MYSQL_CREDENTIALS --local-infile=1 --init-command='SET max_heap_table_size=4294967295;'"
 
+declare -a TABLE_PARAMS=(--quote="$QUOTE_CHAR" --headerrows="$HEADER_ROWS" --encoding="$TABLEENC" --specencoding="$SPECENCODING" --columndelimiter="$COLUMN_DELIMITER" --rowdelimiter="$ROW_DELIMITER"  --dir="$DIR")
+
+if [[ -n "$TABLEEXT" ]]; then
+    TABLE_PARAMS[$((${#TABLE_PARAMS} + 1))]=--ext="$TABLEEXT"
+fi
+
 echo "Source format: $SOURCE_FORMAT"
 
 RECORDS_INPUT_FORMAT=
@@ -69,6 +77,8 @@ elif [[ $SOURCE_FORMAT == micromarc ]]; then
     BUILD_MARC_FILE=yes
     MARC="$OUTPUTDIR/catalogue.marc"
     RECORDS_INPUT_FORMAT=--xml
+elif [[ $SOURCE_FORMAT == sierra ]]; then
+    MARC="$DIR/Bibliographic.mrc"
 else
     MARC="$DIR/CatalogueExport.dat"
 fi
@@ -168,7 +178,7 @@ fi
 
 ## Clean up the database
 if [[ "$QUICK"z != "yesz" ]]; then
-    echo "Cleaning database!"
+    echo "Cleaning database! $MYSQL"
 cat <<'EOF' | $MYSQL;
 SET FOREIGN_KEY_CHECKS = 0;
 SET GROUP_CONCAT_MAX_LEN=32768;

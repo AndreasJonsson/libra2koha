@@ -1,0 +1,1 @@
+UPDATE Item SET done = 1 WHERE CA_COPY_ID = ?
