@@ -280,7 +280,7 @@ fi
 ISSUESSQL="$OUTPUTDIR/issues.sql"
 if [[ "$FULL" == "yes" || ! -e $ISSUESSQL ]]; then
   echo "Going to transform issues... "
-  issues.pl --batch "$BATCH" --format "$SOURCE_FORMAT" --config $CONFIG >> $ISSUESSQL
+  issues.pl --batch "$BATCH" --format "$SOURCE_FORMAT" --config $CONFIG > $ISSUESSQL
   echo "done writing to $ISSUESSQL"
 fi
 

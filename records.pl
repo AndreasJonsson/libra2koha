@@ -237,7 +237,7 @@ if (  scalar(@input_files) < 1 ) {
     exit;
 }
 
-#limit = 66715;
+#$limit = 100;
 $limit = num_records_($input_file) if $limit == 0;
 
 print "There are $limit records in $input_file\n";
@@ -263,6 +263,9 @@ my $is_documentgroup_sth;
 if ($format eq 'micromarc') {
     $is_documentgroup_sth  = $dbh->prepare("SELECT EXISTS (SELECT * FROM caMarcRecord WHERE  caMarcRecord.Id = ? AND (DocumentGroupId = 4 OR DocumentGroupId = 5))");
 }
+
+my $mediatype_mapping_sth = 0;
+eval { $mediatype_mapping_sth = $preparer->prepare("mediatype_mapping") };
 
 my $has_ca_catalog = 1;
 
@@ -355,6 +358,8 @@ for my $marc_file (glob $input_file) {
 
       $mmc->record($record);
 
+      clean_field($record, $_) for ('001', '003');
+
       my $last_itemtype;
 
       $record->encoding( 'UTF-8' );
@@ -376,51 +381,49 @@ for my $marc_file (glob $input_file) {
 Bookit format ISBN is in  350 00 c and ISSN in 350 10 c
 
 =cut
+      if (!defined($record->field('001'))) {
+	  if (scalar($record->fields()) > 0) {
+	      warn "No 001 on record!";
+	      say STDERR MARC::File::XML::record( $record );
+	  } else {
+	      # warn "Record has no fields!"
+	  }
+	  next RECORD;
+      }
       if ($format eq 'bookit') {
-	  my $first_isbn;
-	  my $first_issn;
+	  my @isbn;
+	  my @issn;
 	  for my $f350 ($record->field('350')) {
 	      if ($f350->indicator(1) == 0) {
 		  my $isbn = $f350->subfield('c');
 		  if (defined($isbn)) {
-		      if (!defined($first_isbn)) {
-			  $first_isbn = $isbn;
-		      }
-		      $mmc->set('isbn', $isbn);
-		      $record->delete_fields( $f350 );
+		      push @isbn, $isbn;
 		  }
+		  #$record->delete_fields( $f350 );
 	      } elsif ($f350->indicator(1) == 1) {
 		  my $issn = $f350->subfield('c');
 		  if (defined($issn)) {
-		      if (!defined($first_issn)) {
-			  $first_issn = $issn;
-		      }
-		      $mmc->set('issn', $issn);
-		      $record->delete_fields( $f350 );
+		      push @issn, $issn;
 		  }
+		  #$record->delete_fields( $f350 );
 	      }
 	  }
+	  $mmc->set('isbn', @isbn);
+	  $mmc->set('issn', @issn);
 	  my $f001 = $record->field( '001' );
-	  if (!defined($f001)) {
-	      if (scalar($record->fields()) > 0) {
-		  warn "No 001 on record!";
-		  say STDERR MARC::File::XML::record( $record );
-	      } else {
-		  # warn "Record has no fields!"
-	      }
-	      next RECORD;
-	  } else {
-	      my $id = $record->field( '001' )->data();
-	      $isbn_issn_sth->execute($id, $id, $id, $first_isbn, $first_issn)
-		  or warn "Failed to insert isbn '$first_isbn' and issn '$first_issn'!";
-	      for my $f081 ($record->field('081')) {
-		  my $signum = $f081->subfield('h');
-		  if (defined($signum)) {
-		      $mmc->set('klassifikationsdel_av_uppställningssignum', $signum);
-		      $record->delete_fields( $f081 );
-		  }
-	      }
-	  }
+	  my $id = $record->field( '001' )->data();
+	  my $fisbn = scalar(@isbn) ? $isbn[0] : undef;
+	  my $fissn = scalar(@issn) ? $issn[0] : undef;
+	  $isbn_issn_sth->execute($id, $id, $id, $fisbn, $fissn)
+	      or warn "Failed to insert isbn '$fisbn' and issn '$fissn'!";
+	      #for my $f081 ($record->field('081')) {
+	      #my $signum = $f081->subfield('h');
+	      #if (defined($signum)) {
+	      #	      $mmc->set('klassifikationsdel_av_uppställningssignum', $signum);
+	      #	      $record->delete_fields( $f081 );
+	      #	      say STDERR MARC::File::XML::record( $record );
+	      #	  }
+	      #}
       }
 
 =head3 Move 976b to 653
@@ -523,12 +526,24 @@ L<http://wiki.koha-community.org/wiki/Holdings_data_fields_%289xx%29>
 	    }
 	}
 
-	$mmc->new_item($item->{'IdItem'});
+	if (!defined($item->{IdItem}) || $item->{IdItem} eq '') {
+	    say STDERR Dumper($item);
+	}
 
 	if ($branchcodes->{$item->{'IdBranchCode'}} eq '') {
 	    $ignoredItem++;
 	    next ITEM;
 	}
+	my $iddepartment;
+	$iddepartment = defined($item->{IdDepartment}) ? $ccode->{ $item->{'IdDepartment'} } : undef;
+
+	if (defined($iddepartment) && $iddepartment eq 'IGNORE') {
+	    $ignoredItem++;
+	    next ITEM;
+	};
+
+	$includedItem++;
+	$mmc->new_item($item->{'IdItem'});
 
 =head3 952$a and 952$b Homebranch and holdingbranch (mandatory)
 
@@ -597,17 +612,21 @@ To see what is present in the data:
         # if ( defined($item->{'Location_Marc'}) && length($item->{'Location_Marc'}) > 1) {
         #     $mmc->set( 'call_number', $item->{'Location_Marc'} );
         # } else {
-            my $field852 = $record->field( '852' );
-            if (defined $field852) {
-		$mmc->set('call_number', scalar($mmc->get('klassifikationsdel_av_uppställningssignum')));
-	    } else {
-		$mmc->set('call_number', scalar($mmc->get('beståndsuppgift')));
-            }
 
-	if (!$mmc->get('call_number')) {
-	    print STDERR MARC::File::XML::record( $record );
-        }
-	
+	my $field081 = $record->field( '081' );
+	my $field084 = $record->field( '084' );
+	my $field852 = $record->field( '852' );
+
+	if (defined $field081 && $field081->subfield('h')) {
+	    $mmc->set('call_number', $field081->subfield('h'));
+	} elsif (defined $field084) {
+	    $mmc->set('call_number', scalar($mmc->get('klassifikationskod')));
+	} elsif (defined $field852) {
+	    $mmc->set('call_number', scalar($mmc->get('klassifikationsdel_av_uppställningssignum')));
+	} else {
+	    $mmc->set('call_number', scalar($mmc->get('beståndsuppgift')));
+	}
+
         # }
 
 =head3 952$p Barcode (mandatory)
@@ -688,15 +707,6 @@ Values must be defined in the CCODE authorized values category.
 We base this on the Departments table and the value of Items.IdDepartment value.
 
 =cut
-	my $iddepartment;
-	$iddepartment = defined($item->{IdDepartment}) ? $ccode->{ $item->{'IdDepartment'} } : undef;
-
-	if (defined($iddepartment) && $iddepartment eq 'IGNORE') {
-	    $ignoredItem++;
-	    next ITEM;
-	};
-
-	$includedItem++;
 
 	$mmc->set('collection_code',  $iddepartment ) if defined($iddepartment);
 
@@ -714,16 +724,23 @@ debug output. Run C<perldoc itemtypes.pl> for more documentation.
 
 =cut
         my $itemtype;
+	my $media_type;
 	if ($item->{'IsRemote'}) {
 	    $itemtype = 'FJARRLAN';
 	}
 # elsif (defined($item->{'MaterialType'})) {
 #	    $itemtype = $item->{'MaterialType'};
 #	}
-	else {
-	    $itemtype = get_itemtype( $record );
-	    $itemtype = refine_itemtype( $mmc, $record, $item, $itemtype );
+
+	elsif ($mediatype_mapping_sth) {
+	    $media_type = get_mediatype($mediatype_mapping_sth, $record);
+	    $itemtype = $media_types->{$media_type} if defined $media_type;
 	}
+	unless (defined $itemtype && $itemtype ne '') {
+	    $itemtype = get_itemtype( $record );
+	}
+	$itemtype = refine_itemtype( $mmc, $record, $item, $itemtype, $media_type );
+
 	if (defined($item->{'MaterialType'}) && $item->{'MaterialType'} ne '') {
 	    print("MaterialType: " . $item->{'MaterialType'} . " itemtype: $itemtype\n");
 	}
@@ -966,7 +983,7 @@ sub num_records_ {
 	if ($opt->xml_input) {
 	    $batch = MARC::Batch->new('XML', $f);
 	} else {
-	    open FH, "<:raw", $input_file;
+	    open FH, "<:raw", $f;
 	    $batch = MARC::File::USMARC->in( \*FH );
 	}
 	while ($batch->next()) {
@@ -1020,6 +1037,7 @@ sub refine_itemtype {
     my $record = shift;
     my $item = shift;
     my $original_itemtype = shift;
+    my $media_type = shift;
 
     my $itemtype = $original_itemtype;
 
@@ -1029,16 +1047,17 @@ sub refine_itemtype {
 	$localshelf = defined($item->{'IdLocalShelf'}) ? $loc->{ $item->{'IdLocalShelf'} } : (defined($item->{'LocalShelf'}) ? $item->{'LocalShelf'} : undef);
     }
 
-    my $media_type = $mmc->get('allmän_medieterm');
-    if (defined $media_type && $media_type =~ /\[(.*)\]/) {
-	$media_type = $1;
-    } else {
-	$media_type = 0;
+    unless (defined $media_type) {
+	$media_type = $mmc->get('allmän_medieterm');
+	if (defined $media_type && $media_type =~ /\[(.*)\]/) {
+	    $media_type = $1;
+	} else {
+	    $media_type = 0;
+	}
     }
 
-    if ($media_type && defined $media_types->{$media_type} && $media_types->{$media_type} ne '') {
-	$original_itemtype = $media_types->{$media_type};
-	print STDERR "original itemtype: $original_itemtype\n";
+    if ($media_type && defined($media_types->{$media_type}) && $media_types->{$media_type} ne '') {
+	$original_itemtype = $itemtype = $media_types->{$media_type};
     }
 
     my $classificationcode = $mmc->get('klassifikationskod');
@@ -1191,6 +1210,58 @@ sub truncate_plessey  {
 
     return $barcode
 }
+
+sub get_mediatype {
+    my $sth = shift;
+    my $record = shift;
+    my $media_type;
+    for my $f ({'field' => ['886', 'b'],
+	        'check' => ['886', '2', 'BURK III', 'BURK IV']},
+	       {'field' => ['887', 'b'],
+		'check' => ['887', '2', 'BURK III', 'BURK IV']}) {
+	my $mf = $record->subfield($f->{field}->[0], $f->{field}->[1]);
+	if (check_field($record, $f->{check})) {
+	    $sth->execute($mf) or die "Failed to query itemtype mapping";
+	    for my $mapping ($sth->fetchrow_hashref) {
+		if (defined($mapping->{MediaType})) {
+		    $media_type = $mapping->{MediaType};
+		    last;
+		}
+	    }
+	}
+    }
+    return $media_type
+}
+
+sub check_field {
+    my ($record, $check) = @_;
+    my $cf = $record->subfield($check->[0], $check->[1]);
+    return 0 unless defined $cf;
+    shift @$check;
+    shift @$check;
+    my $cv = shift @$check;
+    while (defined $cv) {
+	if (lc($cv) eq lc($cf)) {
+	    return 1;
+	}
+	$cv = shift @$check;
+    }
+    return 0;
+}
+
+sub clean_field {
+    my ($record, $fieldtag) = @_;
+
+    my $f = $record->field( $fieldtag );
+    if (defined($f)) {
+	my $v = $f->data();
+	if ($v =~ m/^\s*(.*)\s*$/ && $1 ne $v) {
+	    $f->data($1);
+	}
+    }
+}
+
+  
 
 =head1 AUTHOR
 

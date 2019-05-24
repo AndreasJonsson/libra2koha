@@ -15,8 +15,8 @@ UNION
 ) AS T LIMIT 1 INTO @BIBLIONUMBER;
 
 SELECT [% IF original_item_id != 'NULL' %] itemnumber FROM k_items_idmap WHERE original_id = [% original_item_id %] AND batch = [% batch %] [% ELSE %] NULL [% END %] INTO @ITEMNUMBER;
-SELECT [% IF item_barcode != 'NULL' %] itemcallnumber FROM items WHERE barcode = [% item_barcode %] [% ELSE %] NULL [% END %] INTO @ITEMCALLNUMBER;
-SELECT [% IF item_barcode != 'NULL' %] count(*) > 0 FROM items JOIN hold_fill_targets using(itemnumber) WHERE barcode = [% item_barcode %] [% ELSE %] FALSE [% END %] INTO @ALREADYRESERVED;
+SELECT itemcallnumber FROM items WHERE itemnumber = @ITEMNUMBER INTO @ITEMCALLNUMBER;
+SELECT count(*) > 0 FROM items JOIN hold_fill_targets using(itemnumber) WHERE itemnumber = @ITEMNUMBER INTO @ALREADYRESERVED;
 
 SELECT borrowernumber FROM k_borrower_idmap WHERE original_id = [% IdBorrower %] AND batch = [% batch %] INTO @BORROWERNUMBER;
 

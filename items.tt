@@ -1,7 +1,5 @@
 SET @BIBLIONUMBER = NULL;
 
-SET @DUPLICATE=(SELECT EXISTS (SELECT * FROM k_items_idmap WHERE original_id = [% item.original_id %] AND batch = [% batch %]));
-
 SELECT biblionumber FROM
 (
  SELECT biblionumber FROM k_biblio_identification
@@ -14,9 +12,11 @@ UNION
 SELECT biblioitemnumber FROM biblioitems WHERE biblionumber=@BIBLIONUMBER INTO @BIBLIOITEMNUMBER;
 
 [% FOREACH item IN items -%]
+SET @DUPLICATE=(SELECT EXISTS (SELECT * FROM k_items_idmap WHERE original_id = [% item.original_id %] AND batch = [% batch %]));
 INSERT INTO items SET
 biblionumber=@BIBLIONUMBER,
 biblioitemnumber=@BIBLIOITEMNUMBER
   [% FOREACH col IN item.defined_columns -%],[% col %][% END -%];
-INSERT INTO k_items_idmap VALUES ([% item.original_id %], (SELECT LAST_INSERT_ID() FROM DUAL), [% batch %]);
+INSERT INTO k_items_idmap
+SELECT [% item.original_id %], (SELECT LAST_INSERT_ID() FROM DUAL), [% batch %] FROM DUAL WHERE NOT @DUPLICATE;
 [% END -%]
