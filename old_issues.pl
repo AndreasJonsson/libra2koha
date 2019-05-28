@@ -83,7 +83,7 @@ CREATE TABLE IF NOT EXISTS k_old_issues_idmap (
     PRIMARY KEY (`original_id`,`batch`),
     UNIQUE KEY `issue_id` (`issue_id`),
     KEY `k_issues_idmap_original_id` (`original_id`),
-    FOREIGN KEY (`issue_id`) REFERENCES `issues`(`issue_id`) ON DELETE CASCADE ON UPDATE CASCADE
+    FOREIGN KEY (`issue_id`) REFERENCES `old_issues`(`issue_id`) ON DELETE CASCADE ON UPDATE CASCADE
 );
 EOF
 

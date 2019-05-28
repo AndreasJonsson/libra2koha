@@ -12,10 +12,10 @@ INSERT INTO k_tmp_biblionumbers
 SELECT biblionumber FROM
 (
  SELECT biblionumber FROM k_biblio_identification
- WHERE CONCAT(IFNULL(marc003, ''), marc001) = [% titleno %]
+ WHERE titleno = [% titleno %] AND batch = [% batch %]
 UNION
  SELECT biblionumber FROM k_merged_records
- WHERE CONCAT(IFNULL(marc003, ''), marc001) = [% titleno %]
+ WHERE titleno = [% titleno %] AND batch = [% batch %]
 ) AS T;
 
 SELECT IF(@BORROWERNUMBER IS NULL, [% branchcode %], (SELECT branchcode FROM borrowers WHERE borrowernumber = @BORROWERNUMBER)) INTO @BRANCHCODE;
@@ -34,7 +34,7 @@ INSERT INTO old_issues (issue_id, borrowernumber, itemnumber, date_due, branchco
  (@ISSUE_ID, @BORROWERNUMBER, @ITEMNUMBER, NULL, @BRANCHCODE, [% returndate %], NULL, NULL, NULL, NULL, [% timestamp %], NULL, 0, NULL, NULL);
 
 INSERT INTO k_old_issues_idmap (original_id, issue_id, batch)
-  SELECT [% original_issue_id %], LAST_INSERT_ID(), [% batch %] FROM DUAL WHERE @ITEMNUMBER IS NOT NULL AND NOT @ITEM_BORROWED;
+  SELECT [% original_issue_id %], @ISSUE_ID, [% batch %] FROM DUAL;
 
 DROP TABLE k_tmp_biblionumbers;
 

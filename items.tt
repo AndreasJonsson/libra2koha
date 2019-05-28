@@ -3,10 +3,10 @@ SET @BIBLIONUMBER = NULL;
 SELECT biblionumber FROM
 (
  SELECT biblionumber FROM k_biblio_identification
- WHERE [% IF marc003 == 'NULL' %](marc003 IS NULL OR marc003 = '')[% ELSE %]marc003 = [% marc003 %][% END %] AND marc001 = [% marc001 %]
+ WHERE [% IF marc003 == 'NULL' %](marc003 IS NULL OR marc003 = '')[% ELSE %]marc003 = [% marc003 %][% END %] AND marc001 = [% marc001 %] AND batch = [% batch %]
 UNION
  SELECT biblionumber FROM k_merged_records
- WHERE [% IF marc003 == 'NULL' %](marc003 IS NULL OR marc003 = '') [% ELSE %]marc003 = [% marc003 %][% END %] AND marc001 = [% marc001 %]
+ WHERE [% IF marc003 == 'NULL' %](marc003 IS NULL OR marc003 = '') [% ELSE %]marc003 = [% marc003 %][% END %] AND marc001 = [% marc001 %] AND batch = [% batch %]
 ) AS T LIMIT 1 INTO @BIBLIONUMBER;
 
 SELECT biblioitemnumber FROM biblioitems WHERE biblionumber=@BIBLIONUMBER INTO @BIBLIOITEMNUMBER;

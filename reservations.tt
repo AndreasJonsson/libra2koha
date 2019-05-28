@@ -8,10 +8,10 @@ SET @BORROWERNUMBER=NULL;
 SELECT biblionumber FROM
 (
  SELECT biblionumber FROM k_biblio_identification
- WHERE CONCAT(IFNULL(marc003, ''), marc001) = [% titleno %]
+ WHERE CONCAT(IFNULL(marc003, ''), marc001) = [% titleno %] AND batch = [% batch %]
 UNION
  SELECT biblionumber FROM k_merged_records
- WHERE CONCAT(IFNULL(marc003, ''), marc001) = [% titleno %]
+ WHERE CONCAT(IFNULL(marc003, ''), marc001) = [% titleno %] AND batch = [% batch %]
 ) AS T LIMIT 1 INTO @BIBLIONUMBER;
 
 SELECT [% IF original_item_id != 'NULL' %] itemnumber FROM k_items_idmap WHERE original_id = [% original_item_id %] AND batch = [% batch %] [% ELSE %] NULL [% END %] INTO @ITEMNUMBER;

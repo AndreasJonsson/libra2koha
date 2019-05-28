@@ -4,10 +4,10 @@ SET @BIBLIONUMBER = NULL;
 SELECT biblionumber FROM
 (
  SELECT biblionumber FROM k_biblio_identification
- WHERE CONCAT(IFNULL(marc003, ''), marc001) = [% titleno %]
+ WHERE CONCAT(IFNULL(marc003, ''), marc001) = [% titleno %] AND batch = [% batch %]
 UNION
  SELECT biblionumber FROM k_merged_records
- WHERE CONCAT(IFNULL(marc003, ''), marc001) = [% titleno %]
+ WHERE CONCAT(IFNULL(marc003, ''), marc001) = [% titleno %] AND batch = [% batch %]
 ) AS T LIMIT 1 INTO @BIBLIONUMBER;
 
 SELECT @BIBLIONUMBER IS NOT NULL AND (@PREVBIBLIONUMBER IS NULL OR @BIBLIONUMBER != @PREVBIBLIONUMBER) INTO @CREATE_NEW_SUBSCRIPTION;
