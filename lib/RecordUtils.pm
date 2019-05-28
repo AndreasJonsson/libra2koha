@@ -1,3 +1,5 @@
+package RecordUtils;
+
 $VERSION     = 1.00;
 @ISA         = qw(Exporter);
 @EXPORT      = qw(copy copy_merge copy_merge_with_fallback);
@@ -5,7 +7,6 @@ $VERSION     = 1.00;
 
 use Modern::Perl;
 
-package RecordUtils;
 
 sub copy {
     my ($mc, $from, $to) = @_;
