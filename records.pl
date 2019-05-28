@@ -30,6 +30,8 @@ use MarcUtil::WrappedMarcMappingCollection;
 use StatementPreparer;
 use TimeUtils;
 use utf8;
+use CommonMarcMappings;
+use RecordUtils;
 
 binmode STDOUT, ":utf8";
 $|=1; # Flush output
@@ -104,39 +106,7 @@ sub add_catitem_stat {
 }
 
 my $mmc = MarcUtil::WrappedMarcMappingCollection::marc_mappings(
-    'isbn'                             => { map => { '020' => 'a' } },
-    'issn'                             => { map => { '022' => 'a' } },
-    'catid'                            => { map => { '035' => 'a' } },
-    'klassifikationskod'               => { map => { '084' => 'a' } },
-    'klassifikationsdel_av_uppställningssignum' => { map => { '852' => 'h' } },
-    'uppställningsord'                 => { map => { '852' => 'l' } },
-    'titel'                            => { map => { '245' => 'a' } },
-    'allmän_medieterm'                 => { map => { '245' => 'h' } },
-    'beståndsuppgift'                  => { map => { '866' => 'a' } },
-    'anmärkning_allmän'                => { map => { '500' => 'a' } },
-    'ämnesord'                         => { map => { '650' => 'a' } },
-    'okontrollerad_term'               => { map => { '653' => 'a' } },
-    'fysisk_beskrivning'               => { map => { '300' => 'e' } },
-    'genre_form_uppgift_eller_fokusterm' => { map => { '655' => 'a' } },
-    'homebranch'                       => { itemcol => 'homebranch', map => { '952' => 'a' } },
-    'holdingbranch'                    => { itemcol => 'holdingbranch', map => { '952' => 'b' } },
-    'localshelf'                       => { itemcol => 'location', map => { '952' => 'c' } },
-    'date_acquired'                    => { itemcol => 'dateaccessioned', map => { '952' => 'd' } },
-    'price'                            => { numeric => 1, itemcol => ['price', 'replacementprice'],  map => { '952' => [ 'g', 'v' ] } },
-    'total_number_of_checkouts'        => { numeric => 1, itemcol => 'issues', map => { '952' => 'l' } },
-    'call_number'                      => { itemcol => 'itemcallnumber', map => { '952' => 'o' } },
-    'barcode'                          => { itemcol => 'barcode', map => { '952' => 'p' } },
-    'date_last_seen'                   => { itemcol => 'datelastseen', map => { '952' => 'r' } },
-    'date_last_checkout'               => { itemcol => 'datelastborrowed', map => { '952' => 's' } },
-    'internal_staff_note'              => { itemcol => 'itemnotes_nonpublic', map => { '952' => 'x' } },
-    'itemtype'                         => { itemcol => 'itype', map => { '952' => 'y' } },
-    'lost_status'                      => { itemcol => 'itemlost', map => { '952' => '1' } },
-    'damaged_status'                   => { itemcol => 'damaged', map => { '952' => '4' } },
-    'not_for_loan'                     => { itemcol => 'notforloan', map => { '952' => '7' } },
-    'collection_code'                  => { itemcol => 'ccode', map => { '952' => '8' } },
-    'subjects'                         => { map => { '653' => 'b' } },
-    'libra_subjects'                   => { map => { '976' => 'b' } },
-    'biblioitemtype'                    => { map => { '942' => 'c' }, append => 0 }
+    %common_marc_mappings
     );
 
 
@@ -237,8 +207,8 @@ if (  scalar(@input_files) < 1 ) {
     exit;
 }
 
-#$limit = 100;
-$limit = num_records_($input_file) if $limit == 0;
+$limit = 167559;
+#$limit = num_records_($input_file) if $limit == 0;
 
 print "There are $limit records in $input_file\n";
 
@@ -488,6 +458,8 @@ L<http://wiki.koha-community.org/wiki/Holdings_data_fields_%289xx%29>
 		  next RECORD;
 	      }
 	      $sth->execute( $recordid ) or die "Failed to query items for $recordid";
+	  } elsif ($format eq 'sierra') {
+	      $sth->execute( $recordid ) or die "Failed to query items for $recordid";
 	  } else {
 	      $sth->execute( $recordid, $catid ) or die "Failed to query items for $recordid";
 	  }
@@ -510,6 +482,10 @@ L<http://wiki.koha-community.org/wiki/Holdings_data_fields_%289xx%29>
       
       my $includedItem = 0;
       my $ignoredItem = 0;
+
+      if ($opt->format eq 'sierra') {
+	  do_sierra_items($mmc);
+      }
 
     ITEM: while (my $item = $sth->fetchrow_hashref) {
         say Dumper $item if $opt->debug;
@@ -601,7 +577,8 @@ To see which prices occur in the data:
 =cut
 
         $mmc->set('total_number_of_checkouts', $item->{'NoOfLoansTot'} ) if (defined($item->{'NoOfLoansTot'}));
-
+        $mmc->set('total_number_of_renewals',  $item->{'NoOfRenewalsTot'} ) if (defined($item->{'NoOfRenewalsTot'}));
+	
 =head3 952$o Call number
 
 To see what is present in the data:
@@ -1261,7 +1238,22 @@ sub clean_field {
     }
 }
 
-  
+sub do_sierra_items {
+    my $mmc = shift;
+
+    copy($mmc, 'sierra_barcode', 'items.barcode');
+    copy($mmc, 'sierra_created', 'items.dateaccessioned');
+    copy($mmc, 'sierra_total_checkouts', 'items.issues');
+    copy($mmc, 'sierra_total_renewals', 'items.renewals');
+    copy($mmc, 'sierra_price', 'items.price');
+    copy($mmc, 'sierra_note', 'items.itemnotes_nonpublic');
+    copy($mmc, 'sierra_message', 'items.itemnotes');
+    copy($mmc, 'sierra_call_number', 'items.itemcallnumber');
+    copy($mmc, 'sierra_volume', 'items.enumchron');
+    copy($mmc, 'sierra_copy_number', 'items.copynumber');
+
+
+}  
 
 =head1 AUTHOR
 

@@ -1,0 +1,14 @@
+
+SELECT CONCAT(`003`, `001`) AS IdItem,
+       'MV' AS IdBranchCode,
+       `Hyllplats` AS IdLocalShelf,
+       CONCAT(`Intern anmärkning`, `Meddelande`, `Exemplarmeddelande`) AS Info,
+       NULL AS LatestLoanDate,
+       `Placering` AS Location_Marc,
+       `Totalt utlån` AS NoOfLoansTotal,
+       `Totalt förnyelser` AS NoRenewalsTotal,
+       `price` AS Price,
+       `created` AS RegDate,
+       `Status` AS StatusName,
+       `Streckkod` AS BarCode
+FROM Item WHERE `marc003001` = ?

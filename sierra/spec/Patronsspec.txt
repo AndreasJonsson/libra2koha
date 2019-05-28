@@ -17,9 +17,9 @@ Systemnr(Patron)	varchar	32
 Skapad(Patron)	datetime
 Uppdaterad(Patron)	datetime
 Ant revid.(Patron)	varchar	32
-NAMN	varchar	32
-ADRESS	varchar	32
-ADRESS2	varchar	32
+NAMN	varchar	256
+ADRESS	varchar	256
+ADRESS2	varchar	256
 TELEFON	varchar	32
 TELEFON2	varchar	32
 PERSONNUMMER	varchar	32
