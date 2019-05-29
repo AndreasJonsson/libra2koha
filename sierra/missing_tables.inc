@@ -20,7 +20,8 @@ if [ ! -f "$CONFIG/ccode.yaml" ]; then
     MISSING_FILE=1
 fi
 if [ ! -f "$CONFIG/patroncategories.yaml" ]; then
-    table2config.pl "${TABLE_PARAMS[@]}" --name='Patrons' --key='(1, 2, 3)'  > "$CONFIG/patroncategories.yaml"
+    echo table2config.pl "${TABLE_PARAMS[@]}" --name='Patrons' --key='4' --comment='4' 
+    table2config.pl "${TABLE_PARAMS[@]}" --name='Patrons' --key='5' --comment='5' # > "$CONFIG/patroncategories.yaml"
     echo "Missing $CONFIG/patroncategories.yaml"
     MISSING_FILE=1
 fi

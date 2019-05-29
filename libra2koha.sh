@@ -27,6 +27,10 @@ MANAGER_ID=1
 DEFAULT_CATEGORY=STANDARD
 CONST_BRANCHCODE=
 SPECENCODING=iso-8859-1
+STRING_ORIGINAL_ID=no
+SEPARATE_ITEMS=yes
+LIMIT=
+XML_OUTPUT=no
 
 SOURCE_FORMAT=bookit
 
@@ -218,6 +222,18 @@ if [[ "$FULL" == "yes" || ! -e "$OUTPUTDIR"/records.marc ]]; then
     fi
     if [[ "$HIDDEN_ARE_ORDERED" == "yes" ]]; then
 	RECORDS_FLAGS+=" --hidden-are-ordered"
+    fi
+    if [[ "$STRING_ORIGINAL_ID" == "yes" ]]; then
+	RECORDS_FLAGS+=" --string-original-id"
+    fi
+    if [[ "$SEPARATE_ITEMS" == "yes" ]]; then
+	RECORDS_FLAGS+=" --separate-items"
+    fi
+    if [[ -n "$LIMIT" ]]; then
+	RECORDS_FLAGS+=" --limit=$LIMIT"
+    fi
+    if [[ "$XML_OUTPUT" == "yes" ]]; then
+	RECORDS_FLAGS+=" --xml-output"
     fi
     records.pl $RECORDS_FLAGS --flag-done --batch "$BATCH" --default-branchcode "$BRANCHCODE" --config $CONFIG --format $SOURCE_FORMAT --infile "$MARC" --outputdir "$OUTPUTDIR" $RECORDS_PARAMS $RECORDS_INPUT_FORMAT
 fi

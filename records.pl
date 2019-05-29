@@ -27,6 +27,7 @@ use Pod::Usage;
 use Modern::Perl;
 use Itemtypes;
 use MarcUtil::WrappedMarcMappingCollection;
+use MarcUtil::MarcMappingCollection;
 use StatementPreparer;
 use TimeUtils;
 use utf8;
@@ -60,6 +61,8 @@ my ($opt, $usage) = describe_options(
     [ 'clear-barcodes-on-ordered', 'Do not set barcode on ordered items'],
     [ 'truncate-plessey', 'Truncate check code from plessey barcodes.', { default => 0}],
     [ 'hidden-are-ordered', 'Hidden items are ordered items.', { default => 0 }],
+    [ 'string-original-id', 'If datatype of item original id is string.  Default is integer.' ],
+    [ 'separate-items', 'Write items into separate sql-file.' ],
     [],
     [ 'verbose|v',  "print extra stuff"            ],
     [ 'debug',      "Enable debug output" ],
@@ -105,9 +108,16 @@ sub add_catitem_stat {
     add_stat(\%catid_types, $catid);
 }
 
-my $mmc = MarcUtil::WrappedMarcMappingCollection::marc_mappings(
+my $mmc;
+if ($opt->separate_items) {
+    $mmc = MarcUtil::WrappedMarcMappingCollection::marc_mappings(
     %common_marc_mappings
-    );
+	);
+} else {
+    $mmc = MarcUtil::MarcMappingCollection::marc_mappings(
+    %common_marc_mappings
+	);
+}
 
 
 =head1 CONFIG FILES
@@ -207,8 +217,8 @@ if (  scalar(@input_files) < 1 ) {
     exit;
 }
 
-$limit = 167559;
-#$limit = num_records_($input_file) if $limit == 0;
+#$limit = 167559;
+$limit = num_records_($input_file) if $limit == 0;
 
 print "There are $limit records in $input_file\n";
 
@@ -216,7 +226,9 @@ my $progress = Term::ProgressBar->new( $limit );
 
 # Set up the database connection
 my $dbh = DBI->connect( $config->{'db_dsn'}, $config->{'db_user'}, $config->{'db_pass'}, { RaiseError => 1, AutoCommit => 1 } );
-$mmc->quote(sub { return $dbh->quote(shift); });
+if ($opt->separate_items) {
+    $mmc->quote(sub { return $dbh->quote(shift); });
+}
 
 # Query for selecting items connected to a given record
 
@@ -247,9 +259,14 @@ my $batchno = $opt->batch;
 
 open ITEM_OUTPUT, ">:utf8", "$output_dir/items.sql" or die "Failed to open $output_dir/items.sql: $!";
 
+my $original_id_type = 'INT';
+if ($opt->string_original_id) {
+    $original_id_type = 'VARCHAR(16)';
+}
+
 print ITEM_OUTPUT <<EOF;
 CREATE TABLE IF NOT EXISTS k_items_idmap (
-    `original_id` INT,
+    `original_id` $original_id_type,
     `itemnumber` INT,
     `batch` INT,
     PRIMARY KEY (`original_id`,`batch`),
@@ -289,7 +306,8 @@ my $file;
 if ($opt->xml_output) {
     $file = MARC::File::XML->out( $output_file );
 } else {
-    open $file, ">:raw:utf8", $output_file or die "Failed to open '$output_file': $!";
+    open $file, ">", $output_file or die "Failed to open '$output_file': $!";
+    binmode($file, ":utf8");
 }
 
 # Configure Template Toolkit
@@ -519,7 +537,9 @@ L<http://wiki.koha-community.org/wiki/Holdings_data_fields_%289xx%29>
 	};
 
 	$includedItem++;
-	$mmc->new_item($item->{'IdItem'});
+	if ($opt->separate_items) {
+	    $mmc->new_item($item->{'IdItem'});
+	}
 
 =head3 952$a and 952$b Homebranch and holdingbranch (mandatory)
 
@@ -850,20 +870,27 @@ Just add the itemtype in 942$c.
       if ($opt->xml_output) {
 	  $file->write( $record );
       } else {
+	  print STDERR $record->encoding . "\n";
 	  print $file $record->as_usmarc;
       }
       say MARC::File::XML::record( $record ) if $opt->debug;
       say "Record was ignored." if $opt->debug && !($includedItem || !$ignoredItem);
 
-      $item_context->{items} = $mmc->get_items_set_sql;
+      if ($opt->separate_items) {
+	  my @itemcontext = @{$mmc->get_items_set_sql};
+	  if ($opt->string_original_id) {
+	      map { $_->{original_id} = $dbh->quote($_->{original_id}) } @itemcontext;
+	  }
+	  $item_context->{items} = \@itemcontext;
 
-      $tt2->process( 'items.tt', $item_context, \*ITEM_OUTPUT,  {binmode => ':utf8'} ) || die $tt2->error();      
+	  $tt2->process( 'items.tt', $item_context, \*ITEM_OUTPUT,  {binmode => ':utf8'} ) || die $tt2->error();
+      }
 
       $mmc->reset();
       
       $count++;
       $progress->update( $count );
-      #last if $limit && $limit == $count;
+      last if $limit && $limit == $count;
 
     } # end foreach record
     unless ($opt->xml_input) {
@@ -1241,17 +1268,101 @@ sub clean_field {
 sub do_sierra_items {
     my $mmc = shift;
 
+    my @sysnumbers = $mmc->get('sierra_sysnumber');
+    if ($opt->separate_items) {
+	map { $mmc->new_item($_) } @sysnumbers;
+    }
+    my @branches = map { $opt->default_branchcode } @sysnumbers;
+
+    $mmc->set('items.homebranch', @branches);
+    $mmc->set('items.holdingbranch', @branches);
+    
     copy($mmc, 'sierra_barcode', 'items.barcode');
     copy($mmc, 'sierra_created', 'items.dateaccessioned');
     copy($mmc, 'sierra_total_checkouts', 'items.issues');
     copy($mmc, 'sierra_total_renewals', 'items.renewals');
-    copy($mmc, 'sierra_price', 'items.price');
+    copy($mmc, { m => 'sierra_price', f => sub { $_[0] =~ /^(\d*)/; return $1; } }, 'items.price');
     copy($mmc, 'sierra_note', 'items.itemnotes_nonpublic');
     copy($mmc, 'sierra_message', 'items.itemnotes');
     copy($mmc, 'sierra_call_number', 'items.itemcallnumber');
     copy($mmc, 'sierra_volume', 'items.enumchron');
     copy($mmc, 'sierra_copy_number', 'items.copynumber');
 
+    copy($mmc, { m => 'sierra_restricted', f => sub {
+	my %map = (
+	    'e' => 1,
+	    'l' => 2,
+	    'o' => 3
+	    );
+	return $map{$_[0]};
+	
+		 }
+	 }, 'items.restricted');
+
+    copy($mmc, { m => 'sierra_status', f => sub {
+	my %map = (
+	    'r' => 1
+	    );
+	return $map{$_[0]};
+		 }
+	 }, 'items.damaged');
+
+    copy($mmc, { m => 'sierra_status', f => sub {
+	my %map = (
+	    'm' => 4,
+	    '$' => 3,
+	    'n' => 2,
+	    'k' => 1
+	    );
+	return $map{$_[0]};
+	 }
+    }, 'items.itemlost');
+
+    copy($mmc, { m => 'sierra_status', f => sub { if ($_ eq 'u') { return '2019-05-28'; } else { return undef; } } }, 'items.onloan');
+
+    copy($mmc, { m => 'sierra_itemtype', f => sub {
+	my %map = (
+	'k' => 'BILD',
+	'b' => 'BOK',
+	'u' => 'DIG-BILD',
+	'w' => 'DIG-BOK',
+	'l' => 'DIG-FILM',
+	'v' => 'DIG-MS',
+	'3' => 'DIG-ATLAS',
+	's' => 'DIG-CD',
+	'y' => 'DIG-MUS-MS',
+	'h' => 'DIG-TEXT',
+	'x' => 'DIG-PER',
+	'1' => 'DIG-NOT',
+	'4' => 'DIG-ML-MED',
+	'5' => 'DIG-PAKET',
+	'q' => 'DIG-TAL',
+	'z' => 'EBOK',
+	'g' => 'FILM',
+	'p' => 'FL-MEDIER',
+	'r' => 'SAK',
+	't' => 'MS',
+	'f' => 'ATLAS',
+	'm' => 'ML-MEDIER',
+	'j' => 'CD',
+	'd' => 'MUS-MS',
+	'c' => 'NOT',
+	'o' => 'PAKET',
+	'i' => 'TAL',
+	'a' => 'TEXT',
+	'n' => 'PER',
+	'2' => 'WEBB',
+	'-' => 'NONE'
+	);
+	return $map{$_[0]};
+    } }, 'items.itype');
+
+    copy($mmc, { m =>'sierra_location', f => sub {
+	my %map = (
+	    'bumag' => 'bumag4'
+	);
+	return $map{$_[0]};
+    } }, 'items.location');
 
 }  
 

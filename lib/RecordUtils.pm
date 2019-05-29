@@ -11,7 +11,13 @@ use Modern::Perl;
 sub copy {
     my ($mc, $from, $to) = @_;
 
-    $mc->set($to, $mc->get($from));
+    if (ref($from) eq 'HASH') {
+	my $mapping = $from->{m};
+	my @values = $mc->get($mapping);
+	$mc->set($to, map {$from->{f}->($_)} @values);
+    } else {
+	$mc->set($to, $mc->get($from));
+    }
 }
 
 sub copy_merge {
@@ -19,7 +25,12 @@ sub copy_merge {
 
     my @f = ();
     for my $f0 (@$from) {
-        my @f0 = $mc->get($f0);
+	my @f0;
+	if (ref($f0) eq 'HASH') {
+	    @f0 = map {$f0->{f}->($_)} @{$mc->get($f0->{m})};
+        } else {
+	    @f0 = $mc->get($f0);
+	} 
         push @f, \@f0;
     }
 

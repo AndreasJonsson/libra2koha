@@ -8,5 +8,6 @@ SELECT
 TELEFON AS PhoneNumber,
 'T' AS Type FROM Patrons WHERE `Systemnr(Patron)` = @BORR_ID
 UNION
+SELECT
 TELEFON2 AS PhoneNumber,
 'T' AS Type FROM Patrons WHERE `Systemnr(Patron)` = @BORR_ID;

@@ -1,4 +1,4 @@
-#!/usr/bin/env perl
+#!/usr/bin/perl -d
  
 # Copyright 2015 Magnus Enger Libriotech
 # Copyright 2019 andreas.jonsson@kreablo.se
@@ -49,6 +49,7 @@ my ($opt, $usage) = describe_options(
     [ 'youth-category=s', 'Set youth borrower category (default disabled)', { default => '' } ],
     [ 'passwords', 'Include passwords if available.' ],
     [ 'manager-id=i', 'Set borrowernumber of a manager to set as sender on borrower messages, if none can be determined from source data.', { default => 1} ],
+    [ 'string-original-id', 'If datatype of item original id is string.  Default is integer.' ],
     [],
     [ 'verbose|v',  "print extra stuff"            ],
     [ 'debug',      "Enable debug output" ],
@@ -64,7 +65,7 @@ my $config_dir = $opt->config;
 my $limit = $opt->limit;
 
 if ($opt->passwords) {
-    use Koha::AuthUtils qw(hash_password);
+ #   use Koha::AuthUtils qw(hash_password);
 }
 
 =head1 CONFIG FILES
@@ -164,10 +165,13 @@ $sth->execute();
 
 my $auto_count = 1;
 
+my $original_id_type = 'int';
+if ($opt->string_original_id) {
+    $original_id_type = 'varchar(16)';
+}
 print <<EOF;
-
 CREATE TABLE IF NOT EXISTS k_borrower_idmap (
-  `original_id` int NOT NULL,
+  `original_id` $original_id_type NOT NULL,
   `borrowernumber` int NOT NULL,
   `batch`     int,
   PRIMARY KEY (`original_id`,`batch`),

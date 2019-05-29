@@ -74,6 +74,7 @@ my ($opt, $usage) = describe_options(
     [ 'rowdelimiter=s',  'row delimiter'      ],
     [ 'escape=s', 'escape character', { default => "\\" } ],
     [ 'encoding=s',  'character encoding',      { default => 'utf-16' } ],
+    [ 'specencoding=s',  'character encoding of specfile',      { default => 'utf-8' } ],
     [ 'ext=s',     'table filename extension', { default => '.txt' } ],
     [ 'timezone=s',  'time zone' ],
     [ 'quote=s',  'quote character' ],

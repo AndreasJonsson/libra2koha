@@ -7,4 +7,4 @@ SELECT 'MV' AS IdBranchCode,
         `Skapad(Patron)` AS RegDate,
         `Lånt.typ` AS IdBorrowerCategory,
         `NAMN` AS FullName
-FROM Patrons;
+FROM Patrons
