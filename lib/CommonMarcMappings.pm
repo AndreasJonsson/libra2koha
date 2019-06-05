@@ -94,6 +94,7 @@ our %common_marc_mappings = (
     'sierra_status'                    => { map => { '945' => 's' } },
     'sierra_itemtype'                  => { map => { '945' => 't' } },
     'sierra_sysnumber'                 => { map => { '945' => 'y' } },
+    'sierra_bib_sysnumber'             => { map => { '907' => 'a' } },
     
     );
 

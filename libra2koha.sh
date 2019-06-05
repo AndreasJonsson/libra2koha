@@ -31,6 +31,7 @@ STRING_ORIGINAL_ID=no
 SEPARATE_ITEMS=yes
 LIMIT=
 XML_OUTPUT=no
+ENCODING_HACK=no
 
 SOURCE_FORMAT=bookit
 
@@ -235,6 +236,9 @@ if [[ "$FULL" == "yes" || ! -e "$OUTPUTDIR"/records.marc ]]; then
     if [[ "$XML_OUTPUT" == "yes" ]]; then
 	RECORDS_FLAGS+=" --xml-output"
     fi
+    if [[ "$ENCODING_HACK" == "yes" ]]; then
+	RECORDS_FLAGS+=" --encoding-hack"
+    fi
     records.pl $RECORDS_FLAGS --flag-done --batch "$BATCH" --default-branchcode "$BRANCHCODE" --config $CONFIG --format $SOURCE_FORMAT --infile "$MARC" --outputdir "$OUTPUTDIR" $RECORDS_PARAMS $RECORDS_INPUT_FORMAT
 fi
 echo "done"
@@ -276,6 +280,9 @@ if [[ "$FULL" == "yes" || ! -e $BORROWERSSQL ]]; then
     fi
     if [[ -n "$DEFAULT_CATEGORY" ]]; then
 	BORROWERS_FLAGS+=" --default-category=$DEFAULT_CATEGORY"
+    fi
+    if [[ "$STRING_ORIGINAL_ID" == "yes" ]]; then
+	BORROWERS_FLAGS+=" --string-original-id"
     fi
     echo perl borrowers.pl $BORROWERS_FLAGS
     perl borrowers.pl $BORROWERS_FLAGS > $BORROWERSSQL
@@ -321,5 +328,4 @@ if [[ "$FULL" == "yes" || ! -e "$OUTPUTDIR"/accountlines.sql ]]; then
     echo "Accountlines"
     accountlines.pl  --format "$SOURCE_FORMAT" --configdir "$CONFIG" > "$OUTPUTDIR"/accountlines.sql
 fi
-
 

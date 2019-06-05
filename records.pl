@@ -1,4 +1,4 @@
-#!/usr/bin/perl
+#!/usr/bin/perl -d
 
 # Copyright 2015 Magnus Enger Libriotech
 # Copyright 2017 Andreas Jonsson, andreas.jonsson@kreablo.se
@@ -13,8 +13,8 @@ records.pl - Read MARCXML records from a file and add items from the database.
 
 =cut
 
-use MARC::File::USMARC;
-use MARC::File::XML ( BinaryEncoding => 'utf8', RecordFormat => 'MARC21' );
+use MARC::File::USMARC ;
+use MARC::File::XML ( RecordFormat => 'USMARC' );
 use MARC::Batch;
 use DBI;
 use Getopt::Long::Descriptive;
@@ -30,7 +30,7 @@ use MarcUtil::WrappedMarcMappingCollection;
 use MarcUtil::MarcMappingCollection;
 use StatementPreparer;
 use TimeUtils;
-use utf8;
+#use utf8;
 use CommonMarcMappings;
 use RecordUtils;
 
@@ -63,6 +63,7 @@ my ($opt, $usage) = describe_options(
     [ 'hidden-are-ordered', 'Hidden items are ordered items.', { default => 0 }],
     [ 'string-original-id', 'If datatype of item original id is string.  Default is integer.' ],
     [ 'separate-items', 'Write items into separate sql-file.' ],
+    [ 'encoding-hack', 'Set the charset to MARC-8 in the record before processing.' ],
     [],
     [ 'verbose|v',  "print extra stuff"            ],
     [ 'debug',      "Enable debug output" ],
@@ -249,6 +250,9 @@ if ($format eq 'micromarc') {
 my $mediatype_mapping_sth = 0;
 eval { $mediatype_mapping_sth = $preparer->prepare("mediatype_mapping") };
 
+my $bibextra_sth = 0;
+eval { $bibextra_sth = $preparer->prepare("bibextra") };
+
 my $has_ca_catalog = 1;
 
 my $item_context = {
@@ -307,7 +311,7 @@ if ($opt->xml_output) {
     $file = MARC::File::XML->out( $output_file );
 } else {
     open $file, ">", $output_file or die "Failed to open '$output_file': $!";
-    binmode($file, ":utf8");
+    binmode($file, ":raw");
 }
 
 # Configure Template Toolkit
@@ -333,7 +337,7 @@ for my $marc_file (glob $input_file) {
     if ($opt->xml_input) {
 	$batch = MARC::Batch->new( 'XML', $marc_file );
     } else {
-	open FH, "<:raw", $marc_file;
+	open FH, "<:bytes", $marc_file;
 	$batch = MARC::File::USMARC->in( \*FH );
     }
   RECORD: while (my $record = $batch->next()) {
@@ -350,7 +354,6 @@ for my $marc_file (glob $input_file) {
 
       my $last_itemtype;
 
-      $record->encoding( 'UTF-8' );
       say '* ' . $record->title() if $opt->verbose;
 
 =head2 Record level changes
@@ -369,7 +372,13 @@ for my $marc_file (glob $input_file) {
 Bookit format ISBN is in  350 00 c and ISSN in 350 10 c
 
 =cut
-      if (!defined($record->field('001'))) {
+      $bibextra_sth->execute($mmc->get('sierra_bib_sysnumber'));
+      my $bibextra = $bibextra_sth->fetchrow_hashref;
+      if (!defined($bibextra)) {
+	  $bibextra = {};
+      }
+
+      if (0 && !defined($record->field('001'))) {
 	  if (scalar($record->fields()) > 0) {
 	      warn "No 001 on record!";
 	      say STDERR MARC::File::XML::record( $record );
@@ -614,7 +623,9 @@ To see what is present in the data:
 	my $field084 = $record->field( '084' );
 	my $field852 = $record->field( '852' );
 
-	if (defined $field081 && $field081->subfield('h')) {
+	if (defined $bibextra->{'call_number'}) {
+	    $mmc->set('call_number', $bibextra->{'call_number'});
+	} elsif (defined $field081 && $field081->subfield('h')) {
 	    $mmc->set('call_number', $field081->subfield('h'));
 	} elsif (defined $field084) {
 	    $mmc->set('call_number', scalar($mmc->get('klassifikationskod')));
@@ -870,7 +881,6 @@ Just add the itemtype in 942$c.
       if ($opt->xml_output) {
 	  $file->write( $record );
       } else {
-	  print STDERR $record->encoding . "\n";
 	  print $file $record->as_usmarc;
       }
       say MARC::File::XML::record( $record ) if $opt->debug;
@@ -987,7 +997,7 @@ sub num_records_ {
 	if ($opt->xml_input) {
 	    $batch = MARC::Batch->new('XML', $f);
 	} else {
-	    open FH, "<:raw", $f;
+	    open FH, "<:bytes", $f;
 	    $batch = MARC::File::USMARC->in( \*FH );
 	}
 	while ($batch->next()) {

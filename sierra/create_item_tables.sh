@@ -1,5 +1,6 @@
 
-create_tables.pl --spec "$SPECDIR" --format="$SOURCE_FORMAT" "${TABLE_PARAMS[@]}" --table "Item" --table "Patrons" | eval $MYSQL_LOAD
+create_tables.pl --spec "$SPECDIR" --format="$SOURCE_FORMAT" "${TABLE_PARAMS[@]}" --table "Item" --table "Patrons" --table "Bibliographic"
+create_tables.pl --spec "$SPECDIR" --format="$SOURCE_FORMAT" "${TABLE_PARAMS[@]}" --table "Item" --table "Patrons" --table "Bibliographic" | eval $MYSQL_LOAD
 
 eval $MYSQL_LOAD <<'EOF'
 CREATE TABLE biblio_mapping (marc001 varchar(32), marc003 varchar(16), item_id varchar(16), barcode varchar(16), PRIMARY KEY (marc001, marc003), UNIQUE KEY(item_id), UNIQUE KEY(barcode));
@@ -17,6 +18,8 @@ CREATE INDEX Item_001 ON Item(`001`);
 CREATE INDEX Item_003_001 ON Item(`003`, `001`);
 CREATE INDEX Item_cat_003_001 ON Item(`marc003001`);
 UPDATE Item SET marc003001 = CONCAT(`003`, `001`);
+CREATE INDEX Bibliographic_sysnr ON Bibliographic(`Systemnummer`);
+CREATE INDEX Bibliographic_code3 ON Bibliographic(`Bib kod 3`);
 EOF
 
-table_from_marc.pl --config "$CONFIG" --outputdir "$OUTPUTDIR" --infile "$SIERRA_ITEMMARC" --tablename "Item" --idcolumn '("Systemnummer", "sierra_sysid")' --column '("sierra_total_checkouts", "total_checkouts")' --column '("sierra_total_renewals", "total_renewals")' --column '("sierra_price", "price")' --column '("sierra_created", "created")'
+#table_from_marc.pl --config "$CONFIG" --outputdir "$OUTPUTDIR" --infile "$SIERRA_ITEMMARC" --tablename "Item" --idcolumn '("Systemnummer", "sierra_sysid")' --column '("sierra_total_checkouts", "total_checkouts")' --column '("sierra_total_renewals", "total_renewals")' --column '("sierra_price", "price")' --column '("sierra_created", "created")'

@@ -1,0 +1,10 @@
+Språk	varchar	8
+Filering	int
+Placering	varchar	8
+Bibl. nivå	varchar	8
+Bib kod 3	varchar	8
+Land	varchar	256
+Systemnummer	varchar	16
+Skapad datum	date
+Uppdaterad	date
+Antal revideringar	int
