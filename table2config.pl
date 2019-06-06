@@ -1,4 +1,4 @@
-#!/usr/bin/env perl
+#!/usr/bin/perl
 
 # Copyright 2015 Magnus Enger Libriotech
 # Copyright 2017 Andreas Jonsson andreas.jonsson@kreablo.se
@@ -106,10 +106,10 @@ sub valid {
 }
 
 my $filename = $opt->dir . '/' . $opt->name . $opt->ext;
-my $fh;
-
+my $fh
+;
 my $found_file = 0;
-if (open ($fh, "<:encoding(" . $opt->encoding . "):crlf", $filename)) {
+if (open ($fh, "<:encoding(" . $opt->encoding . ")", $filename)) {
     $found_file = 1;
 }
 die ("Didn't find any table file for " . $opt->name) unless ($found_file);
@@ -126,10 +126,15 @@ say "# Generated from $filename";
 say "# " . $dt->ymd . ' ' . $dt->hms;
 say ''  ;
 
+my $rowdelim = $opt->rowdelimiter;
+#$rowdelim =~ s/\n/\\n/g;
+#$rowdelim =~ s/\r/\\r/g;
+
 my $csv = Text::CSV->new({
+    binary => 1,
     quote_char => $opt->quote,
     sep_char => $opt->columndelimiter,
-    eol => $opt->rowdelimiter,
+    eol => $rowdelim,
     escape_char => $opt->escape
  });
 
@@ -180,8 +185,10 @@ $YAML::Syck::Headless = 1;
 $YAML::Syck::SingleQuote = 1;
 $YAML::Syck::ImplicitUnicode = 1;
 
+my $row = $csv->getline( $fh ) ;
+
 while (my $row = $csv->getline( $fh ) ) {
-    
+
     my $key     = $keyextract->($row);
 
     next unless $keyuniq->($key);

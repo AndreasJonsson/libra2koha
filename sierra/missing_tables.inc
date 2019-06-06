@@ -10,7 +10,7 @@ if [[ -z "${CONST_BRANCHCODE}" ]]; then
    fi
 fi
 if [ ! -f "$CONFIG/loc.yaml" ]; then
-    table2config.pl "${TABLE_PARAMS[@]}" --name='Item' --key='0' --val='0' > "$CONFIG/loc.yaml"
+    table2config.pl "${TABLE_PARAMS[@]}" --name='Bibliographic' --key='2' --val='2' > "$CONFIG/loc.yaml"
     echo "Missing $CONFIG/loc.yaml"
     MISSING_FILE=1
 fi

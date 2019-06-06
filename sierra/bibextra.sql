@@ -9,4 +9,4 @@ SELECT
     WHEN 't' THEN 'PJ'
     ELSE NULL
   END AS `local_shelf`
-FROM `Bibliographic` WHERE `Systemnummer` = ?;
+FROM `Bibliographic` WHERE `Systemnummer` = REGEXP_REPLACE(?, '^\\.', '');

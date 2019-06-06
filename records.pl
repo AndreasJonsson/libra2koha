@@ -511,7 +511,7 @@ L<http://wiki.koha-community.org/wiki/Holdings_data_fields_%289xx%29>
       my $ignoredItem = 0;
 
       if ($opt->format eq 'sierra') {
-	  do_sierra_items($mmc);
+	  do_sierra_items($mmc, $bibextra, $loc);
       }
 
     ITEM: while (my $item = $sth->fetchrow_hashref) {
@@ -1277,6 +1277,8 @@ sub clean_field {
 
 sub do_sierra_items {
     my $mmc = shift;
+    my $bibextra = shift;
+    my $loc = shift;
 
     my @sysnumbers = $mmc->get('sierra_sysnumber');
     if ($opt->separate_items) {
@@ -1373,6 +1375,14 @@ sub do_sierra_items {
 	);
 	return $map{$_[0]};
     } }, 'items.location');
+
+    if (defined $bibextra->{'call_number'}) {
+	$mmc->set('call_number', $bibextra->{'call_number'});
+    }
+
+    if (defined $bibextra->{'itype'}) {
+	$mmc->set('items.itype', $bibextra->{'itype'});
+    }
 
 }  
 
