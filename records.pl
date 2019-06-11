@@ -16,6 +16,8 @@ records.pl - Read MARCXML records from a file and add items from the database.
 use MARC::File::USMARC ;
 use MARC::File::XML ( RecordFormat => 'USMARC' );
 use MARC::Batch;
+use MARC::Charset qw( marc8_to_utf8 );
+use Unicode::Normalize qw(NFC);
 use DBI;
 use Getopt::Long::Descriptive;
 use YAML::Syck qw( LoadFile );
@@ -30,6 +32,7 @@ use MarcUtil::WrappedMarcMappingCollection;
 use MarcUtil::MarcMappingCollection;
 use StatementPreparer;
 use TimeUtils;
+
 #use utf8;
 use CommonMarcMappings;
 use RecordUtils;
@@ -311,7 +314,7 @@ if ($opt->xml_output) {
     $file = MARC::File::XML->out( $output_file );
 } else {
     open $file, ">", $output_file or die "Failed to open '$output_file': $!";
-    binmode($file, ":raw");
+    binmode($file, ":utf8");
 }
 
 # Configure Template Toolkit
@@ -341,6 +344,10 @@ for my $marc_file (glob $input_file) {
 	$batch = MARC::File::USMARC->in( \*FH );
     }
   RECORD: while (my $record = $batch->next()) {
+
+      if ($record->encoding() eq 'MARC-8') {
+	  convert_record($record);
+      }
 
       # Only do every x record
       if ( $opt->every && ( $count % $opt->every != 0 ) ) {
@@ -453,7 +460,7 @@ L<http://wiki.koha-community.org/wiki/Holdings_data_fields_%289xx%29>
 	      }
 	  }
 	  # Get the record ID from 001 and 003
-	  my $f001 = $record->field( '001' )->data();
+	  my $f001 = defined($record->field( '001' )) ? $record->field( '001' )->data() : '';
 	  $item_context->{marc001} = $dbh->quote($f001);
 	  my $f003;
 	  my $recordid;
@@ -1293,7 +1300,11 @@ sub do_sierra_items {
     copy($mmc, 'sierra_created', 'items.dateaccessioned');
     copy($mmc, 'sierra_total_checkouts', 'items.issues');
     copy($mmc, 'sierra_total_renewals', 'items.renewals');
-    copy($mmc, { m => 'sierra_price', f => sub { $_[0] =~ /^(\d*)/; return $1; } }, 'items.price');
+    copy($mmc, { m => 'sierra_price', f => sub {
+	if (!defined($_[0])) {
+	    return;
+	}
+	$_[0] =~ /^(\d*)/; return $1; } }, 'items.price');
     copy($mmc, 'sierra_note', 'items.itemnotes_nonpublic');
     copy($mmc, 'sierra_message', 'items.itemnotes');
     copy($mmc, 'sierra_call_number', 'items.itemcallnumber');
@@ -1301,6 +1312,9 @@ sub do_sierra_items {
     copy($mmc, 'sierra_copy_number', 'items.copynumber');
 
     copy($mmc, { m => 'sierra_restricted', f => sub {
+	if (!defined($_[0])) {
+	    return
+	}
 	my %map = (
 	    'e' => 1,
 	    'l' => 2,
@@ -1312,6 +1326,9 @@ sub do_sierra_items {
 	 }, 'items.restricted');
 
     copy($mmc, { m => 'sierra_status', f => sub {
+	if (!defined($_[0])) {
+	    return
+	}
 	my %map = (
 	    'r' => 1
 	    );
@@ -1320,6 +1337,9 @@ sub do_sierra_items {
 	 }, 'items.damaged');
 
     copy($mmc, { m => 'sierra_status', f => sub {
+	if (!defined($_[0])) {
+	    return
+	}
 	my %map = (
 	    'm' => 4,
 	    '$' => 3,
@@ -1330,46 +1350,41 @@ sub do_sierra_items {
 	 }
     }, 'items.itemlost');
 
-    copy($mmc, { m => 'sierra_status', f => sub { if ($_ eq 'u') { return '2019-05-28'; } else { return undef; } } }, 'items.onloan');
+    copy($mmc, { m => 'sierra_status', f => sub {
+	if (!defined($_[0])) {
+	    return
+	}
+	if ($_ eq 'u') { return '2019-05-28'; } else { return undef; } } }, 'items.onloan');
 
     copy($mmc, { m => 'sierra_itemtype', f => sub {
+	if (!defined($_[0])) {
+	    return
+	}
 	my %map = (
-	'k' => 'BILD',
-	'b' => 'BOK',
-	'u' => 'DIG-BILD',
-	'w' => 'DIG-BOK',
-	'l' => 'DIG-FILM',
-	'v' => 'DIG-MS',
-	'3' => 'DIG-ATLAS',
-	's' => 'DIG-CD',
-	'y' => 'DIG-MUS-MS',
-	'h' => 'DIG-TEXT',
-	'x' => 'DIG-PER',
-	'1' => 'DIG-NOT',
-	'4' => 'DIG-ML-MED',
-	'5' => 'DIG-PAKET',
-	'q' => 'DIG-TAL',
-	'z' => 'EBOK',
-	'g' => 'FILM',
-	'p' => 'FL-MEDIER',
-	'r' => 'SAK',
-	't' => 'MS',
-	'f' => 'ATLAS',
-	'm' => 'ML-MEDIER',
-	'j' => 'CD',
-	'd' => 'MUS-MS',
-	'c' => 'NOT',
-	'o' => 'PAKET',
-	'i' => 'TAL',
-	'a' => 'TEXT',
-	'n' => 'PER',
-	'2' => 'WEBB',
-	'-' => 'NONE'
-	);
+	    11 => 'BILD',
+	    2 => 'BOK',
+	    7 => 'FILM',
+	    16 => 'FL-MEDIER',
+	    18 => 'SAK',
+	    20 => 'MS',
+	    6 => 'ATLAS',
+	    13 => 'ML-MEDIER',
+	    10 => 'CD',
+	    4 => 'MUS-MS',
+	    3 => 'NOT',
+	    15 => 'PAKET',
+	    9 => 'TAL',
+	    1 => 'TEXT',
+	    14 => 'PER'
+	    0 => 'NONE'
+	    );
 	return $map{$_[0]};
     } }, 'items.itype');
 
     copy($mmc, { m =>'sierra_location', f => sub {
+	if (!defined($_[0])) {
+	    return
+	}
 	my %map = (
 	    'bumag' => 'bumag4'
 	);
@@ -1384,7 +1399,42 @@ sub do_sierra_items {
 	$mmc->set('items.itype', $bibextra->{'itype'});
     }
 
-}  
+}
+
+sub convert_record {
+    my $record = shift;
+
+    #print STDERR "Converting record\n";
+    my @warnings = ();
+    my $fieldtag;
+    my $subfield;
+    
+    local $SIG{__WARN__} = sub {
+	my $warning = shift;
+	if (! ($warning =~ /^Use of uninitialized value in subroutine entry at/)) {
+	    $warning = $fieldtag . ($subfield eq '' ? '' : '$' . $subfield) . ': ' . $warning;
+	    push @warnings, $warning;
+	}
+    };
+    
+    for my $field ($record->fields()) {
+	$fieldtag = $field->tag();
+	$subfield = '';
+	if (!$field->is_control_field()) {
+	    #print STDERR "Converting field $field->{_tag}\n";
+	    if (defined($field->{_subfields})) {
+		for (my $i = 1; $i < @{$field->{_subfields}}; $i += 2) {
+		    $subfield = $field->{_subfields}->[$i - 1];
+		    $field->{_subfields}->[$i] = NFC(marc8_to_utf8($field->{_subfields}->[$i]));
+		}
+	    }
+	}
+    }
+    $record->encoding('UTF-8');
+    for my $warning (@warnings) {
+	$record->add_fields([ 963, " ", " ", a => $warning ]);
+    }
+}
 
 =head1 AUTHOR
 
