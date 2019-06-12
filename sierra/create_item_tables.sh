@@ -30,6 +30,19 @@ CREATE TABLE BorrowerAddresses (
   Country VARCHAR(256)
 );
 CREATE INDEX BorrowerAddresses_Id ON BorrowerAddresses(IdBorrower);
+
+DROP FUNCTION IF EXISTS `select_authorized_value`;
+DELIMITER //
+CREATE FUNCTION `select_authorized_value`(category VARCHAR(16), authorized_value VARCHAR(256))
+  RETURNS TINYTEXT
+  BEGIN
+    IF authorized_value IS NULL OR TRIM(authorized_value) = '' THEN
+      RETURN NULL;
+    END IF;
+    RETURN CONCAT('(SELECT lib FROM authorised_values WHERE category = \'', category, '\' AND authorised_value = \'', authorized_value, '\')');
+  END//
+DELIMITER ;
+
 EOF
 
 

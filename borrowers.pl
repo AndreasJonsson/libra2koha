@@ -50,6 +50,7 @@ my ($opt, $usage) = describe_options(
     [ 'passwords', 'Include passwords if available.' ],
     [ 'manager-id=i', 'Set borrowernumber of a manager to set as sender on borrower messages, if none can be determined from source data.', { default => 1} ],
     [ 'string-original-id', 'If datatype of item original id is string.  Default is integer.' ],
+    [ 'ignore-persnummer', 'Dont populate persnummer attribute' ],
     [],
     [ 'verbose|v',  "print extra stuff"            ],
     [ 'debug',      "Enable debug output" ],
@@ -208,12 +209,17 @@ RECORD: while ( my $borrower = $sth->fetchrow_hashref() ) {
     my @borrower_attributes = ();
 
     for my $key (keys %$borrower) {
-	if ($key =~ /^BorrowerAttribute:(.+)$/) {
+	if ($key =~ /^BorrowerAttribute:([^:]+)(?:[:](.*))?$/) {
 	    my $val = $borrower->{$key};
+	    my $flag = $2;
 	    if (defined ($val) && $val ne '') {
+		my $code = $dbh->quote($1);
+		unless (defined($flag) && $flag eq 'nq') {
+		    $val = $dbh->quote($val);
+		}
 		my $attr = {
-		    code => $dbh->quote($1),
-		    attribute => $dbh->quote($val)
+		    code => $code,
+		    attribute => $val
 		};
 		push @borrower_attributes, $attr;
 	    }
@@ -339,10 +345,10 @@ RECORD: while ( my $borrower = $sth->fetchrow_hashref() ) {
 	_quote(\$borrower->{original_id});
     }
 
-    if (defined($borrower->{RegId}) && $borrower->{RegId} ne '') {
+    if (!$opt->ignore_persnummer && defined($borrower->{RegId}) && $borrower->{RegId} ne '') {
 	push @borrower_attributes, {
 	    'code' => $dbh->quote('PERSNUMMER'),
-	    'attribute' => $borrower->{RegId}
+	    'attribute' => $dbh->quote($borrower->{RegId});
 	};
     }
     while (scalar(@barcodes) > 0) {

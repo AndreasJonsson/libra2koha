@@ -1,4 +1,4 @@
-#!/usr/bin/perl -d
+#!/usr/bin/perl
 
 # Copyright 2015 Magnus Enger Libriotech
 # Copyright 2017 Andreas Jonsson, andreas.jonsson@kreablo.se
@@ -888,7 +888,7 @@ Just add the itemtype in 942$c.
       if ($opt->xml_output) {
 	  $file->write( $record );
       } else {
-	  print $file $record->as_usmarc;
+	  print $file MARC::File::USMARC::encode( $record );
       }
       say MARC::File::XML::record( $record ) if $opt->debug;
       say "Record was ignored." if $opt->debug && !($includedItem || !$ignoredItem);
@@ -1375,7 +1375,7 @@ sub do_sierra_items {
 	    15 => 'PAKET',
 	    9 => 'TAL',
 	    1 => 'TEXT',
-	    14 => 'PER'
+	    14 => 'PER',
 	    0 => 'NONE'
 	    );
 	return $map{$_[0]};
@@ -1386,13 +1386,33 @@ sub do_sierra_items {
 	    return
 	}
 	my %map = (
-	    'bumag' => 'bumag4'
+	    'a' => 'Arkiv',
+	    'arark' => 'Arkiv',
+	    'arref' => 'Arkiv',
+	    'b' => 'ingen',
+	    'brrar' => 'Rariteter',
+	    'brref' => 'Referens',
+	    'brtid' => 'Per',
+	    'buba' => 'Barn',
+	    'bucd' => 'CD',
+	    'bumag' => 'mag1',
+	    'buny' => 'öppen',
+	    'buork' => 'Orkester',
+	    'bupj' => 'PjäsHem',
+	    'e' => 'EMS',
+	    'errar' => 'EMSRa',
+	    'erref' => 'EMSRe',
+	    'ertid' => 'EMSPe',
+	    'eubib' => 'EMS',
+	    'eucd' => 'EMSCD',
+	    's' => 'SVA',
+	    'srref' => 'SVA'
 	);
 	return $map{$_[0]};
     } }, 'items.location');
 
-    if (defined $bibextra->{'call_number'}) {
-	$mmc->set('call_number', $bibextra->{'call_number'});
+    if (defined $bibextra->{'collection_code'}) {
+	$mmc->set('items.ccode', $bibextra->{'collection_code'});
     }
 
     if (defined $bibextra->{'itype'}) {
@@ -1413,6 +1433,10 @@ sub convert_record {
 	my $warning = shift;
 	if (! ($warning =~ /^Use of uninitialized value in subroutine entry at/)) {
 	    $warning = $fieldtag . ($subfield eq '' ? '' : '$' . $subfield) . ': ' . $warning;
+	    $warning =~ s/[\x00-\x1f\x80-\xff]//g;
+	    for (my $i = 0 ; $i < length($warning); $i++) {
+		print STDERR (ord(substr($warning, $i, 1)), ",");
+	    }
 	    push @warnings, $warning;
 	}
     };
@@ -1425,7 +1449,7 @@ sub convert_record {
 	    if (defined($field->{_subfields})) {
 		for (my $i = 1; $i < @{$field->{_subfields}}; $i += 2) {
 		    $subfield = $field->{_subfields}->[$i - 1];
-		    $field->{_subfields}->[$i] = NFC(marc8_to_utf8($field->{_subfields}->[$i]));
+		    $field->{_subfields}->[$i] = NFC(marc8_to_utf8($field->{_subfields}->[$i], 1));
 		}
 	    }
 	}

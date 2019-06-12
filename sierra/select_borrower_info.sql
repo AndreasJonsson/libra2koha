@@ -13,12 +13,18 @@ SELECT 'MV' AS IdBranchCode,
 	`Nuv utlån` AS `BorrowerAttribute:ÖVRIGT`,
 	`Skuld` AS `BorrowerAttribute:ÖVRIGT`,
 	`Cirk.aktiv` AS `BorrowerAttribute:ÖVRIGT`,
-	`Valt språk` AS `BorrowerAttribute:LANG`,
-	`Kravmetod` AS `BorrowerAttribute:NOTICE_PRE`,
+	select_authorized_value('LANG', `Valt språk`) AS `BorrowerAttribute:LANG:nq`,
+	select_authorized_value('NOTICE_PREF', `Kravmetod`) AS `BorrowerAttribute:NOTICE_PRE:nq`,
         `Systemnr(Patron)` AS  `BorrowerAttribute:SIERRA_ID`,
 	`Skapad(Patron)` AS `BorrowerAttribute:ÖVRIGT`,
 	`Uppdaterad(Patron)` AS `BorrowerAttribute:ÖVRIGT`,
 	`Ant revid.(Patron)` AS `BorrowerAttribute:ÖVRIGT`,
 	`PERSONNUMMER` AS `BorrowerAttribute:ÖVRIGT`,
-	`ANM` AS `BorrowerAttribute:ÖVRIGT`
+	`ANM` AS `BorrowerAttribute:ÖVRIGT`,
+	select_authorized_value('INSTITUTION', `LÅNT.KOD1`) AS `BorrowerAttribute:INST:nq`,
+	select_authorized_value('LÄN', `LÅNT.KOD2`) AS `BorrowerAttribute:LÄN:nq`,
+	select_authorized_value('LÅNTAGARMEDDELANDE', `Lånt.Medd.`) AS `BorrowerAttribute:LÅNTMED:nq`,
+	`EPOSTADR` AS RegId
 FROM Patrons
+
+

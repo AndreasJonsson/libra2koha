@@ -4,7 +4,7 @@ SELECT
     WHEN 'p' THEN 'Part'
     WHEN 's' THEN 'Skill'
     ELSE NULL
-  END AS `call_number`,
+  END AS `collection_code`,
   CASE `Bib kod 3`
     WHEN 't' THEN 'PJ'
     ELSE NULL

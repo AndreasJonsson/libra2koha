@@ -25,5 +25,5 @@ TELEFON2	varchar	32
 PERSONNUMMER	varchar	32
 MEDDELANDE(Patron)	varchar	1024
 ANM	varchar	1024
-LÅNT.NR	int
+LÅNT.NR	varchar	32
 EPOSTADR	varchar	256
