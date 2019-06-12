@@ -2,7 +2,7 @@ package TupleColumn;
 
 $VERSION     = 1.00;
 @ISA         = qw(Exporter);
-@EXPORT      = qw(parse_tuple extract_tuple encode_tuple);
+@EXPORT      = qw(parse_tuple parse_tuple_string extract_tuple encode_tuple);
 @EXPORT_OK   = qw();
 
 
@@ -16,6 +16,20 @@ sub parse_tuple {
 	my @res = ();
 	while ($s =~ /\d+/gp) {
 	    push @res, int(${^MATCH});
+	}
+	return \@res;
+    }
+
+    return undef;
+}
+
+sub parse_tuple_string {
+    my $s = shift;
+
+    if ($s =~ /^\s*\(\s*(?:(?:"[^"]*?")\s*(?:,\s*(?:"[^"]*")\s*)*)?\)\s*$/) {
+	my @res = ();
+	while ($s =~ /"([^"]*?)"/gp) {
+	    push @res, $1;
 	}
 	return \@res;
     }

@@ -2,7 +2,7 @@
 SELECT count(*) > 0 FROM borrowers WHERE cardnumber = [% cardnumber_str %] INTO @CARDNUMBER_COLLISSION;
 SELECT count(*) > 0 FROM borrowers WHERE userid = [% userid_str %] INTO @USERID_COLLISSION;
 
-INSERT INTO borrowers ( cardnumber, surname, firstname, title, othernames, initials, streetnumber, streettype, address, address2, city, state, zipcode, country, email, phone, mobile, fax, emailpro, phonepro, B_streetnumber, B_streettype, B_address, B_address2, B_city, B_state, B_zipcode, B_country, B_email, B_phone, dateofbirth, branchcode, categorycode, dateenrolled, dateexpiry, gonenoaddress, lost, debarred, debarredcomment, contactname, contactfirstname, contacttitle, guarantorid, borrowernotes, relationship, sex, password, flags, userid, opacnote, contactnote, sort1, sort2, altcontactfirstname, altcontactsurname, altcontactaddress1, altcontactaddress2, altcontactaddress3, altcontactstate, altcontactzipcode, altcontactcountry, altcontactphone, smsalertnumber, privacy )
+INSERT INTO borrowers ( cardnumber, surname, firstname, title, othernames, initials, streetnumber, streettype, address, address2, city, state, zipcode, country, email, phone, mobile, fax, emailpro, phonepro, B_streetnumber, B_streettype, B_address, B_address2, B_city, B_state, B_zipcode, B_country, B_email, B_phone, dateofbirth, branchcode, categorycode, dateenrolled, dateexpiry, gonenoaddress, lost, debarred, debarredcomment, contactname, contactfirstname, contacttitle, guarantorid, borrowernotes, relationship, sex, password, flags, userid, opacnote, contactnote, sort1, sort2, altcontactfirstname, altcontactsurname, altcontactaddress1, altcontactaddress2, altcontactaddress3, altcontactstate, altcontactzipcode, altcontactcountry, altcontactphone, smsalertnumber, sms_provider_id, privacy, privacy_guarantor_checkouts, updated_on, lastseen, lang)
 VALUES (
     IF (@CARDNUMBER_COLLISSION, NULL, [% cardnumber_str %]), -- cardnumber
     [% LastName %], -- surname
@@ -15,7 +15,7 @@ VALUES (
     [% address %], -- address
     [% address2 %], -- address2
     [% city %], -- city
-    NULL, -- state
+    [% state %], -- state
     [% zipcode %], -- zipcode
     [% country %], -- country
     [% email %], -- email
@@ -29,7 +29,7 @@ VALUES (
     [% B_address %], -- B_address
     [% B_address2 %], -- B_address2
     [% B_city %], -- B_city
-    NULL, -- B_state
+    [% B_state %], -- B_state
     [% B_zipcode %], -- B_zipcode
     [% B_country %], -- B_country
     [% B_email %], -- B_email
@@ -67,7 +67,12 @@ VALUES (
     NULL, -- altcontactcountry
     NULL, -- altcontactphone
     NULL, -- smsalertnumber
-    IF('forever' = (SELECT default_privacy FROM categories WHERE categorycode = [% categorycode %]), 0, 1)  -- privacy
+    NULL, -- sms_provider_id
+    IF('forever' = (SELECT default_privacy FROM categories WHERE categorycode = [% categorycode %]), 0, 1),  -- privacy
+    0,    -- privacy_guarantor_checkouts
+    [% updated_on %], -- updated_on
+    [% lastseen %], -- lastseen
+    [% lang %] -- lang
 );
 SELECT LAST_INSERT_ID() FROM DUAL INTO @BORROWERNUMBER;
 [% FOREACH message IN messages -%]
@@ -85,4 +90,13 @@ SELECT @BORROWERNUMBER, 'USERID', [% userid_str %] FROM DUAL WHERE @USERID_COLLI
 INSERT INTO borrower_attributes (borrowernumber, code, attribute)
 SELECT @BORROWERNUMBER, 'CARDNUMBER', [% cardnumber_str %] FROM DUAL WHERE @CARDNUMBER_COLLISSION;
 
-INSERT INTO k_borrower_idmap (borrowernumber, original_id, batch) VALUES (@BORROWERNUMBER, [% IdBorrower %], [% batch %]);
+INSERT INTO k_borrower_idmap (borrowernumber, original_id, batch) VALUES (@BORROWERNUMBER, [% original_id %], [% batch %]);
+
+[% FOREACH a IN borrower_attributes %]
+INSERT INTO borrower_attributes ( borrowernumber, code, attribute )
+  VALUES (
+    @BORROWERNUMBER,
+    [% a.code %],
+    [% a.attribute %]
+  );
+[% END %]

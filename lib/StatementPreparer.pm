@@ -7,6 +7,7 @@ $VERSION     = 1.00;
 
 use Modern::Perl;
 use Carp;
+use utf8;
 
 sub new {
     my ($class, %args) = @_;
@@ -28,6 +29,8 @@ sub prepare {
 
     my $sql = join "\n", <SQL>;
 
+    utf8::decode($sql);
+    
     my $stmnt =  $self->{dbh}->prepare($sql);
 
     close SQL;

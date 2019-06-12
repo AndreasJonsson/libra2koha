@@ -1,4 +1,4 @@
-#!/usr/bin/env perl
+#!/usr/bin/perl
  
 # Copyright 2015 Magnus Enger Libriotech
 # Copyright 2019 andreas.jonsson@kreablo.se
@@ -49,6 +49,8 @@ my ($opt, $usage) = describe_options(
     [ 'youth-category=s', 'Set youth borrower category (default disabled)', { default => '' } ],
     [ 'passwords', 'Include passwords if available.' ],
     [ 'manager-id=i', 'Set borrowernumber of a manager to set as sender on borrower messages, if none can be determined from source data.', { default => 1} ],
+    [ 'string-original-id', 'If datatype of item original id is string.  Default is integer.' ],
+    [ 'ignore-persnummer', 'Dont populate persnummer attribute' ],
     [],
     [ 'verbose|v',  "print extra stuff"            ],
     [ 'debug',      "Enable debug output" ],
@@ -64,7 +66,7 @@ my $config_dir = $opt->config;
 my $limit = $opt->limit;
 
 if ($opt->passwords) {
-    use Koha::AuthUtils qw(hash_password);
+ #   use Koha::AuthUtils qw(hash_password);
 }
 
 =head1 CONFIG FILES
@@ -164,10 +166,13 @@ $sth->execute();
 
 my $auto_count = 1;
 
+my $original_id_type = 'int';
+if ($opt->string_original_id) {
+    $original_id_type = 'varchar(16)';
+}
 print <<EOF;
-
 CREATE TABLE IF NOT EXISTS k_borrower_idmap (
-  `original_id` int NOT NULL,
+  `original_id` $original_id_type NOT NULL,
   `borrowernumber` int NOT NULL,
   `batch`     int,
   PRIMARY KEY (`original_id`,`batch`),
@@ -195,6 +200,30 @@ RECORD: while ( my $borrower = $sth->fetchrow_hashref() ) {
     } else {
 	@barcodes = split ';', $borrower->{'BarCode'};
 	$borrower->{'cardnumber_str'} = $dbh->quote(shift @barcodes);
+    }
+
+    if ( !defined($borrower->{updated_on}) || $borrower->{updated_on} eq '' ) {
+	$borrower->{updated_on} = "'" . DateTime->now->strftime( '%F' ) .  "'";
+    }
+
+    my @borrower_attributes = ();
+
+    for my $key (keys %$borrower) {
+	if ($key =~ /^BorrowerAttribute:([^:]+)(?:[:](.*))?$/) {
+	    my $val = $borrower->{$key};
+	    my $flag = $2;
+	    if (defined ($val) && $val ne '') {
+		my $code = $dbh->quote($1);
+		unless (defined($flag) && $flag eq 'nq') {
+		    $val = $dbh->quote($val);
+		}
+		my $attr = {
+		    code => $code,
+		    attribute => $val
+		};
+		push @borrower_attributes, $attr;
+	    }
+	}
     }
 
     set_address( $borrower );
@@ -229,6 +258,7 @@ RECORD: while ( my $borrower = $sth->fetchrow_hashref() ) {
     
     $borrower->{'dateofbirth'} = ds($borrower->{'BirthDate'});
     $borrower->{'dateenrolled'} = ds($borrower->{'RegDate'});
+    $borrower->{'lastseen'} = ts($borrower->{'lastseen'});
     if ($borrower->{'Expires'}) {
 	$borrower->{'dateexpiry'} = "'" . $borrower->{'Expires'} . "'";
     } else {
@@ -283,6 +313,7 @@ RECORD: while ( my $borrower = $sth->fetchrow_hashref() ) {
 	my $i = index $s, ',';
 	if (!defined($borrower->{'FirstName'}) && $i >= 0) {
 	    $borrower->{'FirstName'} = substr($s, $i + 1);
+	    $borrower->{'FirstName'}  =~ s/^(\s*)//s;
 	}
 	if (!defined($borrower->{'LastName'})) {
 	    if ($i >= 0) {
@@ -297,6 +328,10 @@ RECORD: while ( my $borrower = $sth->fetchrow_hashref() ) {
     _quote(\$borrower->{'FirstName'});
     _quote(\$borrower->{'LastName'});
     _quote(\$borrower->{'Sex'});
+    if (!defined($borrower->{'lang'}) || $borrower->{'lang'} eq '') {
+	$borrower->{'lang'} = 'default';
+    }
+    _quote(\$borrower->{'lang'});
 
     if ($opt->passwords && defined($borrower->{'Password'})) {
 	$borrower->{'Password'} = hash_password($borrower->{'Password'});
@@ -305,18 +340,27 @@ RECORD: while ( my $borrower = $sth->fetchrow_hashref() ) {
 
     $borrower->{batch} = $opt->batch;
 
-    $tt2->process( 'borrowers.tt', $borrower, \*STDOUT,  {binmode => ':utf8'} ) || die $tt2->error();
+    $borrower->{original_id} = $borrower->{'IdBorrower'};
+    if ($opt->string_original_id) {
+	_quote(\$borrower->{original_id});
+    }
 
-    if (defined($borrower->{RegId}) && $borrower->{RegId} ne '') {
-        $tt2->process( 'borrower_attributes.tt', {  'code' => 'PERSNUMMER',
-                                                    'attribute' => $borrower->{RegId}
-                       }, \*STDOUT, {binmode => ':utf8'}) || die $tt2->error();
+    if (!$opt->ignore_persnummer && defined($borrower->{RegId}) && $borrower->{RegId} ne '') {
+	push @borrower_attributes, {
+	    'code' => $dbh->quote('PERSNUMMER'),
+	    'attribute' => $dbh->quote($borrower->{RegId});
+	};
     }
     while (scalar(@barcodes) > 0) {
-        $tt2->process( 'borrower_attributes.tt', {  'code' => 'EXTRA_CARD',
-                                                    'attribute' => shift @barcodes
-                       }, \*STDOUT, {binmode => ':utf8'}) || die $tt2->error();
+	push @borrower_attributes, {
+	    'code' => $dbh->quote('EXTRA_CARD'),
+	    'attribute' => shift @barcodes
+	};
     }
+
+    $borrower->{borrower_attributes} = \@borrower_attributes;
+    
+    $tt2->process( 'borrowers.tt', $borrower, \*STDOUT,  {binmode => ':utf8'} ) || die $tt2->error();
 
     $count++;
     #if ( $limit && $limit == $count ) {
@@ -447,6 +491,9 @@ sub set_address {
 	    push @lines, clean_control($addr->{Address1});
             $borrower->{"${pre}streetnumber"} = '';
         }
+	if (defined($addr->{State})) {
+	    $borrower->{"${pre}state"} = clean_control($addr->{State});
+	}
 
 	push @lines, clean_control($addr->{Address2}) if (defined($addr->{Address2}) && !($addr->{Address2} =~ /^ *$/));
 	push @lines, clean_control($addr->{Address3}) if (defined($addr->{Address3}) && !($addr->{Address3} =~ /^ *$/));
@@ -463,11 +510,13 @@ sub set_address {
     _quoten(\$borrower->{"address"});
     _quote(\$borrower->{"address2"});
     _quote(\$borrower->{"country"});
+    _quote(\$borrower->{"state"});
     _quote(\$borrower->{"zipcode"});
     _quote(\$borrower->{"streetnumber"});
     _quoten(\$borrower->{"city"});
     _quote(\$borrower->{"B_address"});
     _quote(\$borrower->{"B_address2"});
+    _quote(\$borrower->{"B_state"});
     _quote(\$borrower->{"B_country"});
     _quote(\$borrower->{"B_zipcode"});
     _quote(\$borrower->{"B_city"});

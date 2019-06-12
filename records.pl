@@ -13,9 +13,11 @@ records.pl - Read MARCXML records from a file and add items from the database.
 
 =cut
 
-use MARC::File::USMARC;
-use MARC::File::XML ( BinaryEncoding => 'utf8', RecordFormat => 'MARC21' );
+use MARC::File::USMARC ;
+use MARC::File::XML ( RecordFormat => 'USMARC' );
 use MARC::Batch;
+use MARC::Charset qw( marc8_to_utf8 );
+use Unicode::Normalize qw(NFC);
 use DBI;
 use Getopt::Long::Descriptive;
 use YAML::Syck qw( LoadFile );
@@ -27,9 +29,13 @@ use Pod::Usage;
 use Modern::Perl;
 use Itemtypes;
 use MarcUtil::WrappedMarcMappingCollection;
+use MarcUtil::MarcMappingCollection;
 use StatementPreparer;
 use TimeUtils;
-use utf8;
+
+#use utf8;
+use CommonMarcMappings;
+use RecordUtils;
 
 binmode STDOUT, ":utf8";
 $|=1; # Flush output
@@ -58,6 +64,9 @@ my ($opt, $usage) = describe_options(
     [ 'clear-barcodes-on-ordered', 'Do not set barcode on ordered items'],
     [ 'truncate-plessey', 'Truncate check code from plessey barcodes.', { default => 0}],
     [ 'hidden-are-ordered', 'Hidden items are ordered items.', { default => 0 }],
+    [ 'string-original-id', 'If datatype of item original id is string.  Default is integer.' ],
+    [ 'separate-items', 'Write items into separate sql-file.' ],
+    [ 'encoding-hack', 'Set the charset to MARC-8 in the record before processing.' ],
     [],
     [ 'verbose|v',  "print extra stuff"            ],
     [ 'debug',      "Enable debug output" ],
@@ -103,41 +112,16 @@ sub add_catitem_stat {
     add_stat(\%catid_types, $catid);
 }
 
-my $mmc = MarcUtil::WrappedMarcMappingCollection::marc_mappings(
-    'isbn'                             => { map => { '020' => 'a' } },
-    'issn'                             => { map => { '022' => 'a' } },
-    'catid'                            => { map => { '035' => 'a' } },
-    'klassifikationskod'               => { map => { '084' => 'a' } },
-    'klassifikationsdel_av_uppställningssignum' => { map => { '852' => 'h' } },
-    'uppställningsord'                 => { map => { '852' => 'l' } },
-    'titel'                            => { map => { '245' => 'a' } },
-    'allmän_medieterm'                 => { map => { '245' => 'h' } },
-    'beståndsuppgift'                  => { map => { '866' => 'a' } },
-    'anmärkning_allmän'                => { map => { '500' => 'a' } },
-    'ämnesord'                         => { map => { '650' => 'a' } },
-    'okontrollerad_term'               => { map => { '653' => 'a' } },
-    'fysisk_beskrivning'               => { map => { '300' => 'e' } },
-    'genre_form_uppgift_eller_fokusterm' => { map => { '655' => 'a' } },
-    'homebranch'                       => { itemcol => 'homebranch', map => { '952' => 'a' } },
-    'holdingbranch'                    => { itemcol => 'holdingbranch', map => { '952' => 'b' } },
-    'localshelf'                       => { itemcol => 'location', map => { '952' => 'c' } },
-    'date_acquired'                    => { itemcol => 'dateaccessioned', map => { '952' => 'd' } },
-    'price'                            => { numeric => 1, itemcol => ['price', 'replacementprice'],  map => { '952' => [ 'g', 'v' ] } },
-    'total_number_of_checkouts'        => { numeric => 1, itemcol => 'issues', map => { '952' => 'l' } },
-    'call_number'                      => { itemcol => 'itemcallnumber', map => { '952' => 'o' } },
-    'barcode'                          => { itemcol => 'barcode', map => { '952' => 'p' } },
-    'date_last_seen'                   => { itemcol => 'datelastseen', map => { '952' => 'r' } },
-    'date_last_checkout'               => { itemcol => 'datelastborrowed', map => { '952' => 's' } },
-    'internal_staff_note'              => { itemcol => 'itemnotes_nonpublic', map => { '952' => 'x' } },
-    'itemtype'                         => { itemcol => 'itype', map => { '952' => 'y' } },
-    'lost_status'                      => { itemcol => 'itemlost', map => { '952' => '1' } },
-    'damaged_status'                   => { itemcol => 'damaged', map => { '952' => '4' } },
-    'not_for_loan'                     => { itemcol => 'notforloan', map => { '952' => '7' } },
-    'collection_code'                  => { itemcol => 'ccode', map => { '952' => '8' } },
-    'subjects'                         => { map => { '653' => 'b' } },
-    'libra_subjects'                   => { map => { '976' => 'b' } },
-    'biblioitemtype'                    => { map => { '942' => 'c' }, append => 0 }
-    );
+my $mmc;
+if ($opt->separate_items) {
+    $mmc = MarcUtil::WrappedMarcMappingCollection::marc_mappings(
+    %common_marc_mappings
+	);
+} else {
+    $mmc = MarcUtil::MarcMappingCollection::marc_mappings(
+    %common_marc_mappings
+	);
+}
 
 
 =head1 CONFIG FILES
@@ -237,7 +221,7 @@ if (  scalar(@input_files) < 1 ) {
     exit;
 }
 
-#$limit = 100;
+#$limit = 167559;
 $limit = num_records_($input_file) if $limit == 0;
 
 print "There are $limit records in $input_file\n";
@@ -246,7 +230,9 @@ my $progress = Term::ProgressBar->new( $limit );
 
 # Set up the database connection
 my $dbh = DBI->connect( $config->{'db_dsn'}, $config->{'db_user'}, $config->{'db_pass'}, { RaiseError => 1, AutoCommit => 1 } );
-$mmc->quote(sub { return $dbh->quote(shift); });
+if ($opt->separate_items) {
+    $mmc->quote(sub { return $dbh->quote(shift); });
+}
 
 # Query for selecting items connected to a given record
 
@@ -267,6 +253,9 @@ if ($format eq 'micromarc') {
 my $mediatype_mapping_sth = 0;
 eval { $mediatype_mapping_sth = $preparer->prepare("mediatype_mapping") };
 
+my $bibextra_sth = 0;
+eval { $bibextra_sth = $preparer->prepare("bibextra") };
+
 my $has_ca_catalog = 1;
 
 my $item_context = {
@@ -277,9 +266,14 @@ my $batchno = $opt->batch;
 
 open ITEM_OUTPUT, ">:utf8", "$output_dir/items.sql" or die "Failed to open $output_dir/items.sql: $!";
 
+my $original_id_type = 'INT';
+if ($opt->string_original_id) {
+    $original_id_type = 'VARCHAR(16)';
+}
+
 print ITEM_OUTPUT <<EOF;
 CREATE TABLE IF NOT EXISTS k_items_idmap (
-    `original_id` INT,
+    `original_id` $original_id_type,
     `itemnumber` INT,
     `batch` INT,
     PRIMARY KEY (`original_id`,`batch`),
@@ -319,7 +313,8 @@ my $file;
 if ($opt->xml_output) {
     $file = MARC::File::XML->out( $output_file );
 } else {
-    open $file, ">:raw:utf8", $output_file or die "Failed to open '$output_file': $!";
+    open $file, ">", $output_file or die "Failed to open '$output_file': $!";
+    binmode($file, ":utf8");
 }
 
 # Configure Template Toolkit
@@ -345,10 +340,14 @@ for my $marc_file (glob $input_file) {
     if ($opt->xml_input) {
 	$batch = MARC::Batch->new( 'XML', $marc_file );
     } else {
-	open FH, "<:raw", $marc_file;
+	open FH, "<:bytes", $marc_file;
 	$batch = MARC::File::USMARC->in( \*FH );
     }
   RECORD: while (my $record = $batch->next()) {
+
+      if ($record->encoding() eq 'MARC-8') {
+	  convert_record($record);
+      }
 
       # Only do every x record
       if ( $opt->every && ( $count % $opt->every != 0 ) ) {
@@ -362,7 +361,6 @@ for my $marc_file (glob $input_file) {
 
       my $last_itemtype;
 
-      $record->encoding( 'UTF-8' );
       say '* ' . $record->title() if $opt->verbose;
 
 =head2 Record level changes
@@ -381,7 +379,13 @@ for my $marc_file (glob $input_file) {
 Bookit format ISBN is in  350 00 c and ISSN in 350 10 c
 
 =cut
-      if (!defined($record->field('001'))) {
+      $bibextra_sth->execute($mmc->get('sierra_bib_sysnumber'));
+      my $bibextra = $bibextra_sth->fetchrow_hashref;
+      if (!defined($bibextra)) {
+	  $bibextra = {};
+      }
+
+      if (0 && !defined($record->field('001'))) {
 	  if (scalar($record->fields()) > 0) {
 	      warn "No 001 on record!";
 	      say STDERR MARC::File::XML::record( $record );
@@ -456,7 +460,7 @@ L<http://wiki.koha-community.org/wiki/Holdings_data_fields_%289xx%29>
 	      }
 	  }
 	  # Get the record ID from 001 and 003
-	  my $f001 = $record->field( '001' )->data();
+	  my $f001 = defined($record->field( '001' )) ? $record->field( '001' )->data() : '';
 	  $item_context->{marc001} = $dbh->quote($f001);
 	  my $f003;
 	  my $recordid;
@@ -488,6 +492,8 @@ L<http://wiki.koha-community.org/wiki/Holdings_data_fields_%289xx%29>
 		  next RECORD;
 	      }
 	      $sth->execute( $recordid ) or die "Failed to query items for $recordid";
+	  } elsif ($format eq 'sierra') {
+	      $sth->execute( $recordid ) or die "Failed to query items for $recordid";
 	  } else {
 	      $sth->execute( $recordid, $catid ) or die "Failed to query items for $recordid";
 	  }
@@ -510,6 +516,10 @@ L<http://wiki.koha-community.org/wiki/Holdings_data_fields_%289xx%29>
       
       my $includedItem = 0;
       my $ignoredItem = 0;
+
+      if ($opt->format eq 'sierra') {
+	  do_sierra_items($mmc, $bibextra, $loc);
+      }
 
     ITEM: while (my $item = $sth->fetchrow_hashref) {
         say Dumper $item if $opt->debug;
@@ -543,7 +553,9 @@ L<http://wiki.koha-community.org/wiki/Holdings_data_fields_%289xx%29>
 	};
 
 	$includedItem++;
-	$mmc->new_item($item->{'IdItem'});
+	if ($opt->separate_items) {
+	    $mmc->new_item($item->{'IdItem'});
+	}
 
 =head3 952$a and 952$b Homebranch and holdingbranch (mandatory)
 
@@ -601,7 +613,8 @@ To see which prices occur in the data:
 =cut
 
         $mmc->set('total_number_of_checkouts', $item->{'NoOfLoansTot'} ) if (defined($item->{'NoOfLoansTot'}));
-
+        $mmc->set('total_number_of_renewals',  $item->{'NoOfRenewalsTot'} ) if (defined($item->{'NoOfRenewalsTot'}));
+	
 =head3 952$o Call number
 
 To see what is present in the data:
@@ -617,7 +630,9 @@ To see what is present in the data:
 	my $field084 = $record->field( '084' );
 	my $field852 = $record->field( '852' );
 
-	if (defined $field081 && $field081->subfield('h')) {
+	if (defined $bibextra->{'call_number'}) {
+	    $mmc->set('call_number', $bibextra->{'call_number'});
+	} elsif (defined $field081 && $field081->subfield('h')) {
 	    $mmc->set('call_number', $field081->subfield('h'));
 	} elsif (defined $field084) {
 	    $mmc->set('call_number', scalar($mmc->get('klassifikationskod')));
@@ -873,20 +888,26 @@ Just add the itemtype in 942$c.
       if ($opt->xml_output) {
 	  $file->write( $record );
       } else {
-	  print $file $record->as_usmarc;
+	  print $file MARC::File::USMARC::encode( $record );
       }
       say MARC::File::XML::record( $record ) if $opt->debug;
       say "Record was ignored." if $opt->debug && !($includedItem || !$ignoredItem);
 
-      $item_context->{items} = $mmc->get_items_set_sql;
+      if ($opt->separate_items) {
+	  my @itemcontext = @{$mmc->get_items_set_sql};
+	  if ($opt->string_original_id) {
+	      map { $_->{original_id} = $dbh->quote($_->{original_id}) } @itemcontext;
+	  }
+	  $item_context->{items} = \@itemcontext;
 
-      $tt2->process( 'items.tt', $item_context, \*ITEM_OUTPUT,  {binmode => ':utf8'} ) || die $tt2->error();      
+	  $tt2->process( 'items.tt', $item_context, \*ITEM_OUTPUT,  {binmode => ':utf8'} ) || die $tt2->error();
+      }
 
       $mmc->reset();
       
       $count++;
       $progress->update( $count );
-      #last if $limit && $limit == $count;
+      last if $limit && $limit == $count;
 
     } # end foreach record
     unless ($opt->xml_input) {
@@ -983,7 +1004,7 @@ sub num_records_ {
 	if ($opt->xml_input) {
 	    $batch = MARC::Batch->new('XML', $f);
 	} else {
-	    open FH, "<:raw", $f;
+	    open FH, "<:bytes", $f;
 	    $batch = MARC::File::USMARC->in( \*FH );
 	}
 	while ($batch->next()) {
@@ -1261,7 +1282,183 @@ sub clean_field {
     }
 }
 
-  
+sub do_sierra_items {
+    my $mmc = shift;
+    my $bibextra = shift;
+    my $loc = shift;
+
+    my @sysnumbers = $mmc->get('sierra_sysnumber');
+    if ($opt->separate_items) {
+	map { $mmc->new_item($_) } @sysnumbers;
+    }
+    my @branches = map { $opt->default_branchcode } @sysnumbers;
+
+    $mmc->set('items.homebranch', @branches);
+    $mmc->set('items.holdingbranch', @branches);
+    
+    copy($mmc, 'sierra_barcode', 'items.barcode');
+    copy($mmc, 'sierra_created', 'items.dateaccessioned');
+    copy($mmc, 'sierra_total_checkouts', 'items.issues');
+    copy($mmc, 'sierra_total_renewals', 'items.renewals');
+    copy($mmc, { m => 'sierra_price', f => sub {
+	if (!defined($_[0])) {
+	    return;
+	}
+	$_[0] =~ /^(\d*)/; return $1; } }, 'items.price');
+    copy($mmc, 'sierra_note', 'items.itemnotes_nonpublic');
+    copy($mmc, 'sierra_message', 'items.itemnotes');
+    copy($mmc, 'sierra_call_number', 'items.itemcallnumber');
+    copy($mmc, 'sierra_volume', 'items.enumchron');
+    copy($mmc, 'sierra_copy_number', 'items.copynumber');
+
+    copy($mmc, { m => 'sierra_restricted', f => sub {
+	if (!defined($_[0])) {
+	    return
+	}
+	my %map = (
+	    'e' => 1,
+	    'l' => 2,
+	    'o' => 3
+	    );
+	return $map{$_[0]};
+	
+		 }
+	 }, 'items.restricted');
+
+    copy($mmc, { m => 'sierra_status', f => sub {
+	if (!defined($_[0])) {
+	    return
+	}
+	my %map = (
+	    'r' => 1
+	    );
+	return $map{$_[0]};
+		 }
+	 }, 'items.damaged');
+
+    copy($mmc, { m => 'sierra_status', f => sub {
+	if (!defined($_[0])) {
+	    return
+	}
+	my %map = (
+	    'm' => 4,
+	    '$' => 3,
+	    'n' => 2,
+	    'k' => 1
+	    );
+	return $map{$_[0]};
+	 }
+    }, 'items.itemlost');
+
+    copy($mmc, { m => 'sierra_status', f => sub {
+	if (!defined($_[0])) {
+	    return
+	}
+	if ($_ eq 'u') { return '2019-05-28'; } else { return undef; } } }, 'items.onloan');
+
+    copy($mmc, { m => 'sierra_itemtype', f => sub {
+	if (!defined($_[0])) {
+	    return
+	}
+	my %map = (
+	    11 => 'BILD',
+	    2 => 'BOK',
+	    7 => 'FILM',
+	    16 => 'FL-MEDIER',
+	    18 => 'SAK',
+	    20 => 'MS',
+	    6 => 'ATLAS',
+	    13 => 'ML-MEDIER',
+	    10 => 'CD',
+	    4 => 'MUS-MS',
+	    3 => 'NOT',
+	    15 => 'PAKET',
+	    9 => 'TAL',
+	    1 => 'TEXT',
+	    14 => 'PER',
+	    0 => 'NONE'
+	    );
+	return $map{$_[0]};
+    } }, 'items.itype');
+
+    copy($mmc, { m =>'sierra_location', f => sub {
+	if (!defined($_[0])) {
+	    return
+	}
+	my %map = (
+	    'a' => 'Arkiv',
+	    'arark' => 'Arkiv',
+	    'arref' => 'Arkiv',
+	    'b' => 'ingen',
+	    'brrar' => 'Rariteter',
+	    'brref' => 'Referens',
+	    'brtid' => 'Per',
+	    'buba' => 'Barn',
+	    'bucd' => 'CD',
+	    'bumag' => 'mag1',
+	    'buny' => 'öppen',
+	    'buork' => 'Orkester',
+	    'bupj' => 'PjäsHem',
+	    'e' => 'EMS',
+	    'errar' => 'EMSRa',
+	    'erref' => 'EMSRe',
+	    'ertid' => 'EMSPe',
+	    'eubib' => 'EMS',
+	    'eucd' => 'EMSCD',
+	    's' => 'SVA',
+	    'srref' => 'SVA'
+	);
+	return $map{$_[0]};
+    } }, 'items.location');
+
+    if (defined $bibextra->{'collection_code'}) {
+	$mmc->set('items.ccode', $bibextra->{'collection_code'});
+    }
+
+    if (defined $bibextra->{'itype'}) {
+	$mmc->set('items.itype', $bibextra->{'itype'});
+    }
+
+}
+
+sub convert_record {
+    my $record = shift;
+
+    #print STDERR "Converting record\n";
+    my @warnings = ();
+    my $fieldtag;
+    my $subfield;
+    
+    local $SIG{__WARN__} = sub {
+	my $warning = shift;
+	if (! ($warning =~ /^Use of uninitialized value in subroutine entry at/)) {
+	    $warning = $fieldtag . ($subfield eq '' ? '' : '$' . $subfield) . ': ' . $warning;
+	    $warning =~ s/[\x00-\x1f\x80-\xff]//g;
+	    for (my $i = 0 ; $i < length($warning); $i++) {
+		print STDERR (ord(substr($warning, $i, 1)), ",");
+	    }
+	    push @warnings, $warning;
+	}
+    };
+    
+    for my $field ($record->fields()) {
+	$fieldtag = $field->tag();
+	$subfield = '';
+	if (!$field->is_control_field()) {
+	    #print STDERR "Converting field $field->{_tag}\n";
+	    if (defined($field->{_subfields})) {
+		for (my $i = 1; $i < @{$field->{_subfields}}; $i += 2) {
+		    $subfield = $field->{_subfields}->[$i - 1];
+		    $field->{_subfields}->[$i] = NFC(marc8_to_utf8($field->{_subfields}->[$i], 1));
+		}
+	    }
+	}
+    }
+    $record->encoding('UTF-8');
+    for my $warning (@warnings) {
+	$record->add_fields([ 963, " ", " ", a => $warning ]);
+    }
+}
 
 =head1 AUTHOR
 
