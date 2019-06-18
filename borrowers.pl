@@ -348,13 +348,13 @@ RECORD: while ( my $borrower = $sth->fetchrow_hashref() ) {
     if (!$opt->ignore_persnummer && defined($borrower->{RegId}) && $borrower->{RegId} ne '') {
 	push @borrower_attributes, {
 	    'code' => $dbh->quote('PERSNUMMER'),
-	    'attribute' => $dbh->quote($borrower->{RegId});
+	    'attribute' => $dbh->quote($borrower->{RegId})
 	};
     }
     while (scalar(@barcodes) > 0) {
 	push @borrower_attributes, {
 	    'code' => $dbh->quote('EXTRA_CARD'),
-	    'attribute' => shift @barcodes
+	    'attribute' => $dbh->quote(shift @barcodes)
 	};
     }
 

@@ -1,5 +1,4 @@
-create_tables.pl --format="$SOURCE_FORMAT" --quote='"' --headerrows=$HEADER_ROWS --encoding=utf8 --ext=$TABLEEXT --spec "$SPECDIR" --columndelimiter="$COLUMN_DELIMITER" --rowdelimiter='
-' --dir="$tabledir" --table=shBorrower --table=shBorrowerGroup --table=shBorrowerBarcode --table=shContact | eval $MYSQL_LOAD
+create_tables.pl --spec "$SPECDIR" --format="$SOURCE_FORMAT" "${TABLE_PARAMS[@]}" --table=shBorrower --table=shBorrowerGroup --table=shBorrowerBarcode --table=shContact | eval $MYSQL_LOAD
 
 eval $MYSQL_LOAD <<EOF
 CREATE INDEX shBorrower_Id ON shBorrower(Id);

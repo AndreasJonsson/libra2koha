@@ -379,8 +379,11 @@ for my $marc_file (glob $input_file) {
 Bookit format ISBN is in  350 00 c and ISSN in 350 10 c
 
 =cut
-      $bibextra_sth->execute($mmc->get('sierra_bib_sysnumber'));
-      my $bibextra = $bibextra_sth->fetchrow_hashref;
+      my $bibextra;
+      if ($opt->format eq 'sierra') {
+	  $bibextra_sth->execute($mmc->get('sierra_bib_sysnumber'));
+	  $bibextra = $bibextra_sth->fetchrow_hashref;
+      }
       if (!defined($bibextra)) {
 	  $bibextra = {};
       }

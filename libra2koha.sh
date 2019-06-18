@@ -32,6 +32,7 @@ SEPARATE_ITEMS=yes
 LIMIT=
 XML_OUTPUT=no
 ENCODING_HACK=no
+IGNORE_PERSNUMMER=no
 
 SOURCE_FORMAT=bookit
 
@@ -76,16 +77,20 @@ echo "Source format: $SOURCE_FORMAT"
 
 RECORDS_INPUT_FORMAT=
 
-if [[ $SOURCE_FORMAT == bookit ]]; then
-    MARC="$DIR/*iso2709*"
-elif [[ $SOURCE_FORMAT == micromarc ]]; then
-    BUILD_MARC_FILE=yes
-    MARC="$OUTPUTDIR/catalogue.marc"
-    RECORDS_INPUT_FORMAT=--xml
-elif [[ $SOURCE_FORMAT == sierra ]]; then
-    MARC="$DIR/Bibliographic.mrc"
+if [[ -n "$INPUT_MARC" ]]; then
+    MARC="$DIR/$INPUT_MARC"
 else
-    MARC="$DIR/CatalogueExport.dat"
+    if [[ $SOURCE_FORMAT == bookit ]]; then
+	MARC="$DIR/*iso2709*"
+    elif [[ $SOURCE_FORMAT == micromarc ]]; then
+	BUILD_MARC_FILE=yes
+	MARC="$OUTPUTDIR/catalogue.marc"
+	RECORDS_INPUT_FORMAT=--xml
+    elif [[ $SOURCE_FORMAT == sierra ]]; then
+	MARC="$DIR/Bibliographic.mrc"
+    else
+	MARC="$DIR/CatalogueExport.dat"
+    fi
 fi
 
 SPECDIR="$dir/${SOURCE_FORMAT}/spec"
@@ -283,6 +288,9 @@ if [[ "$FULL" == "yes" || ! -e $BORROWERSSQL ]]; then
     fi
     if [[ "$STRING_ORIGINAL_ID" == "yes" ]]; then
 	BORROWERS_FLAGS+=" --string-original-id"
+    fi
+    if [[ "$IGNORE_PERSNUMMER" == "yes" ]]; then
+	BORROWERS_FLAGS+=" --ignore-persnummer"
     fi
     echo perl borrowers.pl $BORROWERS_FLAGS
     perl borrowers.pl $BORROWERS_FLAGS > $BORROWERSSQL

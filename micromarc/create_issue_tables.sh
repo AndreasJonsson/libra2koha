@@ -1,5 +1,4 @@
-create_tables.pl --format="$SOURCE_FORMAT" --quote='"' --headerrows=$HEADER_ROWS --encoding=utf8 --ext=$TABLEEXT --spec "$SPECDIR" --columndelimiter="$COLUMN_DELIMITER" --rowdelimiter='
-' --dir="$tabledir" --table=ciService --table=ciServiceCode --table=ciServiceSource --table=shString --table=ciServiceHistory | eval $MYSQL_LOAD
+create_tables.pl --use-bom --spec "$SPECDIR" --format="$SOURCE_FORMAT" "${TABLE_PARAMS[@]}"  --table=ciService --table=ciServiceCode --table=ciServiceSource --table=shString --table=ciServiceHistory | eval $MYSQL_LOAD
 $MYSQL <<EOF
 CREATE INDEX ciService_Id ON ciService(Id);
 CREATE INDEX ciService_ServiceCode ON ciService(ServiceCode);

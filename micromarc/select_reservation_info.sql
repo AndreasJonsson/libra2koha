@@ -25,4 +25,4 @@ FROM ciService
   LEFT OUTER JOIN shBorrower ON (shBorrower.Id = ciService.BorrowerId)
   LEFT OUTER JOIN shBorrowerBarcode ON (shBorrowerBarcode.BorrowerId = shBorrower.Id AND NOT shBorrowerBarcode.IsSSN)
 WHERE NOT OnLoan
-ORDER BY ciService.ServiceTime ASC;
+ORDER BY ciService.MarcRecordId, ciService.ServiceTime ASC;
