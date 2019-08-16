@@ -1,4 +1,4 @@
-#!/usr/bin/env perl
+#!/usr/bin/perl
 
 # Copyright 2015 Magnus Enger Libriotech
 
@@ -24,6 +24,8 @@ use Data::Dumper;
 use StatementPreparer;
 use TimeUtils qw(ds ts init_time_utils);
 
+
+$YAML::Syck::ImplicitUnicode = 1;
 
 binmode STDOUT, ":utf8";
 $|=1; # Flush output
@@ -165,15 +167,6 @@ while ( my $issue = $sth->fetchrow_hashref() ) {
 	$issue->{'NoOfRenewals'} = 0;
     }
 
-    my @barcodes = defined($issue->{BorrowerBarcode}) ? split ';', $issue->{BorrowerBarcode} : ();
-    my $barcode;
-    if (scalar(@barcodes) > 0)  {
-	$barcode = $dbh->quote(shift @barcodes);
-    } else {
-	$barcode = 'NULL';
-    }
-
-    $issue->{'barcode'} = $barcode;
     if (defined($issue->{'IdItem'})) {
 	$issue->{original_item_id} = $issue->{'IdItem'};
     } else {

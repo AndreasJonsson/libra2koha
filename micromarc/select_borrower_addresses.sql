@@ -1,11 +1,11 @@
-SELECT * FROM (SELECT
+SELECT
    Id,
    MainAddrLine1 AS Address1,
    MainAddrLine2 AS Address2,
    MainZip AS ZipCode,
    MainPlace AS City,
    MainCountry AS Country
-FROM shContact
+FROM shContact WHERE Id = @BORROWERID := ?
 UNION
 SELECT
    Id,
@@ -14,5 +14,4 @@ SELECT
    SecondZip AS ZipCode,
    SecondPlace AS City,
    SecondCountry AS Country
-FROM shContact) AS T0
- WHERE Id = ?;
+FROM shContact WHERE Id = @BORROWERID;

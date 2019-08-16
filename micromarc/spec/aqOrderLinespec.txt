@@ -1,5 +1,6 @@
 ItemId	int
 OrderId	int
+ExternalOrderLineNo	int
 ExternalProductId	nvarchar
 Price	decimal
 DeliveryDate	datetime2

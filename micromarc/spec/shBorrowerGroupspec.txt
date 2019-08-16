@@ -63,3 +63,4 @@ RequiresParent	bit
 CascadeDefaultingToParent	bit
 AutoDefaultMode	bit
 TotalDebtLimitForDefaulting	int
+MaxGlobalConcurrentLoans	int

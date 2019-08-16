@@ -13,8 +13,10 @@ CREATE TABLE `[% tablename %]` (
 LOAD DATA LOCAL INFILE '[% dirs %]/[% tablename %][% ext %]'
     INTO TABLE [% tablename %]
     CHARACTER SET [% enc %]
-    FIELDS TERMINATED BY '[% sep %]' ENCLOSED BY '"' ESCAPED BY '\\'
-    LINES TERMINATED BY '[% rowsep %]'
+    FIELDS TERMINATED BY '[% sep %]'
+    [% IF quote %] ENCLOSED BY '[% quote %]'[% END %]
+    [% IF escape %] ESCAPED BY '[% escape %]'[% END %]
+    [% IF rowsep %] LINES TERMINATED BY '[% rowsep %]'[% END %]
     IGNORE [% headerrows %] LINES
 (
 [% first_column = 1 -%]

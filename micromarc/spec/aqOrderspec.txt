@@ -13,3 +13,4 @@ OrderStatusId	int
 OurRef	nvarchar
 Requisition	nvarchar
 Notes	nvarchar
+AccountPeriodId	int

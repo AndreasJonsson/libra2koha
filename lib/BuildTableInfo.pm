@@ -58,14 +58,27 @@ sub build_table_info {
 	    open $fh, ("<:encoding(" . $opt->encoding . ")"), $csvfile or die ($csvfile . ": $!");
 	}
 	print STDERR "Done open\n" if $opt->verbose;
-	my $csv = Text::CSV->new({
-	    quote_char => $opt->quote,
+	my $params ={
 	    sep_char => $opt->columndelimiter,
-	    eol => $opt->rowdelimiter,
-	    escape_char => $opt->escape
-				 });
+	};
+	if (defined($opt->quote) && $opt->quote ne '') {
+	    $params->{quote_char} = $opt->quote;
+	}
+	if (defined($opt->escape) && $opt->escape ne '') {
+	    $params->{escape_char} = $opt->escape;
+	}
+	if ($opt->rowdelimiter) {
+	    $params->{eol} = $opt->rowdelimiter;
+	}
+	my $csv = Text::CSV->new($params);
 
 	my $columns = $csv->getline( $fh );
+
+	if (!defined($columns)) {
+	    print STDERR "Failed to read header line of '$csvfile'\n";
+	} elsif (scalar(@$columns) == 0) {
+	    print STDERR "No columns in '$csvfile'\n";
+	}
 
 	my %columns = ();
 	my $i = 0;

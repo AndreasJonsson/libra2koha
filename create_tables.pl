@@ -62,8 +62,8 @@ my ($opt, $usage) = describe_options(
     [ 'rowdelimiter=s',  'row delimiter'      ],
     [ 'encoding=s',  'character encoding',      { default => 'utf-8' } ],
     [ 'specencoding=s',  'character encoding of specfile',      { default => 'utf-8' } ],
-    [ 'quote=s',  'quote character' ],
-    [ 'escape=s', 'escape character', { default => "\\" } ],
+    [ 'quote=s',  'quote character', { default => undef } ],
+    [ 'escape=s', 'escape character', { default => undef } ],
     [ 'use-bom', 'Use File::BOM', { default => 0 } ],
     [ 'headerrows=i', 'number of header rows',  { default => 0 } ],
            [],
@@ -210,18 +210,39 @@ foreach my $table (@{$opt->tables}) {
     my $columndelimiter = $opt->columndelimiter;
     $columndelimiter =~ s/	/\\t/g;
     my $rowdelim = $opt->rowdelimiter;
-    $rowdelim =~ s/\n/\\n/g;
-    $rowdelim =~ s/\r/\\r/g;
+    if ($rowdelim) {
+        $rowdelim =~ s/\n/\\n/g;
+	$rowdelim =~ s/\r/\\r/g;
+    }
+    if (scalar(@columns) == 0) {
+	print STDERR "No columns on table $table\n";
+	print STDERR Dumper($csvfiles->{$table});
+	print STDERR Dumper($specfiles->{$table}->{columns});
+	exit(1);
+    }
+    
     my $vars = {
 	'dirs' => $opt->dir,
 	    'tablename' => $table,
 	    'columns' => \@columns,
 	    'sep' => $columndelimiter,
-	    'rowsep' => $rowdelim,
 	    'ext' => $opt->ext,
 	    'enc' => $ttenc,
 	    'headerrows' => $opt->headerrows
     };
+
+    
+
+    if (defined($rowdelim)) {
+	$vars->{rowsep} = $rowdelim;
+    }
+    if (defined($opt->quote) && $opt->quote ne '') {
+	$vars->{quote} = $opt->quote;
+    }
+    if (defined($opt->escape) && $opt->escape ne '') {
+	$vars->{escape} = $opt->escape;
+    }
+
     $tt2->process( 'create_tables.tt', $vars, \*STDOUT,  {binmode => ':utf8' } ) || die $tt2->error();
 
 }

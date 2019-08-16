@@ -1,25 +1,24 @@
-SELECT * FROM (SELECT
+SELECT
   Id,
   'T' AS Type,
   MainPhone AS PhoneNumber
-FROM  shContact
+FROM  shContact WHERE Id = @BORROWERID := ?
 UNION
 SELECT
   Id,
   'T' AS Type,
   SecondPhone AS PhoneNumber
-FROM  shContact
+FROM  shContact WHERE Id = @BORROWERID
 UNION
 SELECT
   Id,
   'E' AS Type,
   MainEmail AS PhoneNumber
-FROM  shContact
+FROM  shContact WHERE Id = @BORROWERID
 UNION
 SELECT
   Id,
   'E' AS Type,
   SecondEmail AS PhoneNumber
-FROM  shContact) AS T0
-WHERE Id = ?;
+FROM  shContact WHERE Id = @BORROWERID
 

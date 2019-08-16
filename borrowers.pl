@@ -24,7 +24,8 @@ use Data::Dumper;
 use Email::Valid;
 use StatementPreparer;
 use TimeUtils qw(dp ds ts init_time_utils);
-use utf8;
+
+$YAML::Syck::ImplicitUnicode = 1;
 
 sub fix_charcode {
     my $s = shift;
@@ -85,7 +86,11 @@ See config-sample.yaml for an example.
 
 my $config;
 if ( -f $config_dir . '/config.yaml' ) {
-    $config = LoadFile( $config_dir . '/config.yaml' );
+    my $fh;
+    my $fn = $config_dir . '/config.yaml';
+    open $fh, "<:unix:utf8", $fn or die "Failed to open $fn";
+    $config = LoadFile( $fh );
+    close $fh;
 }
 
 =head2 branchcodes.yaml
@@ -98,7 +103,10 @@ mapping.
 
 my $branchcodes;
 if ( -f $config_dir . '/branchcodes.yaml' ) {
-    $branchcodes = LoadFile( $config_dir . '/branchcodes.yaml' );
+    my $fn = $config_dir . '/branchcodes.yaml';
+    my $fh;
+    open $fh, "<:unix:utf8", $fn or die "Failed to open $fn";
+    $branchcodes = LoadFile( $fh );
 }
 
 =head2 patroncategories.yaml
@@ -111,7 +119,10 @@ what should go into this mapping.
 
 my $patroncategories;
 if ( -f $config_dir . '/patroncategories.yaml' ) {
-    $patroncategories = LoadFile( $config_dir . '/patroncategories.yaml' );
+    my $fn = $config_dir . '/patroncategories.yaml';
+    my $fh;
+    open $fh, "<:unix:utf8", $fn or die "Failed to open $fn";
+    $patroncategories = LoadFile( $fh );
 }
 
 # Set up the database connection
@@ -242,6 +253,7 @@ RECORD: while ( my $borrower = $sth->fetchrow_hashref() ) {
 
     if ($opt->format eq 'bookit') {
 	$message_sth->execute($borrower->{'IdBorrower'});
+	die "Verify message charcode!";
 	while (my $row = $message_sth->fetchrow_hashref()) {
 	    push @messages, { text => $dbh->quote(fix_charcode($row->{message})), date => ds($row->{date}) };
 	}
@@ -335,6 +347,8 @@ RECORD: while ( my $borrower = $sth->fetchrow_hashref() ) {
 
     if ($opt->passwords && defined($borrower->{'Password'})) {
 	$borrower->{'Password'} = hash_password($borrower->{'Password'});
+    } else {
+	delete($borrower->{'Password'});
     }
     _quote(\$borrower->{'Password'});
 

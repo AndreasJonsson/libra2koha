@@ -10,6 +10,8 @@ use Template;
 use StatementPreparer;
 use TimeUtils;
 
+$YAML::Syck::ImplicitUnicode = 1;
+
 # +------------------+-------------+------+-----+-------------------+-----------------------------+
 # | Field            | Type        | Null | Key | Default           | Extra                       |
 # +------------------+-------------+------+-----+-------------------+-----------------------------+
@@ -92,14 +94,6 @@ while (my $row = $sth->fetchrow_hashref()) {
 
     my $branchcode = defined($row->{IdBranchCode}) && defined($branchcodes->{$row->{IdBranchCode}}) ? $branchcodes->{$row->{IdBranchCode}} : $opt->branchcode;
 
-    my @barcodes = defined($row->{BarCode}) ? split ';', $row->{BarCode} : ();
-    my $barcode;
-    if (scalar(@barcodes) > 0)  {
-	$barcode = $dbh->quote(shift @barcodes);
-    } else {
-	$barcode = 'NULL';
-    }
-
     if (!defined($row->{IdBorrower})) {
 	$row->{IdBorrower} = 'NULL';
     }
@@ -112,7 +106,6 @@ while (my $row = $sth->fetchrow_hashref()) {
     
     my $params = {
 	titleno => $dbh->quote($row->{TITLE_NO}),
-	cardnumber => $barcode,
 	callnumber => $dbh->quote($row->{Location_Marc}),
 	returndate => ds($row->{RegDate}),
 	timestamp  => ts($row->{RegDate}, $row->{RegTime}),

@@ -48,3 +48,5 @@ SendMessagesToBothParents	bit
 ReceiptMessageFormat	int
 HasReadInformationMessage	bit
 FeideId	varchar
+MessageToBorrowerModBy	varchar
+MessageToBorrowerModTime	datetime

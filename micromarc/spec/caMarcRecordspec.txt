@@ -24,3 +24,6 @@ FictionCode	nchar
 LeftLink	int
 RightLink	int
 TemplateId	int
+TrackedFieldsChangedByImport	bit
+UpdatedByImportTime	datetime
+ApprovedAfterImport	bit

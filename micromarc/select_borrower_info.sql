@@ -1,5 +1,4 @@
 SELECT shBorrower.HomeUnit AS IdBranchCode,
-       shBorrowerBarcode.Barcode AS BarCode,
        CONCAT(
           IFNULL(shContact.Notes, ''),
           IF(shContact.Notes IS NOT NULL
@@ -14,7 +13,12 @@ SELECT shBorrower.HomeUnit AS IdBranchCode,
        shContact.Name AS FullName,
        shBorrower.Id AS IdBorrower,
        shContact.PinCode AS Password,
-       shBorrower.Expires AS Expires
+       shBorrower.Expires AS Expires,
+       MAX(SSN.Barcode) AS `BorrowerAttribute:PERSNUMMER`,
+       GROUP_CONCAT(Barcode.Barcode ORDER BY LENGTH(Barcode.Barcode) DESC SEPARATOR ';') AS BarCode
 FROM shBorrower
-  LEFT OUTER JOIN shBorrowerBarcode ON (shBorrowerBarcode.BorrowerId = shBorrower.Id AND NOT shBorrowerBarcode.IsSSN)
-  LEFT OUTER JOIN shContact ON (shContact.Id = shBorrower.Id);
+  LEFT OUTER JOIN shBorrowerBarcode AS Barcode ON (Barcode.BorrowerId = shBorrower.Id AND NOT Barcode.IsSSN)
+  LEFT OUTER JOIN shBorrowerBarcode AS SSN ON (SSN.BorrowerId = shBorrower.Id AND SSN.IsSSN)
+  LEFT OUTER JOIN shContact ON (shContact.Id = shBorrower.Id)
+GROUP BY IdBranchCode, BirthDate, RegDate, IdBorrowerCategory, FullName, IdBorrower, Password, Expires;
+

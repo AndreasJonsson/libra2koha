@@ -37,8 +37,7 @@ IGNORE_PERSNUMMER=no
 SOURCE_FORMAT=bookit
 
 COLUMN_DELIMITER='|'
-ROW_DELIMITER='
-'
+ROW_DELIMITER=
 QUOTE_CHAR='"'
 ESCAPE_CHAR='\\'
 HEADER_ROWS=1
@@ -62,18 +61,16 @@ fi
 INSTANCE="$1"
 EXPORTCAT="$DIR/exportCat.txt"
 OUTPUTDIR="$DIR/../out"
+
+mkdir -p "$OUTPUTDIR"
+
+OUTPUTDIR="$(cd "$OUTPUTDIR"; pwd -P)"
 IDMAP="$OUTPUTDIR/IdMap.txt"
 MYSQL_CREDENTIALS="-u libra2koha -ppass $DBNAME"
 MYSQL="mysql $MYSQL_CREDENTIALS"
 MYSQL_LOAD="mysql $MYSQL_CREDENTIALS --local-infile=1 --init-command='SET max_heap_table_size=4294967295;'"
 
-declare -a TABLE_PARAMS=(--quote="$QUOTE_CHAR" --headerrows="$HEADER_ROWS" --encoding="$TABLEENC" --specencoding="$SPECENCODING" --columndelimiter="$COLUMN_DELIMITER" --rowdelimiter="$ROW_DELIMITER"  --dir="$DIR")
-
-if [[ -n "$TABLEEXT" ]]; then
-    TABLE_PARAMS[$((${#TABLE_PARAMS} + 1))]=--ext="$TABLEEXT"
-fi
-
-echo "Source format: $SOURCE_FORMAT"
+echo "Source format: $SOURCE_FORMAT outputdir $OUTPUTDIR"
 
 RECORDS_INPUT_FORMAT=
 
@@ -81,15 +78,15 @@ if [[ -n "$INPUT_MARC" ]]; then
     MARC="$DIR/$INPUT_MARC"
 else
     if [[ $SOURCE_FORMAT == bookit ]]; then
-	MARC="$DIR/*iso2709*"
+       MARC="$DIR/*iso2709*"
     elif [[ $SOURCE_FORMAT == micromarc ]]; then
-	BUILD_MARC_FILE=yes
-	MARC="$OUTPUTDIR/catalogue.marc"
-	RECORDS_INPUT_FORMAT=--xml
+       BUILD_MARC_FILE=yes
+       MARC="$OUTPUTDIR/catalogue.marc"
+       RECORDS_INPUT_FORMAT=--xml-input
     elif [[ $SOURCE_FORMAT == sierra ]]; then
-	MARC="$DIR/Bibliographic.mrc"
+       MARC="$DIR/Bibliographic.mrc"
     else
-	MARC="$DIR/CatalogueExport.dat"
+       MARC="$DIR/CatalogueExport.dat"
     fi
 fi
 
@@ -128,20 +125,17 @@ trap 'rm -rf "$TMPDIR"' EXIT INT TERM HUP
 
 set -o errexit
 
-### CHECK FOR CONFIG FILES ###
-
-# Force the user to create necessary config files, and provide skeletons
-MISSING_FILE=0
-. "$SOURCE_FORMAT/missing_tables.inc"
-if [ $MISSING_FILE -eq 1 ]; then
-    exit
-fi
-
 
 ### RECORDS ###
 
-if [[ "$TRANSFORM_TABLES" != "yes" || "$TABLEENC" == "utf-8" ]]; then
+if [[ "$TRANSFORM_TABLES" != "yes" || "$TABLEENC" == "utf-8" || "$TABLEENC" == "utf8" ]]; then
     tabledir="$DIR"
+
+    # Remove BOM if present
+    for file in "$DIR"/*"${TABLEEXT}"; do
+	LC_ALL=C sed -i '1s/^\xEF\xBB\xBF//' "$file"
+    done
+	
 else
     tabledir="${OUTPUTDIR}"/utf8dir
     mkdir -p "$tabledir"
@@ -185,6 +179,36 @@ else
 
 
 fi
+
+declare -a TABLE_PARAMS=(--headerrows="$HEADER_ROWS" --spec="$SPECDIR" --specencoding="$SPECENCODING" --columndelimiter="$COLUMN_DELIMITER" --dir="$tabledir")
+
+if [[ "$TRANSFORM_TABLES" == "yes" ]]; then
+    TABLE_PARAMS[$((${#TABLE_PARAMS[*]} + 1))]=--encoding=utf-8
+else
+    TABLE_PARAMS[$((${#TABLE_PARAMS[*]} + 1))]=--encoding="$TABLEENC"
+fi
+if [[ -n "$QUOTE_CHAR" ]]; then
+    TABLE_PARAMS[$((${#TABLE_PARAMS[*]} + 1))]=--quote="$QUOTE_CHAR"
+fi
+if [[ -n "$ESCAPE_CHAR" ]]; then
+    TABLE_PARAMS[$((${#TABLE_PARAMS[*]} + 1))]=--escape="$ESCAPE_CHAR"
+fi
+if [[ -n "$TABLEEXT" ]]; then
+    TABLE_PARAMS[$((${#TABLE_PARAMS[*]} + 1))]=--ext="$TABLEEXT"
+fi
+if [[ -n "$ROW_DELIMITER" ]]; then
+    TABLE_PARAMS[$((${#TABLE_PARAMS[*]} + 1))]=--rowdelimiter="$ROW_DELIMITER"
+fi
+
+### CHECK FOR CONFIG FILES ###
+
+# Force the user to create necessary config files, and provide skeletons
+MISSING_FILE=0
+. "$SOURCE_FORMAT/missing_tables.inc"
+if [ $MISSING_FILE -eq 1 ]; then
+    exit
+fi
+
 
 ## Clean up the database
 if [[ "$QUICK"z != "yesz" ]]; then
@@ -290,12 +314,12 @@ if [[ "$FULL" == "yes" || ! -e $BORROWERSSQL ]]; then
 	BORROWERS_FLAGS+=" --string-original-id"
     fi
     if [[ "$IGNORE_PERSNUMMER" == "yes" ]]; then
-	BORROWERS_FLAGS+=" --ignore-persnummer"
+        BORROWERS_FLAGS+=" --ignore-persnummer"
     fi
     echo perl borrowers.pl $BORROWERS_FLAGS
     perl borrowers.pl $BORROWERS_FLAGS > $BORROWERSSQL
-    export PERLIO=$TMPPERLIO
     echo "done"
+    export PERLIO=$TMPPERLIO
 fi
 
 ### ACTIVE ISSUES/LOANS ###

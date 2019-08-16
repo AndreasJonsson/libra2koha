@@ -1,4 +1,4 @@
-create_tables.pl  --format="$SOURCE_FORMAT" --quote='"' --headerrows=$HEADER_ROWS --encoding=utf8 --ext=$TABLEEXT  --spec "$SPECDIR" --specencoding=utf16 --columndelimiter="$COLUMN_DELIMITER" --rowdelimiter="$ROW_DELIMITER" --dir "$tabledir" --table "Borrowers" --table "BorrowerPhoneNumbers" --table "BorrowerAddresses" --table "BorrowerRegId" --table ILL --table ILL_Libraries --table BorrowerDebts --table BorrowerDebtsRows --table FeeTypes  --table "BorrowerBlocked" | eval $MYSQL_LOAD
+create_tables.pl  --format="$SOURCE_FORMAT" "${TABLE_PARAMS[@]}" --table "Borrowers" --table "BorrowerPhoneNumbers" --table "BorrowerAddresses" --table "BorrowerRegId" --table ILL --table ILL_Libraries --table BorrowerDebts --table BorrowerDebtsRows --table FeeTypes  --table "BorrowerBlocked" | eval $MYSQL_LOAD
 if [[ -n "$PINCODE_TABLE" && -e "$TABLEDIR/$PINCODE_TABLE" ]]; then
     create_tables.pl --format="$SOURCE_FORMAT" --columndelimiter="!*!" --rowdelimiter="$ROW_DELIMITER" --dir "$tabledir" --table "$PINCODE_TABLE" --spec "$tabledir" --headerrows=0
 fi

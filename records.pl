@@ -33,6 +33,20 @@ use MarcUtil::MarcMappingCollection;
 use StatementPreparer;
 use TimeUtils;
 
+$YAML::Syck::ImplicitUnicode = 1;
+
+            # ugly hack follows -- MARC::File::XML, when used by MARC::Batch,
+            # appears to try to convert incoming XML records from MARC-8
+            # to UTF-8.  Setting the BinaryEncoding key turns that off
+            # TODO: see what happens to ISO-8859-1 XML files.
+            # TODO: determine if MARC::Batch can be fixed to handle
+            #       XML records properly -- it probably should be
+            #       be using a proper push or pull XML parser to
+            #       extract the records, not using regexes to look
+            #       for <record>.*</record>.
+            $MARC::File::XML::_load_args{BinaryEncoding} = 'utf-8';
+            $MARC::File::XML::_load_args{RecordFormat} = 'USMARC';
+
 #use utf8;
 use CommonMarcMappings;
 use RecordUtils;
@@ -388,7 +402,7 @@ Bookit format ISBN is in  350 00 c and ISSN in 350 10 c
 	  $bibextra = {};
       }
 
-      if (0 && !defined($record->field('001'))) {
+      if (!defined($record->field('001'))) {
 	  if (scalar($record->fields()) > 0) {
 	      warn "No 001 on record!";
 	      say STDERR MARC::File::XML::record( $record );
@@ -488,12 +502,12 @@ L<http://wiki.koha-community.org/wiki/Holdings_data_fields_%289xx%29>
 	  # add_catitem_stat($catid);
 	  # Look up items by recordid in the DB and add them to our record
 	  if ($format eq 'micromarc') {
-	      $is_documentgroup_sth->execute( $recordid );
-	      my @process = $is_documentgroup_sth->fetchrow_array;
-	      my ($process) = @process;
-	      if (!$process) {
-		  next RECORD;
-	      }
+	      #$is_documentgroup_sth->execute( $recordid );
+	      #my @process = $is_documentgroup_sth->fetchrow_array;
+	      #my ($process) = @process;
+	      #if (!$process) {
+	      #next RECORD;
+	      #}
 	      $sth->execute( $recordid ) or die "Failed to query items for $recordid";
 	  } elsif ($format eq 'sierra') {
 	      $sth->execute( $recordid ) or die "Failed to query items for $recordid";
@@ -672,8 +686,10 @@ From BarCodes.Barcode.
 		$barcode = truncate_plessey($barcode);
 	    }
 
-	    $mmc->set('barcode', $barcode);
-	    say STDERR "Item without barcode: " . $item->{'IdItem'} unless $item->{'BarCode'};
+	    #say STDERR "Item without barcode: " . $item->{'IdItem'} unless $item->{'BarCode'};
+	    if (defined($barcode) && $barcode ne '') {
+		$mmc->set('barcode', $barcode);
+	    }
 	}
 
 
@@ -759,9 +775,6 @@ debug output. Run C<perldoc itemtypes.pl> for more documentation.
 	}
 	$itemtype = refine_itemtype( $mmc, $record, $item, $itemtype, $media_type );
 
-	if (defined($item->{'MaterialType'}) && $item->{'MaterialType'} ne '') {
-	    print("MaterialType: " . $item->{'MaterialType'} . " itemtype: $itemtype\n");
-	}
 	add_itemtype_stat($itemtype, $item->{'CA_CATALOG_LINK_TYPE_ID'});
 	$mmc->set('itemtype', $itemtype);
         $last_itemtype = $itemtype;
@@ -1010,9 +1023,12 @@ sub num_records_ {
 	    open FH, "<:bytes", $f;
 	    $batch = MARC::File::USMARC->in( \*FH );
 	}
-	while ($batch->next()) {
-	    $n++;
-	}
+	eval {
+	    while ($batch->next()) {
+		$n++;
+	    }
+	};
+	
 	unless ($opt->xml_input) {
 	    $batch->close();
 	}

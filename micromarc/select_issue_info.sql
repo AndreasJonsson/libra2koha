@@ -1,9 +1,9 @@
 SELECT
+  ciService.Id AS IdTransaction,
   ServiceAtLocalUnitId AS IdBranchCode,
   HomeUnit AS BorrowerIdBranchCode,
   caItem.Barcode AS ItemBarcode,
-  shBorrowerBarcode.Barcode AS BorrowerBarCode,
-  ciService.ItemId AS ItemId,
+  ciService.ItemId AS IdItem,
   shBorrower.Id AS IdBorrower,
 --
 -- This clause doesn't seem to make any difference to just using
@@ -30,7 +30,6 @@ FROM
   ciService
   LEFT OUTER JOIN shBorrower ON (shBorrower.Id = ciService.BorrowerId)
   LEFT OUTER JOIN shContact ON (shBorrower.Id = shContact.Id)
-  LEFT OUTER JOIN shBorrowerBarcode ON (shBorrowerBarcode.BorrowerId = shBorrower.Id AND NOT shBorrowerBarcode.IsSSN)
   LEFT OUTER JOIN caItem ON (caItem.Id = ciService.ItemId)
   LEFT OUTER JOIN ciServiceCode ON (ciServiceCode.Code = ciService.ServiceCode)
   LEFT OUTER JOIN shString ON (shString.Id = ciServiceCode.DescriptionId)

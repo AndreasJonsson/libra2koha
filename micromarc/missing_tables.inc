@@ -8,6 +8,11 @@ if [ ! -f "$CONFIG/branchcodes.yaml" ]; then
     MISSING_FILE=1
     table2config.pl "${TABLE_PARAMS[@]}" --name='shLocalUnit' --key=0 --comment=0 > "$CONFIG/branchcodes.yaml"
 fi
+if [ ! -f "$CONFIG/loc.yaml" ]; then
+    echo "Missing $CONFIG/loc.yaml"
+    MISSING_FILE=1
+    table2config.pl "${TABLE_PARAMS[@]}" --name='caItem' --key=5 --comment=5 > "$CONFIG/loc.yaml"
+fi
 if [ ! -f "$CONFIG/ccode.yaml" ]; then
     echo "Missing $CONFIG/ccode.yaml"
     MISSING_FILE=1

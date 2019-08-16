@@ -1,4 +1,4 @@
-create_tables.pl --format="$SOURCE_FORMAT" --quote='"' --headerrows=$HEADER_ROWS --encoding=utf8 --ext=$TABLEEXT --spec "$SPECDIR" --specencoding=utf16 --columndelimiter="$COLUMN_DELIMITER" --rowdelimiter='\r\n' --dir "$tabledir" --table "Transactions" --table "Issues"  --table "Reservations" --table "ReservationBranches" --table "TransactionsSaved" --table "LoanPeriods" | eval $MYSQL_LOAD
+create_tables.pl --format="$SOURCE_FORMAT" "${TABLE_PARAMS[@]}" --table "Transactions" --table "Issues"  --table "Reservations" --table "ReservationBranches" --table "TransactionsSaved" --table "LoanPeriods" | eval $MYSQL_LOAD
 # Now copy the BarCodes table so we can have one for items and one for borrowers
 $MYSQL <<EOF
 CREATE INDEX transaction_idborrower_index ON Transactions (IdBorrower);

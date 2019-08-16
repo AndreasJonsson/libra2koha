@@ -1,38 +1,39 @@
 Id	int
 MarcRecordId	int
-Barcode	varchar	1024
+Barcode	nvarchar
 ItemNo	int
-ItemName	varchar	1024
-Shelf	varchar	1024
+ItemName	nvarchar
+Shelf	nvarchar
 ItemStatus	int
 ControllingUnitId	int
 BelongToUnitId	int
 PlacedAtUnitId	int
 ILLUnitId	int
-RegBy	varchar	1024
-RegTime	datetime
-ModBy	varchar	1024
-ModTime	datetime
-StatusChangedBy	varchar	1024
-StatusChangedTime	datetime
-ScrapDate	datetime
+RegBy	nvarchar
+RegTime	datetime2
+ModBy	nvarchar
+ModTime	datetime2
+StatusChangedBy	nvarchar
+StatusChangedTime	datetime2
+ScrapDate	datetime2
 PermitLoan	bit
 ShowInOpac	bit
-LoanCountStarted	int
+LoanCountStarted	datetime2
 LoanCount	int
 RenewalCount	int
-BoxNo	int
+BoxNo	smallint
 Retrospective	bit
-Notes	varchar	2056
+Notes	nvarchar
 CategoryNewCheckedIn	date
 LoanTypeId	int
 CulturalFundBook	bit
 IsMagneticMedia	bit
-ItemBindingText	varchar	1024
-LastLentToBorrowerDate	datetime
+ItemBindingText	nvarchar
+LastLentToBorrowerDate	datetime2
 Location	int
 IsPicked	bit
 AllowILL	bit
 AllowLII	bit
 IsFloating	bit
 OnCart	bit
+CompensationPrice	int

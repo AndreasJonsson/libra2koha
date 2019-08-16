@@ -32,3 +32,4 @@ ResInactiveUntil	datetime
 ResPausedFrom	datetime
 ResPausedTo	datetime
 ResActiveToday	bit
+LastMessageMedium	varchar

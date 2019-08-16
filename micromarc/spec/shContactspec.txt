@@ -40,3 +40,5 @@ InvoiceAddrLine2	nvarchar	256
 InvoiceZip	nvarchar	256
 InvoicePlace	nvarchar	64
 InvoiceCountry	nvarchar	64 
+NotesModBy	varchar
+NotesModTime	datetime

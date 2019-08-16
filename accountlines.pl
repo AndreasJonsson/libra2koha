@@ -10,6 +10,8 @@ use utf8;
 use StatementPreparer;
 use TimeUtils;
 
+$YAML::Syck::ImplicitUnicode = 1;
+
 sub fix_charcode {
     my $s = shift;
     #utf8::decode($s);

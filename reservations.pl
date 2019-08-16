@@ -109,6 +109,7 @@ use Template;
 use StatementPreparer;
 use TimeUtils;
 
+$YAML::Syck::ImplicitUnicode = 1;
 
 my ($opt, $usage) = describe_options(
     '%c %o <some-arg>',
