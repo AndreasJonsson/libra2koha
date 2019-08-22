@@ -253,7 +253,6 @@ RECORD: while ( my $borrower = $sth->fetchrow_hashref() ) {
 
     if ($opt->format eq 'bookit') {
 	$message_sth->execute($borrower->{'IdBorrower'});
-	die "Verify message charcode!";
 	while (my $row = $message_sth->fetchrow_hashref()) {
 	    push @messages, { text => $dbh->quote(fix_charcode($row->{message})), date => ds($row->{date}) };
 	}
