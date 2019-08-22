@@ -185,8 +185,6 @@ $YAML::Syck::Headless = 1;
 $YAML::Syck::SingleQuote = 1;
 $YAML::Syck::ImplicitUnicode = 1;
 
-my $row = $csv->getline( $fh ) ;
-
 while (my $row = $csv->getline( $fh ) ) {
 
     my $key     = $keyextract->($row);
