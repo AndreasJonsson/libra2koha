@@ -64,7 +64,6 @@ use Getopt::Long::Descriptive;
 use Data::Dumper;
 use TupleColumn;
 use YAML::Syck qw( Dump );
-use utf8;
 
 my ($opt, $usage) = describe_options(
     '%c %o <some-arg>',
@@ -77,7 +76,7 @@ my ($opt, $usage) = describe_options(
     [ 'specencoding=s',  'character encoding of specfile',      { default => 'utf-8' } ],
     [ 'ext=s',     'table filename extension', { default => '.txt' } ],
     [ 'timezone=s',  'time zone' ],
-    [ 'quote=s',  'quote character' ],
+    [ 'quote=s',  'quote character', { default => '"' } ],
     [ 'headerrows=i', 'number of header rows',  { default => 0 } ],
     [ 'key=s', 'index of key column (integer or tuple of integers)', { required => 1} ],
     [ 'stringkey', 'Is key a string.' ],
@@ -106,8 +105,8 @@ sub valid {
 }
 
 my $filename = $opt->dir . '/' . $opt->name . $opt->ext;
-my $fh
-;
+my $fh;
+
 my $found_file = 0;
 if (open ($fh, "<:encoding(" . $opt->encoding . ")", $filename)) {
     $found_file = 1;

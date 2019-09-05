@@ -33,6 +33,7 @@ LIMIT=
 XML_OUTPUT=no
 ENCODING_HACK=no
 IGNORE_PERSNUMMER=no
+RECORD_SRC=
 
 SOURCE_FORMAT=bookit
 
@@ -74,6 +75,7 @@ echo "Source format: $SOURCE_FORMAT outputdir $OUTPUTDIR"
 
 RECORDS_INPUT_FORMAT=
 
+
 if [[ -n "$INPUT_MARC" ]]; then
     MARC="$DIR/$INPUT_MARC"
 else
@@ -92,7 +94,7 @@ fi
 
 SPECDIR="$dir/${SOURCE_FORMAT}/spec"
 
-export PERLIO=:unix:utf8
+#export PERLIO=:unix:utf8
 
 if [[ -z "$SCRIPTDIR" ]]; then
    SCRIPTDIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd -P)"
@@ -116,6 +118,7 @@ if [ ! -d "$OUTPUTDIR" ]; then
     mkdir "$OUTPUTDIR"
 fi
 
+
 #
 # A temporary directory.
 #
@@ -133,9 +136,11 @@ if [[ "$TRANSFORM_TABLES" != "yes" || "$TABLEENC" == "utf-8" || "$TABLEENC" == "
 
     # Remove BOM if present
     for file in "$DIR"/*"${TABLEEXT}"; do
-	LC_ALL=C sed -i '1s/^\xEF\xBB\xBF//' "$file"
+	if egrep '^\xEF\xBB\xBF' "$file" ; then
+	    LC_ALL=C sed -i '1s/^\xEF\xBB\xBF//' "$file"
+	fi
     done
-	
+
 else
     tabledir="${OUTPUTDIR}"/utf8dir
     mkdir -p "$tabledir"
@@ -267,6 +272,9 @@ if [[ "$FULL" == "yes" || ! -e "$OUTPUTDIR"/records.marc ]]; then
     fi
     if [[ "$ENCODING_HACK" == "yes" ]]; then
 	RECORDS_FLAGS+=" --encoding-hack"
+    fi
+    if [[ -n "$RECORD_SRC" ]]; then
+	RECORDS_FLAGS+=" --recordsrc=$RECORD_SRC"
     fi
     records.pl $RECORDS_FLAGS --flag-done --batch "$BATCH" --default-branchcode "$BRANCHCODE" --config $CONFIG --format $SOURCE_FORMAT --infile "$MARC" --outputdir "$OUTPUTDIR" $RECORDS_PARAMS $RECORDS_INPUT_FORMAT
 fi

@@ -1,0 +1,4 @@
+id	varchar	40
+deletable	boolean
+label	varchar	256
+number_of_days	int

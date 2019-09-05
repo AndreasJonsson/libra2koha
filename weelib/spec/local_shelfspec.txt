@@ -1,0 +1,2 @@
+id	varchar	40
+name	varchar	128
