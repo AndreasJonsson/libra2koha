@@ -233,7 +233,9 @@ sub to_marc {
 	    die "Don't know what to do with '$k' of value '" . $jsonobj->{$k} . "'";
 	}
     }
-    return $record;
+
+
+    return clean_record($record);
 }
 
 sub fetch_skoltermer {
@@ -282,6 +284,23 @@ sub num_records {
     }
     $self->reset;
     return $n;
+}
+
+sub clean_record {
+    my $record = shift;
+    my $cleaned = 0;
+    for my $field ($record->fields) {
+	my $pos = 0;
+	for my $subfield ($field->subfields) {
+	    if ($subfield->[1] eq '') {
+		$field->delete_subfield(code => $subfield->[0], pos => $pos);
+		$cleaned = 1;
+	    } else {
+		$pos++;
+	    }
+	}
+    }
+    return $record;
 }
 
 sub close {
