@@ -1,6 +1,7 @@
 SELECT CA_COPY.CA_COPY_ID AS IdItem,
        GE_ORG_ID_UNIT AS IdBranchCode,
-       CA_LOC_ID AS IdLocalShelf,
+       CA_COPY.CA_LOC_ID AS IdLocalShelf,
+       CA_LOC.`NAME` AS LocalShelf,
        NOTE AS Info,
        LATEST_LOAN_DATETIME AS LatestLoanDate,
        DEVIATING_LOCATION_MARC AS Location_Marc,
@@ -14,6 +15,7 @@ SELECT CA_COPY.CA_COPY_ID AS IdItem,
        LABEL AS BarCode,
        labels.row_number,
        IL_LOAN.IL_LOAN_ID IS NOT NULL AS IsRemote,
+       PUBLISH_NO AS `items.itemnotes`,
        CA_NOT_AVAILABLE_CAUSE_ID AS IdStatusCode
 FROM CA_COPY JOIN CA_CATALOG ON `ca_catalog.ca_catalog_id` = CA_COPY.CA_CATALOG_ID AND NOT CA_COPY.done
   LEFT OUTER JOIN CI_CAT USING(CI_CAT_ID)
@@ -21,11 +23,13 @@ FROM CA_COPY JOIN CA_CATALOG ON `ca_catalog.ca_catalog_id` = CA_COPY.CA_CATALOG_
   LEFT OUTER JOIN labels
     ON labels.CA_COPY_ID = CA_COPY.CA_COPY_ID AND labels.row_number = 0
   LEFT OUTER JOIN IL_LOAN ON CA_COPY.CA_COPY_ID = IL_LOAN.CA_COPY_ID
+  LEFT OUTER JOIN CA_LOC ON CA_COPY.CA_LOC_ID = CA_LOC.CA_LOC_ID
 WHERE `ca_catalog.title_no` = ?
 UNION
 SELECT CA_COPY.CA_COPY_ID AS IdItem,
        GE_ORG_ID_UNIT AS IdBranchCode,
-       CA_LOC_ID AS IdLocalShelf,
+       CA_COPY.CA_LOC_ID AS IdLocalShelf,
+       CA_LOC.`NAME` AS LocalShelf,
        NOTE AS Info,
        LATEST_LOAN_DATETIME AS LatestLoanDate,
        DEVIATING_LOCATION_MARC AS Location_Marc,
@@ -39,6 +43,7 @@ SELECT CA_COPY.CA_COPY_ID AS IdItem,
        LABEL AS BarCode,
        labels.row_number,
        IL_LOAN.IL_LOAN_ID IS NOT NULL AS IsRemote,
+       PUBLISH_NO AS `items.itemnotes`,
        CA_NOT_AVAILABLE_CAUSE_ID AS IdStatusCode
 FROM CA_COPY JOIN CA_CATALOG ON `ca_catalog.ca_catalog_id` = CA_COPY.CA_CATALOG_ID AND NOT CA_COPY.done
   LEFT OUTER JOIN CI_CAT USING(CI_CAT_ID)
@@ -46,4 +51,5 @@ FROM CA_COPY JOIN CA_CATALOG ON `ca_catalog.ca_catalog_id` = CA_COPY.CA_CATALOG_
   LEFT OUTER JOIN labels
     ON labels.CA_COPY_ID = CA_COPY.CA_COPY_ID AND labels.row_number = 0
   LEFT OUTER JOIN IL_LOAN ON CA_COPY.CA_COPY_ID = IL_LOAN.CA_COPY_ID
+  LEFT OUTER JOIN CA_LOC ON CA_COPY.CA_LOC_ID = CA_LOC.CA_LOC_ID
 WHERE CA_COPY.CA_CATALOG_ID = ?;

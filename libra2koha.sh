@@ -33,6 +33,7 @@ LIMIT=
 XML_OUTPUT=no
 ENCODING_HACK=no
 IGNORE_PERSNUMMER=no
+RECORD_PROCS=
 
 SOURCE_FORMAT=bookit
 
@@ -267,6 +268,12 @@ if [[ "$FULL" == "yes" || ! -e "$OUTPUTDIR"/records.marc ]]; then
     fi
     if [[ "$ENCODING_HACK" == "yes" ]]; then
 	RECORDS_FLAGS+=" --encoding-hack"
+    fi
+    if [[ -n "$RECORD_PROCS" ]]; then
+	RECORDS_FLAGS+=" --record-procs=$RECORD_PROCS"
+    fi
+    if [[ -n "$ITEM_PROCS" ]]; then
+	RECORDS_FLAGS+=" --item-procs=$ITEM_PROCS"
     fi
     records.pl $RECORDS_FLAGS --flag-done --batch "$BATCH" --default-branchcode "$BRANCHCODE" --config $CONFIG --format $SOURCE_FORMAT --infile "$MARC" --outputdir "$OUTPUTDIR" $RECORDS_PARAMS $RECORDS_INPUT_FORMAT
 fi

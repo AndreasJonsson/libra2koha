@@ -1,4 +1,4 @@
-create_tables.pl --format="$SOURCE_FORMAT" --quote='"' --headerrows=$HEADER_ROWS --encoding=utf8 --ext=$TABLEEXT --spec "$SPECDIR" --columndelimiter="$COLUMN_DELIMITER" --rowdelimiter='\r\n' --dir "$tabledir" --table "CI_LOAN" --table "CA_BOOKING" --table CI_LOAN_RETURN_LOG  --table "CI_REM" --table "CI_REM_MSG" --table "CI_REM_MSG_STATUS" --table SY_DEBT_TYPE --table SY_PAYMENT_TYPE | eval $MYSQL_LOAD
+create_tables.pl --yearoffsethack=50 --format="$SOURCE_FORMAT" --quote='"' --headerrows=$HEADER_ROWS --encoding=utf8 --ext=$TABLEEXT --spec "$SPECDIR" --columndelimiter="$COLUMN_DELIMITER" --rowdelimiter='\r\n' --dir "$tabledir" --table "CI_LOAN" --table "CA_BOOKING" --table CI_LOAN_RETURN_LOG  --table "CI_REM" --table "CI_REM_MSG" --table "CI_REM_MSG_STATUS" --table SY_DEBT_TYPE --table SY_PAYMENT_TYPE --table CI_RENEWAL | eval $MYSQL_LOAD
 # Now copy the BarCodes table so we can have one for items and one for borrowers
 $MYSQL <<EOF
 CREATE INDEX CI_LOAN_CA_COPY_ID ON CI_LOAN(CA_COPY_ID);
@@ -24,4 +24,6 @@ CREATE INDEX IL_LOAN_COPY_ID ON IL_LOAN(CA_COPY_ID);
 CREATE INDEX IL_LOAN_CATALOG_ID ON IL_LOAN(CA_CATALOG_ID);
 CREATE INDEX IL_LIBRARY_ID ON IL_LIBRARY(IL_LIBRARY_ID);
 CREATE INDEX IL_LIBRARY_GE_LIBRARY_ID ON IL_LIBRARY(GE_LIBRARY_ID);
+CREATE INDEX CI_RENEWAL_LOAN_ID ON CI_RENEWAL(CI_LOAN_ID);
+CREATE INDEX CI_RENEWAL_ID ON CI_RENEWAL(CI_RENEWAL_ID);
 EOF

@@ -7,7 +7,8 @@ SELECT
        barcodes.barcodes AS BorrowerBarcode,
        CI_LOAN.CI_BORR_ID AS IdBorrower,
        LOAN_DATETIME AS RegDate,
-       DUE_DATETIME AS EstReturnDate
+       DUE_DATETIME AS EstReturnDate,
+       (SELECT count(*) FROM CI_RENEWAL WHERE CI_RENEWAL.CI_LOAN_ID = CI_LOAN.CI_LOAN_ID) AS NoOfRenewals
 FROM
   CI_LOAN
   LEFT OUTER JOIN CI_ACCOUNT USING(CI_BORR_ID)

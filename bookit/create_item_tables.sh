@@ -1,5 +1,5 @@
 bib_tables="$(mktemp)"
-create_tables.pl --format="$SOURCE_FORMAT" --quote='"' --headerrows=$HEADER_ROWS --encoding=utf8 --ext=$TABLEEXT --spec "$SPECDIR" --columndelimiter="$COLUMN_DELIMITER" --rowdelimiter='\r\n' --dir "$tabledir" --table 'CA_COPY' --table 'CA_COPY_LABEL' --table 'CA_COPY_TYPE' --table 'CA_NOT_AVAILABLE_CAUSE' --table 'CA_MEDIA_TYPE' --table 'CI_UNIT' --table 'CA_CATALOG' --table 'GE_LA_KEY' --table 'GE_LA_TXT' --table CI_CAT --table IL_LOAN --table IL_STATUS --table IL_LIBRARY > "$bib_tables"
+create_tables.pl --format="$SOURCE_FORMAT" --quote='"' --headerrows=$HEADER_ROWS --encoding=utf8 --ext=$TABLEEXT --spec "$SPECDIR" --columndelimiter="$COLUMN_DELIMITER" --rowdelimiter='\r\n' --dir "$tabledir" --table 'CA_COPY' --table 'CA_COPY_LABEL' --table 'CA_COPY_TYPE' --table 'CA_NOT_AVAILABLE_CAUSE' --table 'CA_MEDIA_TYPE' --table 'CI_UNIT' --table 'CA_CATALOG' --table 'GE_LA_KEY' --table 'GE_LA_TXT' --table CI_CAT --table IL_LOAN --table IL_STATUS --table IL_LIBRARY --table CA_LOC > "$bib_tables"
 eval $MYSQL_LOAD < "$bib_tables"
 eval $MYSQL_LOAD <<'EOF'
 CREATE TABLE catalog_isbn_issn (CA_CATALOG_ID int, isbn VARCHAR(32), issn VARCHAR(32));
@@ -23,6 +23,8 @@ CREATE INDEX CA_NOT_AVAILABLE_CAUSE_ID_1 ON CA_NOT_AVAILABLE_CAUSE(CA_NOT_AVAILA
 CREATE INDEX CA_COPY_GE_ORG_ID_UNIT ON CA_COPY(GE_ORG_ID_UNIT);
 CREATE INDEX CA_COPY_LABEL_LABEL_TYPE ON CA_COPY_LABEL(LABEL_TYPE);
 CREATE INDEX CA_COPY_TYPE_ID ON CA_COPY_TYPE(CA_COPY_TYPE_ID);
+CREATE INDEX CA_LOC_ID ON CA_LOC(CA_LOC_ID);
+CREATE INDEX CA_LOC_NAME ON CA_LOC(NAME);
 CREATE TABLE labels (row_number int, CA_COPY_ID int, LABEL VARCHAR(256));
 
 SET @rn := 0;

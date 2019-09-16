@@ -81,6 +81,8 @@ my ($opt, $usage) = describe_options(
     [ 'string-original-id', 'If datatype of item original id is string.  Default is integer.' ],
     [ 'separate-items', 'Write items into separate sql-file.' ],
     [ 'encoding-hack', 'Set the charset to MARC-8 in the record before processing.' ],
+    [ 'record-procs=s', 'Custom record processors.' ],
+    [ 'item-procs=s', 'Custom record processors.' ],
     [],
     [ 'verbose|v',  "print extra stuff"            ],
     [ 'debug',      "Enable debug output" ],
@@ -135,6 +137,23 @@ if ($opt->separate_items) {
     $mmc = MarcUtil::MarcMappingCollection::marc_mappings(
     %common_marc_mappings
 	);
+}
+
+my @record_procs = ();
+my @item_procs = ();
+
+if (defined $opt->record_procs) {
+    for my $rpc (split ',', $opt->record_procs) {
+	eval "use $rpc; push \@record_procs, ${rpc}->new(\$opt);";
+	die if ($@);
+    }
+}
+
+if (defined $opt->item_procs) {
+    for my $ipc (split ',', $opt->item_procs) {
+	eval "use $ipc; push \@item_procs, ${ipc}->new(\$opt);";
+	die if ($@);
+    }
 }
 
 
@@ -731,8 +750,12 @@ this by checking for length greater than 1.
 =cut
 
         if ( defined $item->{'Info'} && length $item->{'Info'} > 1 ) {
-	    $mmc->set('internal_staff_note', $item->{'Info'}) if $item->{'Info'} ne ' ';
+	    $mmc->set('items.itemnotes_nonpublic', $item->{'Info'}) if $item->{'Info'} ne ' ';
         }
+
+	if ( defined $item->{'items.itemnotes'} ) {
+	    $mmc->set('items.itemnotes', $item->{'items.itemnotes'});
+	}
 
 =head3 952$8 Collection code
 
@@ -882,6 +905,10 @@ FIXME This should be done with a mapping file!
 	   $sth_done->execute( $item->{'IdItem'} );
         }
 
+	for my $ip (@item_procs) {
+	    $ip->process($mmc, $item);
+	}
+
         $count_items++;
 
       } # end foreach items
@@ -897,6 +924,10 @@ Just add the itemtype in 942$c.
 	  $last_itemtype = refine_itemtype( $mmc, $record, undef, $itemtype );
 	  
 	  $mmc->set('biblioitemtype', $last_itemtype);
+      }
+
+      for my $rp (@record_procs) {
+	  $rp->process($mmc, $record);
       }
 
       print IGNORED_BIBLIOS ($record->field('001')->data() . "\n") unless $includedItem || !$ignoredItem;

@@ -63,6 +63,7 @@ my ($opt, $usage) = describe_options(
     [ 'encoding=s',  'character encoding',      { default => 'utf-8' } ],
     [ 'specencoding=s',  'character encoding of specfile',      { default => 'utf-8' } ],
     [ 'quote=s',  'quote character', { default => undef } ],
+    [ 'yearoffsethack=i', 'Offset into future dates to guess century of two-digit years.', { default => 1 }],
     [ 'escape=s', 'escape character', { default => undef } ],
     [ 'use-bom', 'Use File::BOM', { default => 0 } ],
     [ 'headerrows=i', 'number of header rows',  { default => 0 } ],
@@ -97,12 +98,13 @@ sub bool_conversion {
 
 sub strtodate {
     my $f = shift;
+
     if ($f =~ /%y/) {
 	# Two digit years.  Only support dates up to one year into the future.
 	return sub {
 	    my $s = shift;
 	    return "IF (STR_TO_DATE($s, '" .
-		$f ."') > ADDDATE(CURRENT_DATE(), INTERVAL 1 YEAR), ADDDATE(STR_TO_DATE($s, '" .
+		$f ."') > ADDDATE(CURRENT_DATE(), INTERVAL " . $opt->yearoffsethack . " YEAR), ADDDATE(STR_TO_DATE($s, '" .
 		$f . "'), INTERVAL -100 YEAR), STR_TO_DATE($s, '" .
 		$f . "'))";
 	};
