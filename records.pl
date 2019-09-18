@@ -1,4 +1,4 @@
-#!/usr/bin/perl -d
+#!/usr/bin/perl
 
 # Copyright 2015 Magnus Enger Libriotech
 # Copyright 2017 Andreas Jonsson, andreas.jonsson@kreablo.se
@@ -504,6 +504,10 @@ L<http://wiki.koha-community.org/wiki/Holdings_data_fields_%289xx%29>
 	      say "Interesting record";
 	  }
 
+	  if ($recordid eq '7d4012a0-27cb-48ef-9f60-abb2488156ab') {
+	      say "Interesting record 2";
+	  }
+	  
 	  if ($format eq 'micromarc') {
 	      #$is_documentgroup_sth->execute( $recordid );
 	      #my @process = $is_documentgroup_sth->fetchrow_array;
@@ -563,9 +567,6 @@ L<http://wiki.koha-community.org/wiki/Holdings_data_fields_%289xx%29>
 
 	if ($branchcodes->{$item->{'IdBranchCode'}} eq '') {
 	    $ignoredItem++;
-	    if ($item->{'IdBranchCode'} eq '8b22d569-adb3-4513-bf31-f987f51e9876') {
-		die "Häggvik is ignored";
-	    }
 	    next ITEM;
 	}
 	my $iddepartment;
@@ -573,13 +574,13 @@ L<http://wiki.koha-community.org/wiki/Holdings_data_fields_%289xx%29>
 
 	if (defined($iddepartment) && $iddepartment eq 'IGNORE') {
 	    $ignoredItem++;
-	    if ($item->{'IdBranchCode'} eq '8b22d569-adb3-4513-bf31-f987f51e9876') {
-		die "Häggvik is ignored 2";
-	    }
 	    next ITEM;
 	};
 
 	$includedItem++;
+
+	$mmc->reset_items();
+
 	if ($opt->separate_items) {
 	    $mmc->new_item($item->{'IdItem'});
 	}
@@ -1295,6 +1296,7 @@ sub do_sierra_items {
     my $loc = shift;
 
     my @sysnumbers = $mmc->get('sierra_sysnumber');
+    $mmc->reset_items();
     if ($opt->separate_items) {
 	map { $mmc->new_item($_) } @sysnumbers;
     }

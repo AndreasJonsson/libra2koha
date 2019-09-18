@@ -299,6 +299,10 @@ sub clean_record {
 		$pos++;
 	    }
 	}
+	if (!$field->is_control_field && (!defined $field->subfields || scalar($field->subfields) == 0)) {
+	    $record->delete_fields($field);
+	    $cleaned = 1;
+	}
     }
     return $record;
 }

@@ -49,6 +49,7 @@ if [[ -n "$1" ]]; then
 	DBNAME="libra2koha";
     fi
 elif [[ -e "$dir"/config.inc ]]; then
+    echo include config INSTANCE $INSTANCE
     . "$dir"/config.inc
     if [[ -z "$DBNAME" ]]; then
 	DBNAME="libra2koha";
@@ -59,9 +60,12 @@ if [[ -e "$dir"/overrides.inc ]]; then
     . "$dir"/overrides.inc
 fi
 
-INSTANCE="$1"
+echo DIR $DIR dirname DIR $(dirname "$DIR")
+
 EXPORTCAT="$DIR/exportCat.txt"
-OUTPUTDIR="$DIR/../out"
+OUTPUTDIR="$(dirname "$DIR")/out"
+
+echo OUTPUTDIR $OUTPUTDIR
 
 mkdir -p "$OUTPUTDIR"
 
