@@ -15,15 +15,19 @@ sub new {
     my %locs = ();
 
     while (my $row = $csv->getline($fh)) {
-	my $loc = {};
+	my $loc = { key => 0 };
 	for (my $i = 0; $i < scalar(@$columns); $i++)  {
 	    add_col($columns, $row, $loc, $i);
 	}
-	my $key = $row->[0];
+	my $key = $loc->{key};
 	if ($key =~ /^(?:[(]?blank[)]?|(?: ?))$/i) {
 	    $key = '';
 	}
-	$locs{$key} = $loc;
+	if (defined $locs{key}) {
+	    push @{$locs{key}}, $loc;
+	} else {
+	    $locs{$key} = [$loc];
+	}
     }    
     
     return bless {
@@ -34,22 +38,34 @@ sub new {
 
 }
 
+sub trim {
+    my $_ = shift;
+    s/^\s*(.*)\s*$/$1/;
+    return $_;
+}
+
 sub add_col {
     my ($columns, $row, $loc, $i) = @_;
 
-    my $col = $columns->[$i];
+    my $col = trim($columns->[$i]);
 
     if ($col =~ /(koha)|(loc)|(local)|(location)|(local_?shelf)/i) {
-	$loc->{localshelf} = $row->[$i];
+	$loc->{localshelf} = trim($row->[$i]);
     } elsif ($col =~ /callnumber\.src/) {
 	my @src_callnumbers = split '\s*,\s*', $col;
 	$loc->{src_callnumbers} = \@src_callnumbers;
     } elsif ($col =~ /(ccode)|(collection.?code)/i) {
-	$loc->{ccode} = $row->[$i];
+	$loc->{ccode} = trim($row->[$i]);
     } elsif ($col =~ /(exemplartyp)|(itemtype)|(itype)/i) {
-	$loc->{itemtype} = $row->[$i];
+	$loc->{itemtype} = trim($row->[$i]);
+    } elsif ($col =~ /key/i) {
+	$loc->{key} = trim($row->[$i]);
     } elsif ($i != 0) {
 	warn "Unmapped column: " . $col;
+    }
+
+    if (!defined $loc->{key}) {
+	$loc->{key} = trim($row->[0]);
     }
 }
 
@@ -59,9 +75,16 @@ sub check {
 }
 
 sub match {
-    my ($loc, $item) = @_;
+    my ($loc, $item, $mmc) = @_;
 
     if (defined($loc->{src_callnumber})) {
+	my $cn0 = $mmc->get('call_number');
+	for my $cn (split '\s*.\s*', $loc->{src_callnumber}) {
+	    if ($cn0 == $cn) {
+		return 1;
+	    }
+	}
+	return 0;
     }
     return 1;
 }
@@ -74,19 +97,21 @@ sub process {
 	if ($l =~ m/^ ?$/) {
 	    $l = '';
 	}
-	my $loc = $self->{locs}->{$l};
-	if (defined($loc) && match($loc, $item)) {
-	    if (check($loc->{localshelf})) {
-		$mmc->set('items.location', $loc->{localshelf});
-	    }
-	    if (check($loc->{ccode})) {
-		$mmc->set('items.ccode', $loc->{ccode});
-	    }
-	    if (check($loc->{itemtype})) {
-		$mmc->set('items.itype', $loc->{itemtype});
-		if (!$mmc->get('biblioitemtype')) {
-		    $mmc->set('biblioitemtype', $loc->{itemtype});
+	for my $loc (@{$self->{locs}->{$l}}) {
+	    if (defined($loc) && match($loc, $item)) {
+		if (check($loc->{localshelf})) {
+		    $mmc->set('items.location', $loc->{localshelf});
 		}
+		if (check($loc->{ccode})) {
+		    $mmc->set('items.ccode', $loc->{ccode});
+		}
+		if (check($loc->{itemtype})) {
+		    $mmc->set('items.itype', $loc->{itemtype});
+		    if (!$mmc->get('biblioitemtype')) {
+			$mmc->set('biblioitemtype', $loc->{itemtype});
+		    }
+		}
+		last;
 	    }
 	}
     }
