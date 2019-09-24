@@ -1,7 +1,7 @@
 
 create_tables.pl  --format="$SOURCE_FORMAT" --quote='"' --headerrows=$HEADER_ROWS --encoding=utf8 --ext=$TABLEEXT  --spec "$SPECDIR" --columndelimiter="$COLUMN_DELIMITER" --rowdelimiter='\r\n' --dir "$tabledir" --table "CI_BORR" --table CI_ACCOUNT --table CI_ACCOUNT_CARD --table "CI_BORR_PHONE" --table "CI_BORR_CARD" --table "CI_BORR_ADDR" --table "CI_BORR_MESSAGE" --table CI_COUNTRY --table CI_BORR_CAT --table CI_BORR_EMAIL --table CI_DEBT --table CI_DEBT_PAYMENT --table CI_BORR_EVENT --table SY_CI_PARAM --table SY_CI_EVENT_TYPE --table SY_ALERT_TYPE --table SY_SEX --table SY_USER --table CI_REM --table CI_REM_MSG --table CI_REM_MSG_STATUS --table CI_REM_MSG_OCCATION | eval $MYSQL_LOAD
 
-create_tables.pl  --format="$SOURCE_FORMAT" --quote='"' --headerrows=$HEADER_ROWS --encoding=utf8 --ext=$TABLEEXT  --spec "$SPECDIR" --columndelimiter="$COLUMN_DELIMITER" --rowdelimiter='\r\n' --dir "$tabledir" --table "GE_ADDR" --table "GE_AUTO_UPDATE_TYPE" --table "GE_CURRENCY" --table "GE_LIBRARY" --table "GE_MSG_LANGUAGE" --table "GE_ORDER_LANGUAGE" --table "GE_ORG" --table "GE_PREMISES"  --table "GE_SEND_OCCATION"  --table "SY_GE_MSG_TYPE" --table "SY_GE_MSG_FORM" --table "SY_GE_FORMAT"| eval $MYSQL_LOAD
+create_tables.pl  --format="$SOURCE_FORMAT" --quote='"' --headerrows=$HEADER_ROWS --encoding=utf8 --ext=$TABLEEXT  --spec "$SPECDIR" --columndelimiter="$COLUMN_DELIMITER" --rowdelimiter='\r\n' --dir "$tabledir" --table "GE_ADDR" --table "GE_AUTO_UPDATE_TYPE" --table "GE_CURRENCY" --table "GE_LIBRARY" --table "GE_MSG_LANGUAGE" --table "GE_ORDER_LANGUAGE" --table "GE_ORG" --table "GE_PREMISES"  --table "GE_SEND_OCCATION"  --table "SY_GE_MSG_TYPE" --table "SY_GE_MSG_FORM" --table "SY_GE_FORMAT" --table "CI_BORR_EXTRA_1"| eval $MYSQL_LOAD
 
 eval $MYSQL_LOAD <<EOF 
 CREATE INDEX Borrowers_Id ON CI_BORR(CI_BORR_ID);
@@ -25,6 +25,7 @@ CREATE INDEX SY_CI_EVENT_TYPE_ID ON SY_CI_EVENT_TYPE(SY_CI_EVENT_TYPE_ID);
 CREATE INDEX CI_BORR_EVENT_UNIT_ID ON CI_BORR_EVENT(CI_UNIT_ID);
 CREATE INDEX CI_BORR_EVENT_CATALOG_ID ON CI_BORR_EVENT(CA_CATALOG_ID);
 CREATE INDEX CI_BORR_EVENT_BORR_ID ON CI_BORR_EVENT(CI_BORR_ID);
+CREATE INDEX CI_BORR_EXTRA_1_ID ON CI_BORR_EXTRA_1(CI_BORR_EXTRA_1_ID);
 CREATE INDEX CI_LOAN_ID ON CI_BORR_EVENT(CI_LOAN_ID);
 CREATE INDEX SY_ALERT_TYPE_ID ON SY_ALERT_TYPE(SY_ALERT_TYPE_ID);
 CREATE INDEX CI_COUNTRY_ID ON CI_COUNTRY(CI_COUNTRY_ID);
