@@ -1,4 +1,4 @@
-#!/usr/bin/perl
+#!/usr/bin/perl -d
 
 # Copyright 2015 Magnus Enger Libriotech
 # Copyright 2017 Andreas Jonsson, andreas.jonsson@kreablo.se
@@ -560,18 +560,6 @@ L<http://wiki.koha-community.org/wiki/Holdings_data_fields_%289xx%29>
     ITEM: while (my $item = $sth->fetchrow_hashref) {
         say Dumper $item if $opt->debug;
 
-	# RANSTA SPECIAL
-	if (defined($branchcodes->{$item->{'IdBranchCode'}}) && $branchcodes->{$item->{'IdBranchCode'}} eq 'RANSTA') {
-	    my  $children = defined($item->{DepartmentName}) && $item->{DepartmentName} eq 'Barn';
-	    if ($children) {
-		unless (defined($item->{'IdLocalShelf'}) && ($loc->{ $item->{'IdLocalShelf'} } eq 'BILDERBOK' || $loc->{ $item->{'IdLocalShelf'} } eq 'BPEK'
-			|| $loc->{ $item->{'IdLocalShelf'} } eq 'BSAGOR' || $item->{'IdLocalShelf'} == 76)) {
-		    $ignoredItem++;
-		    next ITEM;
-		}
-	    }
-	}
-
 	if (!defined($item->{IdItem}) || $item->{IdItem} eq '') {
 	    say STDERR Dumper($item);
 	}
@@ -613,7 +601,6 @@ which values are actually in use:
   select IdLocalShelf, count(*) from Items group by IdLocalShelf
 
 =cut
-
 	my $localshelf;
 	if (defined($item->{'LocalShelf'})) {
 	    $localshelf = $item->{'LocalShelf'};
@@ -898,8 +885,7 @@ FIXME This should be done with a mapping file!
 		$mmc->set($lp[$i], $lp[$i + 1]);
 	    }
 	}
-	
-	    
+
         # Mark the item as done, if we are told to do so
         if ( $opt->flag_done ) {
 	   $sth_done->execute( $item->{'IdItem'} );

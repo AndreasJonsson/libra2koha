@@ -23,8 +23,8 @@ sub new {
 	if ($key =~ /^(?:[(]?blank[)]?|(?: ?))$/i) {
 	    $key = '';
 	}
-	if (defined $locs{key}) {
-	    push @{$locs{key}}, $loc;
+	if (defined $locs{$key}) {
+	    push @{$locs{$key}}, $loc;
 	} else {
 	    $locs{$key} = [$loc];
 	}
@@ -52,7 +52,7 @@ sub add_col {
     if ($col =~ /(koha)|(loc)|(local)|(location)|(local_?shelf)/i) {
 	$loc->{localshelf} = trim($row->[$i]);
     } elsif ($col =~ /callnumber\.src/) {
-	my @src_callnumbers = split '\s*,\s*', $col;
+	my @src_callnumbers = split '\s*,\s*', $row->[$i];
 	$loc->{src_callnumbers} = \@src_callnumbers;
     } elsif ($col =~ /(ccode)|(collection.?code)/i) {
 	$loc->{ccode} = trim($row->[$i]);
@@ -77,10 +77,10 @@ sub check {
 sub match {
     my ($loc, $item, $mmc) = @_;
 
-    if (defined($loc->{src_callnumber})) {
+    if (defined($loc->{src_callnumbers}) && scalar(@{$loc->{src_callnumbers}}) > 0) {
 	my $cn0 = $mmc->get('call_number');
-	for my $cn (split '\s*.\s*', $loc->{src_callnumber}) {
-	    if ($cn0 == $cn) {
+	for my $cn (@{$loc->{src_callnumbers}}) {
+	    if ($cn0 eq $cn) {
 		return 1;
 	    }
 	}
@@ -98,7 +98,7 @@ sub process {
 	    $l = '';
 	}
 	for my $loc (@{$self->{locs}->{$l}}) {
-	    if (defined($loc) && match($loc, $item)) {
+	    if (defined($loc) && match($loc, $item, $mmc)) {
 		if (check($loc->{localshelf})) {
 		    $mmc->set('items.location', $loc->{localshelf});
 		}
