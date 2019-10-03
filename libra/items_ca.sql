@@ -1,4 +1,4 @@
-SELECT Items.*, BarCodes.BarCode, StatusCodes.Name AS StatusName, LoanPeriods.Name AS LoanPeriodName, Departments.Name AS DepartmentName
+SELECT Items.*, NoOfLoansTot AS LoanCount, BarCodes.BarCode, StatusCodes.Name AS StatusName, LoanPeriods.Name AS LoanPeriodName, Departments.Name AS DepartmentName
 FROM Items
   LEFT OUTER JOIN CatJoin USING(IdItem)
   JOIN CA_CATALOG ON CatJoin.IdCat = CA_CATALOG_ID
@@ -8,7 +8,7 @@ FROM Items
   LEFT OUTER JOIN Departments ON Departments.IdDepartment = Items.IdDepartment
 WHERE CA_CATALOG.TITLE_NO = ?
 UNION
-SELECT Items.*, BarCodes.BarCode, StatusCodes.Name AS StatusName, LoanPeriods.Name AS LoanPeriodName, Departments.Name AS DepartmentName
+SELECT Items.*, NoOfLoansTot AS LoanCount, BarCodes.BarCode, StatusCodes.Name AS StatusName, LoanPeriods.Name AS LoanPeriodName, Departments.Name AS DepartmentName
 FROM Items
   LEFT OUTER JOIN CatJoin USING(IdItem)
   JOIN CA_CATALOG ON CatJoin.IdCat = CA_CATALOG_ID
