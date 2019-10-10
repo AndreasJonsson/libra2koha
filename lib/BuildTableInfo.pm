@@ -95,7 +95,11 @@ sub build_table_info {
 	if (!$csvfiles->{$_}->{missingspec}) {
 	    my $specfile = $opt->spec . "/" . $specfiles->{$base}->{filename};
 	    print STDERR ("Opening spec file $specfile encoding: " . $opt->specencoding . "\n") if $opt->verbose;
-	    open $fh, ("<:encoding(" . $opt->specencoding . ")"), $specfile;
+	    if ($opt->use_bom) {
+		open $fh, ("<:encoding(" . $opt->specencoding . "):via(File::BOM)"), $specfile;
+	    } else {
+		open $fh, ("<:encoding(" . $opt->specencoding . ")"), $specfile;
+	    }
 	    print STDERR "Done open" if $opt->verbose;
 	    my %columns_spec = ();
 	    $i = 0;

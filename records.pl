@@ -1,4 +1,4 @@
-#!/usr/bin/perl -d
+#!/usr/bin/perl
 
 # Copyright 2015 Magnus Enger Libriotech
 # Copyright 2017 Andreas Jonsson, andreas.jonsson@kreablo.se
@@ -149,11 +149,10 @@ if (defined $opt->record_procs) {
     }
 }
 
-if (defined $opt->item_procs) {
-    for my $ipc (split ',', $opt->item_procs) {
-	eval "use $ipc; push \@item_procs, ${ipc}->new(\$opt);";
-	die if ($@);
-    }
+for my $ipc ((defined $opt->item_procs ? (split ',', $opt->item_procs) : ()), 'ItemStatProcessor') {
+    say STDERR $ipc;
+    eval "use $ipc; push \@item_procs, ${ipc}->new(\$opt);";
+    die if ($@);
 }
 
 
@@ -254,7 +253,6 @@ if (  scalar(@input_files) < 1 ) {
     exit;
 }
 
-#$limit = 167559;
 $limit = num_records_($input_file) if $limit == 0;
 
 print "There are $limit records in $input_file\n";

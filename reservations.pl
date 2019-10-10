@@ -211,7 +211,6 @@ while (my $row = $sth->fetchrow_hashref()) {
     } else {
 	$row->{original_item_id} = 'NULL';
     }
-	
 
     my $params = {
 	isbn_issn        => $dbh->quote($row->{ISBN_ISSN}),
