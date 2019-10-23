@@ -52,8 +52,10 @@ sub add_col {
     if ($col =~ /(koha)|(loc)|(local)|(location)|(local_?shelf)/i) {
 	$loc->{localshelf} = trim($row->[$i]);
     } elsif ($col =~ /callnumber\.src/) {
-	my @src_callnumbers = split '\s*,\s*', $row->[$i];
+	my @src_callnumbers = map {trim($_)} split '\s*,\s*', $row->[$i], -1;
 	$loc->{src_callnumbers} = \@src_callnumbers;
+    } elsif ($col =~ /ccode\.src/) {
+	$loc->{src_ccode} = trim($row->[$i]);
     } elsif ($col =~ /(ccode)|(collection.?code)/i) {
 	$loc->{ccode} = trim($row->[$i]);
     } elsif ($col =~ /(exemplartyp)|(itemtype)|(itype)/i) {
@@ -86,6 +88,15 @@ sub match {
 	}
 	return 0;
     }
+
+    if (defined($loc->{src_ccode}) && $loc->{src_ccode} ne '') {
+	my $ccode = $mmc->get('items.ccode');
+	if (trim($ccode) eq $loc->{src_ccode}) {
+	    return 1;
+	}
+	return 0;
+    }
+
     return 1;
 }
 
@@ -93,22 +104,22 @@ sub process {
     my ($self, $mmc, $item) = @_;
 
     if (defined($item->{LocalShelf})) {
-	my $l = $item->{LocalShelf};
+	my $l = trim($item->{LocalShelf});
 	if ($l =~ m/^ ?$/) {
 	    $l = '';
 	}
 	for my $loc (@{$self->{locs}->{$l}}) {
 	    if (defined($loc) && match($loc, $item, $mmc)) {
 		if (check($loc->{localshelf})) {
-		    $mmc->set('items.location', $loc->{localshelf});
+		    $mmc->set('items.location', trim($loc->{localshelf}));
 		}
 		if (check($loc->{ccode})) {
-		    $mmc->set('items.ccode', $loc->{ccode});
+		    $mmc->set('items.ccode', trim($loc->{ccode}));
 		}
 		if (check($loc->{itemtype})) {
-		    $mmc->set('items.itype', $loc->{itemtype});
+		    $mmc->set('items.itype', trim($loc->{itemtype}));
 		    if (!$mmc->get('biblioitemtype')) {
-			$mmc->set('biblioitemtype', $loc->{itemtype});
+			$mmc->set('biblioitemtype', trim($loc->{itemtype}));
 		    }
 		}
 		last;

@@ -750,7 +750,7 @@ We base this on the Departments table and the value of Items.IdDepartment value.
 
 =cut
 
-	$mmc->set('collection_code',  $iddepartment ) if defined($iddepartment);
+	$mmc->set('items.ccode',  $iddepartment ) if defined($iddepartment);
 
 
 =head3 952$y Itemtype (mandatory)
@@ -1116,7 +1116,7 @@ sub refine_itemtype {
     }
 
     my $classificationcode = $mmc->get('klassifikationskod');
-    my $ccode = $mmc->get('collection_code');
+    my $ccode = $mmc->get('items.ccode');
 
     my $checkccall = sub {
 	my $re = shift;

@@ -243,11 +243,11 @@ RECORD: while ( my $borrower = $sth->fetchrow_hashref() ) {
     my $isKohaMarked = 0;
     my @messages = ();
     if ($borrower->{'Message'}) {
-       #$isKohaMarked = $borrower->{'Message'} =~ /\bkoha\b/i;
+       $isKohaMarked = $borrower->{'Message'} =~ /\bKOHAAKTIV\b/i;
        push @messages, { text => $dbh->quote($borrower->{'Message'})};
     }
     if ($borrower->{'Comment'}) {
-     	#$isKohaMarked = $isKohaMarked or $borrower->{'Comment'} =~ /\bkoha\b/i;
+     	$isKohaMarked = $isKohaMarked or $borrower->{'Comment'} =~ /\bKOHAAKTIV\b/i;
     	push @messages, { text => $dbh->quote($borrower->{'Comment'}) };
     }
 
