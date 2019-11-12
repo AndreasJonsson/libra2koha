@@ -67,7 +67,7 @@ my $config_dir = $opt->config;
 my $limit = $opt->limit;
 
 if ($opt->passwords) {
- #   use Koha::AuthUtils qw(hash_password);
+    use Koha::AuthUtils qw(hash_password);
 }
 
 =head1 CONFIG FILES
@@ -205,6 +205,7 @@ RECORD: while ( my $borrower = $sth->fetchrow_hashref() ) {
     }
 
     my @barcodes = ();
+    my @borrower_attributes = ();
 
     if ( !defined($borrower->{'BarCode'}) || $borrower->{'BarCode'} eq '' ) {
         $borrower->{'cardnumber_str'} = "NULL";
@@ -216,8 +217,6 @@ RECORD: while ( my $borrower = $sth->fetchrow_hashref() ) {
     if ( !defined($borrower->{updated_on}) || $borrower->{updated_on} eq '' ) {
 	$borrower->{updated_on} = "'" . DateTime->now->strftime( '%F' ) .  "'";
     }
-
-    my @borrower_attributes = ();
 
     for my $key (keys %$borrower) {
 	if ($key =~ /^BorrowerAttribute:([^:]+)(?:[:](.*))?$/) {
@@ -237,17 +236,18 @@ RECORD: while ( my $borrower = $sth->fetchrow_hashref() ) {
 	}
     }
 
-    set_address( $borrower );
+    set_address( $borrower, \@borrower_attributes );
     set_debarments( $borrower );
 
     my $isKohaMarked = 0;
     my @messages = ();
+
     if ($borrower->{'Message'}) {
        $isKohaMarked = $borrower->{'Message'} =~ /\bKOHAAKTIV\b/i;
        push @messages, { text => $dbh->quote($borrower->{'Message'})};
     }
     if ($borrower->{'Comment'}) {
-     	$isKohaMarked = $isKohaMarked or $borrower->{'Comment'} =~ /\bKOHAAKTIV\b/i;
+     	$isKohaMarked = $isKohaMarked || $borrower->{'Comment'} =~ /\bKOHAAKTIV\b/i;
     	push @messages, { text => $dbh->quote($borrower->{'Comment'}) };
     }
 
@@ -264,7 +264,7 @@ RECORD: while ( my $borrower = $sth->fetchrow_hashref() ) {
     # Do transformations
     # Add a branchcode
     $borrower->{'branchcode'} = defined($borrower->{'IdBranchCode'}) ? $branchcodes->{ $borrower->{'IdBranchCode'} } : $branchcodes->{ '10000' };
-    next RECORD if (!defined($borrower->{'branchcode'}) or $borrower->{'branchcode'} eq '');
+    next RECORD if (!defined($borrower->{'branchcode'}) || $borrower->{'branchcode'} eq '');
     _quoten(\$borrower->{'branchcode'});
     
     $borrower->{'dateofbirth'} = ds($borrower->{'BirthDate'});
@@ -273,16 +273,17 @@ RECORD: while ( my $borrower = $sth->fetchrow_hashref() ) {
     if ($borrower->{'Expires'}) {
 	$borrower->{'dateexpiry'} = "'" . $borrower->{'Expires'} . "'";
     } else {
-	$borrower->{'dateexpiry'} = "'" . DateTime->now->add( 'years' => 3 )->strftime( '%F' ) . "'";
-    }
-    if ($opt->expire_all) {
-	$borrower->{'dateexpiry'}  = '"' . DateTime->now->subtract( 'days' => 1 )->strftime( '%F' ) . '"';
+	if ($opt->expire_all) {
+	    $borrower->{'dateexpiry'}  = '"' . DateTime->now->subtract( 'days' => 1 )->strftime( '%F' ) . '"';
+	} else {
+	    $borrower->{'dateexpiry'} = "'" . DateTime->now->add( 'years' => 3 )->strftime( '%F' ) . "'";
+	}
+	if ($isKohaMarked) {
+	    $borrower->{'dateexpiry'}   = '"' . DateTime->now->add( 'years' => 1000 )->strftime( '%F' ) . '"';
+	}
     }
 
-    #if ($isKohaMarked) {
-    # $borrower->{'dateexpiry'}   = '"' . DateTime->now->add( 'years' => 1000 )->strftime( '%F' ) . '"';
-    #} else {
-    #}
+
     #if (!defined($patroncategories->{ $borrower->{'IdBorrowerCategory'} })) {
     #print STDERR "IdBorrowerCategory not defined:\n";
     #print STDERR Dumper( $borrower );
@@ -292,7 +293,7 @@ RECORD: while ( my $borrower = $sth->fetchrow_hashref() ) {
     } else {
 	$borrower->{'categorycode'} = $patroncategories->{ $borrower->{'IdBorrowerCategory'} };
     }
-    next if (!defined($borrower->{'categorycode'}) or $borrower->{'categorycode'} eq '');
+    next if (!defined($borrower->{'categorycode'}) || $borrower->{'categorycode'} eq '');
 
     my $dateofbirth = dp($borrower->{'BirthDate'});
     if (defined $dateofbirth) {
@@ -465,6 +466,7 @@ sub _quoten {
 # Fill out converted address fields.
 sub set_address {
     my $borrower = shift;
+    my $borrower_attributes = shift;
 
     $addresses_sth->execute( $borrower->{IdBorrower} );
 
@@ -472,13 +474,13 @@ sub set_address {
     my $pre;
 
     while (my $addr = $addresses_sth->fetchrow_hashref()) {
+	my $extra = 0;
         if ($n_addr == 0) {
             $pre = '';
         } elsif ($n_addr == 1) {
             $pre = 'B_';
         } else {
-            print(STDERR ("Borrower has more than 2 addresses: " . $borrower->{IdBorrower} . "\n"));
-            last;
+	    $extra = 1;
         }
 
 	my @lines = ();
@@ -511,12 +513,25 @@ sub set_address {
 	push @lines, clean_control($addr->{Address2}) if (defined($addr->{Address2}) && !($addr->{Address2} =~ /^ *$/));
 	push @lines, clean_control($addr->{Address3}) if (defined($addr->{Address3}) && !($addr->{Address3} =~ /^ *$/));
 
-	$borrower->{"${pre}address"} = shift @lines;
-        $borrower->{"${pre}address2"} = join ', ', @lines;
+	if ($extra) {
+	    push @lines, clean_control($addr->{ZipCode}) if (defined($addr->{ZipCode}));
+	    push @lines, clean_control($addr->{City})    if (defined($addr->{City}));
+	    push @lines, clean_control($addr->{Country}) if (defined($addr->{Country}));
+	    push @$borrower_attributes, {
+		'code' => $dbh->quote('EXTRAADDR'),
+	        'attribute' => $dbh->quote(join "\n", @lines)
+	    };
+	    
+            last;
 
-        $borrower->{"${pre}zipcode"} = clean_control($addr->{ZipCode}) if (defined($addr->{ZipCode}));
-        $borrower->{"${pre}country"} = clean_control($addr->{Country}) if (defined($addr->{Country}));
-        $borrower->{"${pre}city"}    = clean_control($addr->{City})    if (defined($addr->{City}));
+	} else {
+	    $borrower->{"${pre}address"} = shift @lines;
+	    $borrower->{"${pre}address2"} = join ', ', @lines;
+
+	    $borrower->{"${pre}zipcode"} = clean_control($addr->{ZipCode}) if (defined($addr->{ZipCode}));
+	    $borrower->{"${pre}country"} = clean_control($addr->{Country}) if (defined($addr->{Country}));
+	    $borrower->{"${pre}city"}    = clean_control($addr->{City})    if (defined($addr->{City}));
+	}
     }
 
 
@@ -543,18 +558,26 @@ sub set_address {
 
         next unless defined($phone->{PhoneNumber}) and $phone->{PhoneNumber} ne '';
       RETRY: while (1) {
+	  my $extra = 0;
 	  if ($phone->{Type} eq 'E') {
 	      if ($n_email == 0) {
 		  $pre = '';
 	      } elsif ($n_email == 1) {
 		  $pre = 'B_';
 	      } else {
-		  print(STDERR ("Borrower has more than 2 email addresses: " . $borrower->{IdBorrower} . "\n"));
+		  $extra = 1;
 	      }
 
 	      $n_email++;
 
-	      $borrower->{"${pre}email"} = clean_control($phone->{PhoneNumber});
+	      if ($extra) {
+		  push @$borrower_attributes, {
+		      'code' => $dbh->quote('EMAIL'),
+		      'attribute' => $dbh->quote(clean_control($phone->{PhoneNumber}))
+		  };
+	      } else {
+		  $borrower->{"${pre}email"} = clean_control($phone->{PhoneNumber});
+	      }
 	  } elsif ($phone->{Type} eq 'T') {
 	      if (Email::Valid->address($phone->{PhoneNumber})) {
 		  $phone->{Type} = 'E';
@@ -565,13 +588,19 @@ sub set_address {
 	      } elsif ($n_phone == 1) {
 		  $pre = 'B_';
 	      } else {
-		  print(STDERR ("Borrower has more than 2 phone numbers: " . $borrower->{IdBorrower} . "\n"));
-		  print STDERR "Skipping '" . $phone->{PhoneNumber} . "'\n";
+		  $extra = 1;
 	      }
 
 	      $n_phone++;
 
-	      $borrower->{"${pre}phone"} = clean_control($phone->{PhoneNumber});
+	      if ($extra) {
+		  push @$borrower_attributes, {
+		      'code' => $dbh->quote('PHONE'),
+		      'attribute' => $dbh->quote(clean_control($phone->{PhoneNumber}))
+		  };
+	      } else {
+		  $borrower->{"${pre}phone"} = clean_control($phone->{PhoneNumber});
+	      }
 	  } elsif ($phone->{Type} eq 'M') {
 	      if (Email::Valid->address($phone->{PhoneNumber})) {
 		  $phone->{Type} = 'E';
@@ -585,12 +614,18 @@ sub set_address {
 		      $phone->{PhoneNumber} = $tmpphone;
 		      $phone->{Type} = 'T';
 		  } else {
-		      print(STDERR ("Borrower has more than 3 phone numbers: " . $borrower->{IdBorrower} . "\n"));
-		      last RETRY;
+		      $extra = 1;
 		  }
 	      }
 	      $n_mob++;
-	      $borrower->{"mobile"} = clean_control($phone->{PhoneNumber});
+	      if ($extra) {
+		  push @$borrower_attributes, {
+		      'code' => $dbh->quote('MOBILEPHONE'),
+		      'attribute' => $dbh->quote(clean_control($phone->{PhoneNumber}))
+		  };
+	      } else {
+		  $borrower->{"mobile"} = clean_control($phone->{PhoneNumber});
+	      }
 	  } else {
 	      print(STDERR ("Borrower has unknown phone number type: '" . $phone->{Type} . "', " . $borrower->{IdBorrower} . "\n"));
 	  }
