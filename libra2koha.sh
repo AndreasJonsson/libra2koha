@@ -34,6 +34,7 @@ XML_OUTPUT=no
 ENCODING_HACK=no
 IGNORE_PERSNUMMER=no
 RECORD_PROCS=
+INCLUDE_PASSWORDS=no
 
 SOURCE_FORMAT=bookit
 
@@ -323,6 +324,10 @@ if [[ "$FULL" == "yes" || ! -e $BORROWERSSQL ]]; then
     if [[ "$IGNORE_PERSNUMMER" == "yes" ]]; then
         BORROWERS_FLAGS+=" --ignore-persnummer"
     fi
+    if [[ "$INCLUDE_PASSWORDS" == "yes" ]]; then
+	BORROWERS_FLAGS+=" --passwords"
+    fi
+	 
     echo perl borrowers.pl $BORROWERS_FLAGS
     perl borrowers.pl $BORROWERS_FLAGS > $BORROWERSSQL
     echo "done"
