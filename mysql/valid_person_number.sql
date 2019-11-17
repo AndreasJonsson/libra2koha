@@ -1,5 +1,5 @@
 DELIMITER //
-CREATE OR REPLACE FUNCTION valid_personnummer(s VARCHAR(16))
+CREATE OR REPLACE FUNCTION valid_personnummer(s VARCHAR(256))
   RETURNS BOOLEAN
   BEGIN
     IF NOT s REGEXP '^((19)|(20))?[[:digit:]]{6}[\\-\\+]?[[:digit:]]{4}$' THEN
@@ -31,7 +31,7 @@ CREATE OR REPLACE FUNCTION valid_personnummer(s VARCHAR(16))
 DELIMITER ;
 
 DELIMITER //
-CREATE OR REPLACE FUNCTION valid_samordningsnummer(s VARCHAR(16))
+CREATE OR REPLACE FUNCTION valid_samordningsnummer(s VARCHAR(256))
   RETURNS BOOLEAN
   BEGIN
     IF NOT s REGEXP '^((19)|(20))?[[:digit:]]{6}[\\-\\+]?[[:digit:]]{4}$' THEN

@@ -173,6 +173,9 @@ EOF
 
 while (my $row = $sth->fetchrow_hashref()) {
 
+    my $pickbranch = $branchcodes->{$row->{'FromIdBranchCode'}};
+    next if (!defined $pickbranch || $pickbranch eq '');
+
     if (!defined($priorities{$row->{IdCat}})) {
 	$priorities{$row->{IdCat}} = 1;
     } else {
@@ -219,7 +222,7 @@ while (my $row = $sth->fetchrow_hashref()) {
 	item_barcode     => $dbh->quote($row->{ItemBarCode}),
 	reservedate      => ds($row->{ResDate}),
 	holdingbranch    => $dbh->quote($branchcodes->{$row->{'FromIdBranchCode'}}),
-	pickbranch       => $dbh->quote($branchcodes->{$row->{'GetIdBranchCode'}}),
+	pickbranch       => $dbh->quote($pickbranch),
 	notificationdate => ds($row->{SendDate}),
 	reminderdate     => ds($row->{NotificationDate}),
 	cancellationdate => 'NULL',

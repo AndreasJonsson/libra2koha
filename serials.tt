@@ -1,3 +1,55 @@
+SET @BIBLIONUMBER = NULL;
+
+SELECT biblionumber FROM
+(
+ SELECT biblionumber FROM k_biblio_identification
+ WHERE titleno = [% titleno %] AND batch = [% batch %]
+UNION
+ SELECT biblionumber FROM k_merged_records
+ WHERE titleno = [% titleno %] AND batch = [% batch %]
+UNION
+ SELECT biblionumber FROM k_biblio_identification
+ WHERE marc001 = [% titleno %] AND batch = [% batch %]
+UNION
+ SELECT biblionumber FROM k_merged_records
+ WHERE marc001 = [% titleno %] AND batch = [% batch %]
+) AS T LIMIT 1 INTO @BIBLIONUMBER;
+
+
+INSERT IGNORE INTO subscription (
+    biblionumber,
+    librarian,
+    startdate,
+    enddate,
+    firstacquidate,
+    reneweddate,
+    notes,
+    internalnotes,
+    cost,
+    location,
+    branchcode,
+    status,
+    closed
+
+) VALUES (@BIBLIONUMBER, [% librarian %], [% startdate %],
+  [% enddate %],
+  [% firstacquidate %],
+  [% reneweddate %],
+  [% notes %],
+  [% internalnotes %],
+  [% cost %],
+  [% location %],
+  [% branchcode %],
+  [% status %],
+  [% closed %]);
+
+
+SELECT LAST_INSERT_ID() INTO @SUBSCRIPTIONID;
+
+INSERT INTO k_subscription_idmap (original_id, subscriptionid, batch)
+  SELECT [% original_id %], LAST_INSERT_ID(), [% batch %] FROM DUAL WHERE @BIBLIONUMBER IS NOT NULL;
+
+[% FOREACH serial IN serials %]
 
 SET @BIBLIONUMBER = NULL;
 
@@ -10,24 +62,23 @@ UNION
  WHERE CONCAT(IFNULL(marc003, ''), marc001) = [% titleno %] AND batch = [% batch %]
 ) AS T LIMIT 1 INTO @BIBLIONUMBER;
 
-SELECT @BIBLIONUMBER IS NOT NULL AND (@PREVBIBLIONUMBER IS NULL OR @BIBLIONUMBER != @PREVBIBLIONUMBER) INTO @CREATE_NEW_SUBSCRIPTION;
-SELECT IFNULL(@BIBLIONUMBER, @PREVBIBLIONUMBER) INTO @PREVBIBLIONUMBER;
 
-INSERT INTO subscription (biblionumber, serialsadditems, branchcode) SELECT @BIBLIONUMBER, 1, [% branchcode_str %] FROM DUAL WHERE @CREATE_NEW_SUBSCRIPTION;
-SELECT IF (@CREATE_NEW_SUBSCRIPTION, CONVERT(LAST_INSERT_ID(), CHAR), @SUBSCRIPTIONID) INTO @SUBSCRIPTIONID;
+INSERT IGNORE INTO serial  ( biblionumber,       subscriptionid,    serialseq,       serialseq_x,       serialseq_y,       status,       planneddate,           publisheddate, publisheddatetext, claimdate, claims_count, routingnotes)
+VALUES
+(@BIBLIONUMBER,      @SUBSCRIPTIONID, [% serial.serialseq %], [% serial.serialseq_x %], [% serial.serialseq_y %], [% serial.status %], [% serial.planneddate %], [% serial.publisheddate %], [% serial.publisheddatetext %], [% serial.claimdate %], [% serial.claims_count %], [% serial.routingnotes %]);
 
-INSERT INTO serial  ( biblionumber,       subscriptionid,    serialseq,       serialseq_x,       serialseq_y,       status,       planneddate,           publisheddate)
-       SELECT        @BIBLIONUMBER,      @SUBSCRIPTIONID, [% serialseq %], [% serialseq_x %], [% serialseq_y %], [% status %], [% planneddate_str %], [% publisheddate_str %]
-FROM DUAL
-WHERE @BIBLIONUMBER IS NOT NULL;
+   SELECT LAST_INSERT_ID() INTO @SERIALID;
+
+   INSERT INTO k_serial_idmap (original_id, serialid, batch)
+     SELECT [% serial.original_id %], @SERIALID, [% batch %] FROM DUAL
+       WHERE @BIBLIONUMBER IS NOT NULL;
+
+   [% FOREACH serialitem IN serial.serialitems %]
+      INSERT INTO serialitems (`itemnumber`, `serialid`)
+      SELECT itemnumber,  @SERIALID FROM k_items_idmap WHERE @BIBLIONUMBER IS NOT NULL AND original_id = [% serialitem.original_itemid %];
+   [% END %]
+[% END %]
 
 SELECT IF (@BIBLIONUMBER IS NOT NULL, LAST_INSERT_ID(), @SERIALID) INTO @SERIALID;
 
-INSERT INTO k_serial_idmap (original_id, serialid, batch)
-  SELECT [% original_serial_id %], @SERIALID, [% batch %] FROM DUAL
-  WHERE @BIBLIONUMBER IS NOT NULL;
-
-[% FOREACH original_id IN original_ids -%]
-  INSERT INTO `serialitems` (`itemnumber`, `serialid`) SELECT itemnumber,  @SERIALID FROM k_items_idmap WHERE @BIBLIONUMBER IS NOT NULL AND original_id = [% original_id %];
-[% END -%]
 

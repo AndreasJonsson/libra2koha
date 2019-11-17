@@ -1,4 +1,4 @@
 PE_FREQ_VALUE_ID	int
 PE_FREQ_TYPE_ID	int
 LA_KEY_ID	int
-VALUE	varchar	256
+VALUE	int

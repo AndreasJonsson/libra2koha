@@ -23,6 +23,7 @@ sub new {
 	if ($key =~ /^(?:[(]?blank[)]?|(?: ?))$/i) {
 	    $key = '';
 	}
+	$key = lc trim($key);
 	if (defined $locs{$key}) {
 	    push @{$locs{$key}}, $loc;
 	} else {
@@ -82,7 +83,7 @@ sub match {
     if (defined($loc->{src_callnumbers}) && scalar(@{$loc->{src_callnumbers}}) > 0) {
 	my $cn0 = $mmc->get('call_number');
 	for my $cn (@{$loc->{src_callnumbers}}) {
-	    if ($cn0 eq $cn) {
+	    if (lc $cn0 eq lc $cn) {
 		return 1;
 	    }
 	}
@@ -91,7 +92,7 @@ sub match {
 
     if (defined($loc->{src_ccode}) && $loc->{src_ccode} ne '') {
 	my $ccode = $mmc->get('items.ccode');
-	if (trim($ccode) eq $loc->{src_ccode}) {
+	if (lc trim($ccode) eq lc $loc->{src_ccode}) {
 	    return 1;
 	}
 	return 0;
@@ -108,6 +109,8 @@ sub process {
 	if ($l =~ m/^ ?$/) {
 	    $l = '';
 	}
+	$l = lc $l;
+	my $matched = 0;
 	for my $loc (@{$self->{locs}->{$l}}) {
 	    if (defined($loc) && match($loc, $item, $mmc)) {
 		if (check($loc->{localshelf})) {
@@ -122,8 +125,12 @@ sub process {
 			$mmc->set('biblioitemtype', trim($loc->{itemtype}));
 		    }
 		}
+		$matched = 1;
 		last;
 	    }
+	}
+	if (!$matched && $l != '') {
+	    print STDERR "No match for location: '$l'\n";
 	}
     }
 }

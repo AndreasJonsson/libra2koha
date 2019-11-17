@@ -651,19 +651,23 @@ To see what is present in the data:
 	my $field084 = $record->field( '084' );
 	my $field852 = $record->field( '852' );
 
-	if (defined $bibextra->{'call_number'}) {
-	    $mmc->set('call_number', $bibextra->{'call_number'});
-	} elsif (defined $field081 && $field081->subfield('h')) {
-	    $mmc->set('call_number', $field081->subfield('h'));
-	} elsif (defined $field084) {
-	    $mmc->set('call_number', scalar($mmc->get('klassifikationskod')));
-	} elsif (defined $field852) {
+	if (defined $field852) {
 	    $mmc->set('call_number', scalar($mmc->get('klassifikationsdel_av_uppställningssignum')));
 	} else {
-	    $mmc->set('call_number', scalar($mmc->get('beståndsuppgift')));
-	}
+	    
+	    if (defined $bibextra->{'call_number'}) {
+		$mmc->set('call_number', $bibextra->{'call_number'});
+	    } elsif (defined $field081 && $field081->subfield('h')) {
+		$mmc->set('call_number', $field081->subfield('h'));
+	    } elsif (defined $field084) {
+		$mmc->set('call_number', scalar($mmc->get('klassifikationskod')));
+	    } elsif (defined $field852) {
+		$mmc->set('call_number', scalar($mmc->get('klassifikationsdel_av_uppställningssignum')));
+	    } else {
+		$mmc->set('call_number', scalar($mmc->get('beståndsuppgift')));
+	    }
 
-        # }
+        }
 
 =head3 952$p Barcode (mandatory)
 
@@ -672,15 +676,21 @@ From BarCodes.Barcode.
 =cut
 
 	my $isOrdered = $opt->hidden_are_ordered && $item->{Hidden};
-	if (defined $item->{IdStatusCode}) {
-	    my $status = $item->{IdStatusCode};
+
+	if (defined($item->{'OrderedStatus'})) {
+	    my $status = $item->{OrderedStatus};
 	    if (defined($notforloan->{$status}) && grep {$notforloan->{$status} eq $_} @{$opt->ordered_statuses}) {
 		$isOrdered = 1;
 	    }
+	} elsif (defined $item->{IdStatusCode}) {
+	    my $status = $item->{IdStatusCode};
+	    if (defined($status) && grep {$status == $_} @{$opt->ordered_statuses}) {
+		$isOrdered = 1;
+	    }
 	}
-	if ($isOrdered && $opt->hidden_are_ordered) {
+	if ($isOrdered) {
 	    $item->{IdStatusCode} = '';
-	    $mmc->set('not_for_loan', $opt->ordered_statuses->[0]);
+	    $mmc->set('not_for_loan', -1);
 	}
 	my $skipBarcode = !defined $item->{'BarCode'} || $opt->clear_barcodes_on_ordered && $isOrdered;
 
@@ -785,6 +795,7 @@ debug output. Run C<perldoc itemtypes.pl> for more documentation.
 
 	add_itemtype_stat($itemtype, $item->{'CA_CATALOG_LINK_TYPE_ID'});
 	$mmc->set('itemtype', $itemtype);
+	$item->{itemtype} = $itemtype;
         $last_itemtype = $itemtype;
 
 =head3 952$1 Lost status
@@ -829,6 +840,7 @@ FIXME This should be done with a mapping file!
 		$mmc->set('damaged_status', $damaged->{$status});
 	    }
 	}
+
 
 
 =head3 952$7 Not for loan

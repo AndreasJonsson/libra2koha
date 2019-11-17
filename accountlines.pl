@@ -132,6 +132,10 @@ sub account_type {
 	return 'M';
     }  elsif ($n eq 'Låneavgift') {
 	return 'M';
+    }  elsif ($n eq 'BILL_FEE') {
+	return 'F';
+    }  elsif ($n eq 'ILL_LOAN_FEE') {
+	return 'M';
     } else {
 	die "Unknown fee type: '$n'";
     }

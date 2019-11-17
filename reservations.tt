@@ -8,25 +8,35 @@ SET @BORROWERNUMBER=NULL;
 SELECT biblionumber FROM
 (
  SELECT biblionumber FROM k_biblio_identification
- WHERE CONCAT(IFNULL(marc003, ''), marc001) = [% titleno %] AND batch = [% batch %]
+ WHERE titleno = [% titleno %] AND batch = [% batch %]
 UNION
  SELECT biblionumber FROM k_merged_records
- WHERE CONCAT(IFNULL(marc003, ''), marc001) = [% titleno %] AND batch = [% batch %]
+ WHERE titleno = [% titleno %] AND batch = [% batch %]
+UNION
+ SELECT biblionumber FROM k_biblio_identification
+ WHERE marc001 = [% titleno %] AND batch = [% batch %]
+UNION
+ SELECT biblionumber FROM k_merged_records
+ WHERE marc001 = [% titleno %] AND batch = [% batch %]
 ) AS T LIMIT 1 INTO @BIBLIONUMBER;
 
 SELECT [% IF original_item_id != 'NULL' %] itemnumber FROM k_items_idmap WHERE original_id = [% original_item_id %] AND batch = [% batch %] [% ELSE %] NULL [% END %] INTO @ITEMNUMBER;
 SELECT itemcallnumber FROM items WHERE itemnumber = @ITEMNUMBER INTO @ITEMCALLNUMBER;
-SELECT count(*) > 0 FROM items JOIN hold_fill_targets using(itemnumber) WHERE itemnumber = @ITEMNUMBER INTO @ALREADYRESERVED;
+SELECT EXISTS (SELECT * FROM items JOIN hold_fill_targets using(itemnumber) WHERE itemnumber = @ITEMNUMBER) INTO @ALREADYRESERVED;
 
 SELECT borrowernumber FROM k_borrower_idmap WHERE original_id = [% IdBorrower %] AND batch = [% batch %] INTO @BORROWERNUMBER;
 
+SET @INSERT_RESERVE = @BIBLIONUMBER IS NOT NULL AND @BORROWERNUMBER IS NOT NULL;
+
 INSERT INTO reserves (borrowernumber, reservedate, biblionumber, branchcode,  reservenotes, priority, found, timestamp, itemnumber, expirationdate)
-   SELECT @BORROWERNUMBER, [% reservedate %], @BIBLIONUMBER, [% pickbranch %], [% reservenotes %], [% priority %], (@FOUND := [% found %]), [% timestamp %], @ITEMNUMBER, [% expirationdate %]
-   FROM DUAL WHERE @BIBLIONUMBER IS NOT NULL AND @BORROWERNUMBER IS NOT NULL;
+   SELECT @BORROWERNUMBER, [% reservedate %], @BIBLIONUMBER, [% pickbranch %], [% reservenotes %], [% priority %], (@FOUND := IF(@ITEMNUMBER IS NULL, NULL, [% found %])), [% timestamp %], @ITEMNUMBER, [% expirationdate %]
+   FROM DUAL WHERE @INSERT_RESERVE;
+
+SELECT 'NOT INSERTING titleno: ', [% titleno %], ' biblionumber: ', @BIBLIONUMBER, ' borrowernumber: ', @BORROWERNUMBER, ' found: ', @FOUND, ' ITEMNUMBER: ', @ITEMNUMBER FROM DUAL WHERE NOT @INSERT_RESERVE;
 
 INSERT INTO k_reservations_idmap (original_id, reserve_id, batch)
   SELECT [% original_reservation_id %], LAST_INSERT_ID(), [% batch %] FROM DUAL
-  WHERE @BIBLIONUMBER IS NOT NULL AND @BORROWERNUMBER IS NOT NULL;
+  WHERE @INSERT_RESERVE;
 
 SET @BIBLIONUMBER = IF(@BIBLIONUMBER IS NULL AND @ITEMNUMBER IS NOT NULL, (SELECT biblionumber FROM items WHERE itemnumber = @ITEMNUMBER), @BIBLIONUMBER);
 

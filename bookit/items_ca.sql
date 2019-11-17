@@ -3,6 +3,7 @@ SELECT CA_COPY.CA_COPY_ID AS IdItem,
        CA_COPY.CA_LOC_ID AS IdLocalShelf,
        CA_LOC.`NAME` AS LocalShelf,
        NOTE AS Info,
+       EXT_NOTE AS ExtInfo,
        LATEST_LOAN_DATETIME AS LatestLoanDate,
        DEVIATING_LOCATION_MARC AS Location_Marc,
        OLD_NO_OF_LOAN AS LoanCount,
@@ -15,8 +16,9 @@ SELECT CA_COPY.CA_COPY_ID AS IdItem,
        LABEL AS BarCode,
        labels.row_number,
        IL_LOAN.IL_LOAN_ID IS NOT NULL AS IsRemote,
-       PUBLISH_NO AS `items.itemnotes`,
-       CA_NOT_AVAILABLE_CAUSE_ID AS IdStatusCode
+       PUBLISH_NO AS `PublishNo`,
+       CA_NOT_AVAILABLE_CAUSE_ID AS IdStatusCode,
+       CA_COPY_TYPE_ID AS OrderedStatus
 FROM CA_COPY JOIN CA_CATALOG ON `ca_catalog.ca_catalog_id` = CA_COPY.CA_CATALOG_ID AND NOT CA_COPY.done
   LEFT OUTER JOIN CI_CAT USING(CI_CAT_ID)
   LEFT OUTER JOIN CA_NOT_AVAILABLE_CAUSE USING (CA_NOT_AVAILABLE_CAUSE_ID)
@@ -31,6 +33,7 @@ SELECT CA_COPY.CA_COPY_ID AS IdItem,
        CA_COPY.CA_LOC_ID AS IdLocalShelf,
        CA_LOC.`NAME` AS LocalShelf,
        NOTE AS Info,
+       EXT_NOTE AS ExtInfo,
        LATEST_LOAN_DATETIME AS LatestLoanDate,
        DEVIATING_LOCATION_MARC AS Location_Marc,
        OLD_NO_OF_LOAN AS LoanCount,
@@ -43,8 +46,9 @@ SELECT CA_COPY.CA_COPY_ID AS IdItem,
        LABEL AS BarCode,
        labels.row_number,
        IL_LOAN.IL_LOAN_ID IS NOT NULL AS IsRemote,
-       PUBLISH_NO AS `items.itemnotes`,
-       CA_NOT_AVAILABLE_CAUSE_ID AS IdStatusCode
+       PUBLISH_NO AS `PublishNo`,
+       CA_NOT_AVAILABLE_CAUSE_ID AS IdStatusCode,
+       CA_COPY_TYPE_ID AS OrderedStatus
 FROM CA_COPY JOIN CA_CATALOG ON `ca_catalog.ca_catalog_id` = CA_COPY.CA_CATALOG_ID AND NOT CA_COPY.done
   LEFT OUTER JOIN CI_CAT USING(CI_CAT_ID)
   LEFT OUTER JOIN CA_NOT_AVAILABLE_CAUSE USING (CA_NOT_AVAILABLE_CAUSE_ID)

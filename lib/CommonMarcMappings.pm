@@ -17,6 +17,7 @@ our %common_marc_mappings = (
     'allmän_medieterm'                 => { map => { '245' => 'h' } },
     'beståndsuppgift'                  => { map => { '866' => 'a' } },
     'anmärkning_allmän'                => { map => { '500' => 'a' } },
+    'publish_no'                       => { map => { '596' => 'l' } },
     'ämnesord'                         => { map => { '650' => 'a' } },
     'okontrollerad_term'               => { map => { '653' => 'a' } },
     'fysisk_beskrivning'               => { map => { '300' => 'e' } },

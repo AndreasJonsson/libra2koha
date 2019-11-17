@@ -16,6 +16,12 @@ SELECT biblionumber FROM
 UNION
  SELECT biblionumber FROM k_merged_records
  WHERE titleno = [% titleno %] AND batch = [% batch %]
+UNION
+ SELECT biblionumber FROM k_biblio_identification
+ WHERE marc001 = [% titleno %] AND batch = [% batch %]
+UNION
+ SELECT biblionumber FROM k_merged_records
+ WHERE marc001 = [% titleno %] AND batch = [% batch %]
 ) AS T;
 
 SELECT IF(@BORROWERNUMBER IS NULL, [% branchcode %], (SELECT branchcode FROM borrowers WHERE borrowernumber = @BORROWERNUMBER)) INTO @BRANCHCODE;

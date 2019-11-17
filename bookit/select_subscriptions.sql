@@ -1,0 +1,19 @@
+SELECT
+    PE_SUBSCRIPTION_ID as original_id,
+    PE_SUBSCRIPTION.SY_USER_ID_MODIFY as librarian,
+    VALID_FROM_DATE as startdate,
+    VALID_TO_DATE as enddate,
+    PE_SUBSCRIPTION.CREATE_DATETIME as firstacquidate,
+    PE_SUBSCRIPTION.MODIFY_DATETIME as renewdate,
+    EXT_NOTE as notes,
+    TRIM('\n' FROM CONCAT_WS('\n', NOTE, EXPECTANCY_NOTE, PE_SUBSCRIPTION.REMARK, REMARK_TO_SUPPLIER, PE_HANDLE_TYPE.DESCR)) as internalnotes,
+    GE_ORG_ID_UNIT AS IdBranchCode,
+    CA_LOC_ID AS IdLocalShelf,
+    NOT CANCELLED AS status,
+    CANCELLED AS closed,
+    `ca_catalog.title_no` AS titleno    
+    
+FROM PE_SUBSCRIPTION
+JOIN PE_TITLE USING(PE_TITLE_ID)
+JOIN CA_CATALOG ON (PE_TITLE.CA_CATALOG_ID = `ca_catalog.ca_catalog_id`)
+LEFT OUTER JOIN PE_HANDLE_TYPE USING(PE_HANDLE_TYPE_ID);
