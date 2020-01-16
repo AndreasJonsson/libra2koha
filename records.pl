@@ -14,7 +14,6 @@ records.pl - Read MARCXML records from a file and add items from the database.
 =cut
 
 use MARC::File::USMARC ;
-use MARC::File::XML ( RecordFormat => 'USMARC' );
 use MARC::Batch;
 use MARC::Charset qw( marc8_to_utf8 );
 use Unicode::Normalize qw(NFC);
@@ -34,18 +33,6 @@ use StatementPreparer;
 use TimeUtils;
 
 $YAML::Syck::ImplicitUnicode = 1;
-
-            # ugly hack follows -- MARC::File::XML, when used by MARC::Batch,
-            # appears to try to convert incoming XML records from MARC-8
-            # to UTF-8.  Setting the BinaryEncoding key turns that off
-            # TODO: see what happens to ISO-8859-1 XML files.
-            # TODO: determine if MARC::Batch can be fixed to handle
-            #       XML records properly -- it probably should be
-            #       be using a proper push or pull XML parser to
-            #       extract the records, not using regexes to look
-            #       for <record>.*</record>.
-            $MARC::File::XML::_load_args{BinaryEncoding} = 'utf-8';
-            $MARC::File::XML::_load_args{RecordFormat} = 'USMARC';
 
 #use utf8;
 use CommonMarcMappings;
@@ -92,6 +79,22 @@ my ($opt, $usage) = describe_options(
 if ($opt->help) {
     print STDERR $usage->text;
     exit 0;
+}
+
+if ($opt->xml_input || $opt->xml_output) {
+    use MARC::File::XML ( RecordFormat => 'USMARC' );
+
+    # ugly hack follows -- MARC::File::XML, when used by MARC::Batch,
+    # appears to try to convert incoming XML records from MARC-8
+    # to UTF-8.  Setting the BinaryEncoding key turns that off
+    # TODO: see what happens to ISO-8859-1 XML files.
+    # TODO: determine if MARC::Batch can be fixed to handle
+    #       XML records properly -- it probably should be
+    #       be using a proper push or pull XML parser to
+    #       extract the records, not using regexes to look
+    #       for <record>.*</record>.
+    $MARC::File::XML::_load_args{BinaryEncoding} = 'utf-8';
+    $MARC::File::XML::_load_args{RecordFormat} = 'USMARC';
 }
 
 my $config_dir = $opt->config;
