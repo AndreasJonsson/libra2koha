@@ -48,7 +48,9 @@ my ($opt, $usage) = describe_options(
     [ 'children-category=s', 'Set children borrower category (default disabled)', { default => '' } ],
     [ 'youth-maxage=i', 'Set youth borrower age.  Used when --children-category is enabled. (default 18)', { default => 18 } ],
     [ 'youth-category=s', 'Set youth borrower category (default disabled)', { default => '' } ],
+    [ 'active-categories=s', 'Comma separated list of branchcodes that should be active (even whith --expire-all).', { default => '' }],
     [ 'passwords', 'Include passwords if available.' ],
+    [ 'borrower-procs=s', 'Custom borrower processors.' ],
     [ 'manager-id=i', 'Set borrowernumber of a manager to set as sender on borrower messages, if none can be determined from source data.', { default => 1} ],
     [ 'string-original-id', 'If datatype of item original id is string.  Default is integer.' ],
     [ 'ignore-persnummer', 'Dont populate persnummer attribute' ],
@@ -69,6 +71,21 @@ my $limit = $opt->limit;
 if ($opt->passwords) {
     use Koha::AuthUtils qw(hash_password);
 }
+
+use Data::Dumper;
+print STDERR Dumper($ENV{PERL5LIB});
+
+
+my @borr_procs = ();
+
+
+if (defined $opt->borrower_procs) {
+    for my $bp (split ',', $opt->borrower_procs) {
+	eval "use $bp; push \@borr_procs, ${bp}->new(\$opt);";
+	die if ($@);
+    }
+}
+
 
 =head1 CONFIG FILES
 
@@ -265,25 +282,7 @@ RECORD: while ( my $borrower = $sth->fetchrow_hashref() ) {
     # Add a branchcode
     $borrower->{'branchcode'} = defined($borrower->{'IdBranchCode'}) ? $branchcodes->{ $borrower->{'IdBranchCode'} } : $branchcodes->{ '10000' };
     next RECORD if (!defined($borrower->{'branchcode'}) || $borrower->{'branchcode'} eq '');
-    _quoten(\$borrower->{'branchcode'});
     
-    $borrower->{'dateofbirth'} = ds($borrower->{'BirthDate'});
-    $borrower->{'dateenrolled'} = ds($borrower->{'RegDate'});
-    $borrower->{'lastseen'} = ts($borrower->{'lastseen'});
-    if ($borrower->{'Expires'}) {
-	$borrower->{'dateexpiry'} = "'" . $borrower->{'Expires'} . "'";
-    } else {
-	if ($opt->expire_all) {
-	    $borrower->{'dateexpiry'}  = '"' . DateTime->now->subtract( 'days' => 1 )->strftime( '%F' ) . '"';
-	} else {
-	    $borrower->{'dateexpiry'} = "'" . DateTime->now->add( 'years' => 3 )->strftime( '%F' ) . "'";
-	}
-	if ($isKohaMarked) {
-	    $borrower->{'dateexpiry'}   = '"' . DateTime->now->add( 'years' => 1000 )->strftime( '%F' ) . '"';
-	}
-    }
-
-
     #if (!defined($patroncategories->{ $borrower->{'IdBorrowerCategory'} })) {
     #print STDERR "IdBorrowerCategory not defined:\n";
     #print STDERR Dumper( $borrower );
@@ -294,6 +293,10 @@ RECORD: while ( my $borrower = $sth->fetchrow_hashref() ) {
 	$borrower->{'categorycode'} = $patroncategories->{ $borrower->{'IdBorrowerCategory'} };
     }
     next if (!defined($borrower->{'categorycode'}) || $borrower->{'categorycode'} eq '');
+
+    $borrower->{'dateofbirth'} = ds($borrower->{'BirthDate'});
+    $borrower->{'dateenrolled'} = ds($borrower->{'RegDate'});
+    $borrower->{'lastseen'} = ts($borrower->{'lastseen'});
 
     my $dateofbirth = dp($borrower->{'BirthDate'});
     if (defined $dateofbirth) {
@@ -309,6 +312,22 @@ RECORD: while ( my $borrower = $sth->fetchrow_hashref() ) {
 	    }
 	}
     }
+
+    if ($borrower->{'Expires'}) {
+	$borrower->{'dateexpiry'} = "'" . $borrower->{'Expires'} . "'";
+    } else {
+	if ($opt->expire_all) {
+	    $borrower->{'dateexpiry'}  = '"' . DateTime->now->subtract( 'days' => 1 )->strftime( '%F' ) . '"';
+	} else {
+	    $borrower->{'dateexpiry'} = "'" . DateTime->now->add( 'years' => 3 )->strftime( '%F' ) . "'";
+	}
+	if ($isKohaMarked || grep {$_ eq $borrower->{'categorycode'}} split(',', $opt->active_categories)) {
+	    $borrower->{'dateexpiry'}   = '"' . DateTime->now->add( 'years' => 1000 )->strftime( '%F' ) . '"';
+	}
+    }
+
+
+    _quoten(\$borrower->{'branchcode'});
     _quoten(\$borrower->{'categorycode'});
     
     $borrower->{'userid_str'} = 'NULL';
@@ -373,6 +392,10 @@ RECORD: while ( my $borrower = $sth->fetchrow_hashref() ) {
     }
 
     $borrower->{borrower_attributes} = \@borrower_attributes;
+
+    for my $bp (@borr_procs) {
+	$bp->process($borrower, $dbh);
+    }
     
     $tt2->process( 'borrowers.tt', $borrower, \*STDOUT,  {binmode => ':utf8'} ) || die $tt2->error();
 
@@ -620,7 +643,7 @@ sub set_address {
 	      $n_mob++;
 	      if ($extra) {
 		  push @$borrower_attributes, {
-		      'code' => $dbh->quote('MOBILEPHONE'),
+		      'code' => $dbh->quote('MOBILE'),
 		      'attribute' => $dbh->quote(clean_control($phone->{PhoneNumber}))
 		  };
 	      } else {

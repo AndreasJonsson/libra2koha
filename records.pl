@@ -452,6 +452,7 @@ Bookit format ISBN is in  350 00 c and ISSN in 350 10 c
 	  my $id = $record->field( '001' )->data();
 	  my $fisbn = scalar(@isbn) ? $isbn[0] : undef;
 	  my $fissn = scalar(@issn) ? $issn[0] : undef;
+	  if ((!defined $fisbn || length($fisbn) < 32) && (!defined $fissn || length($fissn) < 32)) {
 	  $isbn_issn_sth->execute($id, $id, $id, $fisbn, $fissn)
 	      or warn "Failed to insert isbn '$fisbn' and issn '$fissn'!";
 	      #for my $f081 ($record->field('081')) {
@@ -461,7 +462,8 @@ Bookit format ISBN is in  350 00 c and ISSN in 350 10 c
 	      #	      $record->delete_fields( $f081 );
 	      #	      say STDERR MARC::File::XML::record( $record );
 	      #	  }
-	      #}
+	  #}
+	  }
       }
 
 =head3 Move 976b to 653
@@ -944,6 +946,18 @@ Just add the itemtype in 942$c.
 	  $item_context->{items} = \@itemcontext;
 
 	  $tt2->process( 'items.tt', $item_context, \*ITEM_OUTPUT,  {binmode => ':utf8'} ) || die $tt2->error();
+
+
+	  #for my $item (@{$item_context->{items}}) {
+	  #    my $filtered_cols = [];
+	  #    for my $col (@{$item->{defined_columns}}) {
+	  #  if ($col =~ /^notforloan=/) {
+	  #	      push @$filtered_cols, $col;
+	  #	  }
+	  #    }
+	  #    $item->{defined_columns} = $filtered_cols;
+	  #}
+
       }
 
       $mmc->reset();

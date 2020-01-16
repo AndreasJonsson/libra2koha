@@ -100,7 +100,7 @@ CREATE TABLE IF NOT EXISTS `k_serial_idmap` (
     `original_id` INT NOT NULL,
     `serialid` INT NOT NULL,
     `batch` INT,
-    PRIMARY KEY (`original_id`,`batch`),
+    KEY (`original_id`,`batch`),
     UNIQUE KEY `serialid` (`serialid`),
     KEY `k_serial_idmap_original_id` (`original_id`),
     FOREIGN KEY (`serialid`) REFERENCES `serial`(`serialid`) ON DELETE CASCADE ON UPDATE CASCADE
@@ -155,7 +155,7 @@ while (my $subscr = $subscription_sth->fetchrow_hashref()) {
 	    _def(\$serial->{$field});
 	}
 	$serial->{serialitems} = [];
-	$ret = $serialitems_sth->execute( $serial->{original_id} );
+	$ret = $serialitems_sth->execute( $subscr->{original_id}, $serial->{original_id} );
 	die "Failed to query serialitems" unless defined($ret);
 
 	while (my $serialitem = $serialitems_sth->fetchrow_hashref()) {

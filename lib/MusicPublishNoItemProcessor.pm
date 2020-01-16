@@ -15,12 +15,14 @@ sub is_pn {
 sub process {
     my ($self, $mmc, $item) = @_;
 
-    my $pn = $mmc->get('publish_no');
+    my $pn = $item->{PublishNo};
 
-    $pn = $item->{PublishNo} if !is_pn($pn);
-    $pn = $item->{NoteExt} if !is_pn($pn);
+    if (!defined $pn) {
+	$pn = $mmc->get('publish_no');
+	$pn = $item->{ExtInfo} if !is_pn($pn);
+    }
 
-    my $noteext = $item->{NoteExt};
+    my $noteext = $item->{ExtInfo};
     
     if (is_pn($pn) && !substr($noteext, $pn)) {
 	if (defined $noteext && $noteext ne '') {

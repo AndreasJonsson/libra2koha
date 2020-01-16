@@ -16,6 +16,7 @@ QUICK=yes
 BUILD_MARC_FILE=no
 TRANSFORM_TABLES=yes
 EXPIRE_ALL_BORROWERS=no
+ACTIVE_CATEGORIES=
 CHILDREN_CATEGORY=
 CHILDREN_MAXAGE=15
 YOUTH_CATEGORY=
@@ -31,6 +32,7 @@ STRING_ORIGINAL_ID=no
 SEPARATE_ITEMS=yes
 LIMIT=
 XML_OUTPUT=no
+FORCE_XML_INPUT=no
 ENCODING_HACK=no
 IGNORE_PERSNUMMER=no
 RECORD_PROCS=
@@ -93,6 +95,10 @@ else
 fi
 
 SPECDIR="$dir/${SOURCE_FORMAT}/spec"
+
+if [[ "$FORCE_XML_INPUT" == yes ]]; then
+    RECORDS_INPUT_FORMAT=--xml-input
+fi
 
 export PERLIO=:unix:utf8
 
@@ -331,6 +337,12 @@ if [[ "$FULL" == "yes" || ! -e $BORROWERSSQL ]]; then
     if [[ "$INCLUDE_PASSWORDS" == "yes" ]]; then
 	BORROWERS_FLAGS+=" --passwords"
     fi
+    if [[ -n "$BORROWER_PROCS" ]]; then
+	BORROWERS_FLAGS+=" --borrower-procs=$BORROWER_PROCS"
+    fi
+    if [[ -n "$ACTIVE_CATEGORIES" ]]; then
+	BORROWERS_FLAGS+=" --active-categories=$ACTIVE_CATEGORIES"
+    fi
 	 
     echo perl borrowers.pl $BORROWERS_FLAGS
     perl borrowers.pl $BORROWERS_FLAGS > $BORROWERSSQL
@@ -359,9 +371,9 @@ if [[ "$FULL" == "yes" || ! -e "$OUTPUTDIR"/reservations.sql ]]; then
     reservations.pl --batch "$BATCH" --format "$SOURCE_FORMAT" --configdir "$CONFIG" > "$OUTPUTDIR"/reservations.sql
 fi
 
-if [[ "$FULL" == "yes" || ! -e "$OUTPUTDIR"/old_issues.sql ]]; then
+if [[ "$FULL" == "yes" || ! -e "$OUTPUTDIR"/old_issues_update.sql ]]; then
   echo "Old issues"
-  old_issues.pl  --batch "$BATCH" --format "$SOURCE_FORMAT" --configdir "$CONFIG" --branchcode "$BRANCHCODE" > "$OUTPUTDIR"/old_issues.sql
+  old_issues.pl  --batch "$BATCH" --format "$SOURCE_FORMAT" --configdir "$CONFIG" --branchcode "$BRANCHCODE" > "$OUTPUTDIR"/old_issues_update.sql
 fi
 
 

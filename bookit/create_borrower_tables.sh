@@ -1,5 +1,5 @@
 
-create_tables.pl  --format="$SOURCE_FORMAT" --quote='"' --headerrows=$HEADER_ROWS --encoding=utf8 --ext=$TABLEEXT  --spec "$SPECDIR" --columndelimiter="$COLUMN_DELIMITER" --rowdelimiter='\r\n' --dir "$tabledir" --table "CI_BORR" --table CI_ACCOUNT --table CI_ACCOUNT_CARD --table "CI_BORR_PHONE" --table "CI_BORR_CARD" --table "CI_BORR_ADDR" --table "CI_BORR_MESSAGE" --table CI_COUNTRY --table CI_BORR_CAT --table CI_BORR_EMAIL --table CI_DEBT --table CI_DEBT_PAYMENT --table CI_BORR_EVENT --table SY_CI_PARAM --table SY_CI_EVENT_TYPE --table SY_ALERT_TYPE --table SY_SEX --table SY_USER --table CI_REM --table CI_REM_MSG --table CI_REM_MSG_STATUS --table CI_REM_MSG_OCCATION | eval $MYSQL_LOAD
+create_tables.pl  --format="$SOURCE_FORMAT" --quote='"' --headerrows=$HEADER_ROWS --encoding=utf8 --ext=$TABLEEXT  --spec "$SPECDIR" --columndelimiter="$COLUMN_DELIMITER" --rowdelimiter='\r\n' --dir "$tabledir" --table "CI_BORR" --table CI_ACCOUNT --table CI_ACCOUNT_CARD --table "CI_BORR_PHONE" --table "CI_BORR_CARD" --table "CI_BORR_ADDR" --table "CI_BORR_MESSAGE" --table CI_COUNTRY --table CI_BORR_CAT --table CI_BORR_EMAIL --table CI_DEBT --table CI_DEBT_PAYMENT --table CI_BORR_EVENT --table SY_CI_PARAM --table SY_CI_EVENT_TYPE --table SY_ALERT_TYPE --table SY_SEX --table SY_USER --table CI_REM --table CI_REM_MSG --table CI_REM_MSG_STATUS --table CI_REM_MSG_OCCATION --table CI_BORR_GRP| eval $MYSQL_LOAD
 
 create_tables.pl  --format="$SOURCE_FORMAT" --quote='"' --headerrows=$HEADER_ROWS --encoding=utf8 --ext=$TABLEEXT  --spec "$SPECDIR" --columndelimiter="$COLUMN_DELIMITER" --rowdelimiter='\r\n' --dir "$tabledir" --table "GE_ADDR" --table "GE_AUTO_UPDATE_TYPE" --table "GE_CURRENCY" --table "GE_LIBRARY" --table "GE_MSG_LANGUAGE" --table "GE_ORDER_LANGUAGE" --table "GE_ORG" --table "GE_PREMISES"  --table "GE_SEND_OCCATION"  --table "SY_GE_MSG_TYPE" --table "SY_GE_MSG_FORM" --table "SY_GE_FORMAT" --table "CI_BORR_EXTRA_1"| eval $MYSQL_LOAD
 
@@ -18,6 +18,7 @@ CREATE INDEX Borrower_Cat_id ON CI_BORR_CAT(CI_BORR_CAT_ID);
 CREATE INDEX Borrower_Email_ID ON CI_BORR_EMAIL(CI_BORR_ID);
 CREATE INDEX Borrower_Debt_ID ON CI_DEBT(CI_BORR_ID);
 CREATE INDEX Borrower_Debt_Payment_ID ON CI_DEBT_PAYMENT(CI_BORR_ID);
+CREATE INDEX Borrower_Debt_Payment_DEBT_ID ON CI_DEBT_PAYMENT(CI_DEBT_ID);
 CREATE INDEX Account_Borrower_id ON CI_ACCOUNT(CI_BORR_ID);
 CREATE INDEX Account_Borrower_cat_id ON CI_ACCOUNT(CI_BORR_CAT_ID);
 CREATE INDEX SY_CI_PARAM_ID ON SY_CI_PARAM(SY_CI_PARAM_ID);
@@ -45,5 +46,6 @@ CREATE INDEX GE_ADDR_GE_ADDR_ID ON GE_ADDR(GE_ADDR_ID);
 CREATE INDEX GE_ADDR_GE_ORG_ID ON GE_ADDR(GE_ORG_ID);
 CREATE INDEX GE_AUTO_UPDATE_TYPE_GE_AUTO_UPDATE_TYPE_ID ON GE_AUTO_UPDATE_TYPE(GE_AUTO_UPDATE_TYPE_ID);
 CREATE INDEX GE_AUTO_UPDATE_TYPE_CODE ON GE_AUTO_UPDATE_TYPE(CODE);
+CREATE INDEX CI_BORR_GRP_ID ON CI_BORR_GRP(CI_BORR_GRP_ID);
 
 EOF

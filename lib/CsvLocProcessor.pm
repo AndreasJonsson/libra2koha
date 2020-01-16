@@ -40,9 +40,9 @@ sub new {
 }
 
 sub trim {
-    my $_ = shift;
-    s/^\s*(.*)\s*$/$1/;
-    return $_;
+    my $s = shift;
+    $s =~ s/^\s*(.*?)\s*$/$1/s;
+    return $s;
 }
 
 sub add_col {

@@ -1,5 +1,5 @@
 GE_LA_KEY_ID	int
-LA_LANGUAGE_ID	int
+LA_LANGUAGE_ID	varchar	16
 TXT	varchar	1024
 SY_USER_ID_CREATE	varchar	256
 SY_USER_ID_MODIFY	varchar	256

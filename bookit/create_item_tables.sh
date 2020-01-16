@@ -1,5 +1,5 @@
 bib_tables="$(mktemp)"
-create_tables.pl --format="$SOURCE_FORMAT" --quote='"' --headerrows=$HEADER_ROWS --encoding=utf8 --ext=$TABLEEXT --spec "$SPECDIR" --columndelimiter="$COLUMN_DELIMITER" --rowdelimiter='\r\n' --dir "$tabledir" --table 'CA_COPY' --table 'CA_COPY_LABEL' --table 'CA_COPY_TYPE' --table 'CA_NOT_AVAILABLE_CAUSE' --table 'CA_MEDIA_TYPE' --table 'CI_UNIT' --table 'CA_CATALOG' --table 'GE_LA_KEY' --table 'GE_LA_TXT' --table CI_CAT --table IL_LOAN --table IL_STATUS --table IL_LIBRARY --table CA_LOC --table CA_SUPPLIER > "$bib_tables"
+create_tables.pl --format="$SOURCE_FORMAT" --quote='"' --headerrows=$HEADER_ROWS --encoding=utf8 --ext=$TABLEEXT --spec "$SPECDIR" --columndelimiter="$COLUMN_DELIMITER" --rowdelimiter='\r\n' --dir "$tabledir" --table 'CA_COPY' --table 'CA_COPY_LABEL' --table 'CA_COPY_TYPE' --table 'CA_NOT_AVAILABLE_CAUSE' --table 'CA_MEDIA_TYPE' --table 'CI_UNIT' --table 'CA_CATALOG' --table 'GE_LA_KEY' --table 'GE_LA_TXT' --table CI_CAT --table IL_LOAN --table IL_STATUS --table IL_LIBRARY --table CA_LOC --table CA_SUPPLIER --table LA_TXT > "$bib_tables"
 eval $MYSQL_LOAD < "$bib_tables"
 eval $MYSQL_LOAD <<'EOF'
 CREATE TABLE catalog_isbn_issn (CA_CATALOG_ID int, isbn VARCHAR(32), issn VARCHAR(32));
@@ -14,6 +14,9 @@ CREATE INDEX items_catalog_id_index ON CA_COPY (CA_CATALOG_ID);
 CREATE INDEX barcode_iditem_index ON CA_COPY_LABEL (CA_COPY_ID);
 CREATE INDEX barcode_iditem_label_index ON CA_COPY_LABEL (CA_COPY_LABEL_ID);
 CREATE INDEX barcode_iditem_barcode_index ON CA_COPY_LABEL (LABEL);
+CREATE INDEX LA_KEY_ID ON LA_TXT(LA_KEY_ID);
+CREATE INDEX LA_TXT ON LA_TXT(TXT);
+CREATE INDEX LA_LANG_ID ON LA_TXT(LA_LANGUAGE_ID);
 CREATE INDEX GE_LA_KEY_ID ON GE_LA_KEY(GE_LA_KEY_ID);
 CREATE INDEX GE_LA_KEY_TABLE_NAME ON GE_LA_KEY(TABLE_NAME);
 CREATE INDEX GE_LA_KEY_FIELD_NAME ON GE_LA_KEY(FIELD_NAME);

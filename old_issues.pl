@@ -119,6 +119,6 @@ while (my $row = $sth->fetchrow_hashref()) {
 	batch => $opt->batch
     };
 
-    $tt2->process( 'old_issues.tt', $params, \*STDOUT, {binmode => ':utf8'}) || die $tt2->error();
+    $tt2->process( 'old_issues_update.tt', $params, \*STDOUT, {binmode => ':utf8'}) || die $tt2->error();
 }
 
