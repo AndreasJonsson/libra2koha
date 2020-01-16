@@ -212,7 +212,7 @@ fi
 
 # Force the user to create necessary config files, and provide skeletons
 MISSING_FILE=0
-. "$SOURCE_FORMAT/missing_tables.inc"
+. "$SOURCE_FORMAT/missing_config.inc"
 if [ $MISSING_FILE -eq 1 ]; then
     exit
 fi
