@@ -511,8 +511,8 @@ L<http://wiki.koha-community.org/wiki/Holdings_data_fields_%289xx%29>
 	      $f003 =~ s/[^a-zæøåöA-ZÆØÅÖ\d]//g;
 	      $item_context->{marc003} = $dbh->quote($f003);
 	  }
-	  if ($format eq 'libra') {
-	      say STDERR "Record does not have 001 and 003!", next RECORD unless $f001 && $f003;
+	  if ($format eq 'libra' && !defined $catid) {
+	      say STDERR "Record does not have 001 and 003!", next RECORD unless $f001 && defined $f003;
 	      $recordid = lc "$f003$f001";
 	  } else {
 	      say STDERR "Record does not have 001!", next RECORD unless $f001;
