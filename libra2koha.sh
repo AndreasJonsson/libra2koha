@@ -38,6 +38,7 @@ IGNORE_PERSNUMMER=no
 RECORD_PROCS=
 INCLUDE_PASSWORDS=no
 HAS_ITEMTABLE=yes
+RECORD_SRC=
 
 SOURCE_FORMAT=bookit
 
@@ -53,6 +54,7 @@ if [[ -n "$1" ]]; then
 	DBNAME="libra2koha";
     fi
 elif [[ -e "$dir"/config.inc ]]; then
+    echo include config INSTANCE $INSTANCE
     . "$dir"/config.inc
     if [[ -z "$DBNAME" ]]; then
 	DBNAME="libra2koha";
@@ -63,9 +65,12 @@ if [[ -e "$dir"/overrides.inc ]]; then
     . "$dir"/overrides.inc
 fi
 
-INSTANCE="$1"
+echo DIR $DIR dirname DIR $(dirname "$DIR")
+
 EXPORTCAT="$DIR/exportCat.txt"
-OUTPUTDIR="$DIR/../out"
+OUTPUTDIR="$(dirname "$DIR")/out"
+
+echo OUTPUTDIR $OUTPUTDIR
 
 mkdir -p "$OUTPUTDIR"
 
@@ -78,6 +83,7 @@ MYSQL_LOAD="mysql $MYSQL_CREDENTIALS --local-infile=1 --init-command='SET max_he
 echo "Source format: $SOURCE_FORMAT outputdir $OUTPUTDIR"
 
 RECORDS_INPUT_FORMAT=
+
 
 if [[ -n "$INPUT_MARC" ]]; then
     MARC="$DIR/$INPUT_MARC"
@@ -101,8 +107,6 @@ if [[ "$FORCE_XML_INPUT" == yes ]]; then
     RECORDS_INPUT_FORMAT=--xml-input
 fi
 
-export PERLIO=:unix:utf8
-
 if [[ -z "$SCRIPTDIR" ]]; then
    SCRIPTDIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd -P)"
 fi
@@ -125,6 +129,7 @@ if [ ! -d "$OUTPUTDIR" ]; then
     mkdir "$OUTPUTDIR"
 fi
 
+
 #
 # A temporary directory.
 #
@@ -146,9 +151,11 @@ if [[ "$TRANSFORM_TABLES" != "yes" || "$TABLEENC" == "utf-8" || "$TABLEENC" == "
 
     # Remove BOM if present
     for file in "$DIR"/*"${TABLEEXT}"; do
-	LC_ALL=C sed -i '1s/^\xEF\xBB\xBF//' "$file"
+	if egrep '^\xEF\xBB\xBF' "$file" ; then
+	    LC_ALL=C sed -i '1s/^\xEF\xBB\xBF//' "$file"
+	fi
     done
-	
+
 else
     tabledir="${OUTPUTDIR}"/utf8dir
     mkdir -p "$tabledir"
@@ -281,6 +288,9 @@ if [[ "$FULL" == "yes" || ! -e "$OUTPUTDIR"/records.marc ]]; then
     fi
     if [[ "$ENCODING_HACK" == "yes" ]]; then
 	RECORDS_FLAGS+=" --encoding-hack"
+    fi
+    if [[ -n "$RECORD_SRC" ]]; then
+	RECORDS_FLAGS+=" --recordsrc=$RECORD_SRC"
     fi
     if [[ -n "$RECORD_PROCS" ]]; then
 	RECORDS_FLAGS+=" --record-procs=$RECORD_PROCS"

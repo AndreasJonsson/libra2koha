@@ -13,10 +13,6 @@ records.pl - Read MARCXML records from a file and add items from the database.
 
 =cut
 
-use MARC::File::USMARC ;
-use MARC::Batch;
-use MARC::Charset qw( marc8_to_utf8 );
-use Unicode::Normalize qw(NFC);
 use DBI;
 use Getopt::Long::Descriptive;
 use YAML::Syck qw( LoadFile );
@@ -31,6 +27,8 @@ use MarcUtil::WrappedMarcMappingCollection;
 use MarcUtil::MarcMappingCollection;
 use StatementPreparer;
 use TimeUtils;
+use MarcRecordGenerator;
+use WeelibJSONRecordGenerator;
 
 $YAML::Syck::ImplicitUnicode = 1;
 
@@ -61,6 +59,7 @@ my ($opt, $usage) = describe_options(
     [ 'format=s', 'Input database format', { required => 1 }],
     [ 'xml-input', 'Expect XML input', { default => 0 }],
     [ 'xml-output', 'Generate XML output', { default => 0 }],
+    [ 'recordsrc=s', 'Record source type', { default => 'marc' }],
     [ 'ordered-statuses=s@', 'The notforloan codes to indicate "ordered"' ],
     [ 'clear-barcodes-on-ordered', 'Do not set barcode on ordered items'],
     [ 'truncate-plessey', 'Truncate check code from plessey barcodes.', { default => 0}],
@@ -258,7 +257,18 @@ if (  scalar(@input_files) < 1 ) {
     exit;
 }
 
-$limit = num_records_($input_file) if $limit == 0;
+my $recordsrc;
+my $srcparams = {
+    opt => $opt,
+    files => \@input_files
+};
+if ( $opt->recordsrc eq 'marc' ) {
+    $recordsrc = MarcRecordGenerator->new($srcparams);
+} elsif ( $opt->recordsrc eq 'weelib_json' ) {
+    $recordsrc = WeelibJSONRecordGenerator->new($srcparams);
+}
+
+$limit = $recordsrc->num_records() if $limit == 0;
 
 print "There are $limit records in $input_file\n";
 
@@ -377,19 +387,7 @@ Record level actions
 my $count = 0;
 my $count_items = 0;
 say "Starting record iteration" if $opt->verbose;
-for my $marc_file (glob $input_file) {
-    my $batch;
-    if ($opt->xml_input) {
-	$batch = MARC::Batch->new( 'XML', $marc_file );
-    } else {
-	open FH, "<:bytes", $marc_file;
-	$batch = MARC::File::USMARC->in( \*FH );
-    }
-  RECORD: while (my $record = $batch->next()) {
-
-      if ($record->encoding() eq 'MARC-8') {
-	  convert_record($record);
-      }
+ RECORD: while (my $record = $recordsrc->next()) {
 
       # Only do every x record
       if ( $opt->every && ( $count % $opt->every != 0 ) ) {
@@ -526,11 +524,21 @@ L<http://wiki.koha-community.org/wiki/Holdings_data_fields_%289xx%29>
 	      say STDERR "Record does not have 001!", next RECORD unless $f001;
 	      $recordid = $f001;
 	  }
-  # Remove any non alphanumerics
-	  $recordid =~ s/[^a-zæøåöA-ZÆØÅÖ\d]//g;
+	  # Remove any non alphanumerics
+	  if ($format ne 'weelib') {
+	      $recordid =~ s/[^a-zæøåöA-ZÆØÅÖ\d]//g;
+	  }
 	  say "catid: $catid" if $opt->verbose;
 	  # add_catitem_stat($catid);
 	  # Look up items by recordid in the DB and add them to our record
+	  if ($recordid eq 'b5daf82f-a5cd-45b4-9730-d9ecde6165b') {
+	      say "Interesting record";
+	  }
+
+	  if ($recordid eq '7d4012a0-27cb-48ef-9f60-abb2488156ab') {
+	      say "Interesting record 2";
+	  }
+	  
 	  if ($format eq 'micromarc') {
 	      #$is_documentgroup_sth->execute( $recordid );
 	      #my @process = $is_documentgroup_sth->fetchrow_array;
@@ -539,7 +547,7 @@ L<http://wiki.koha-community.org/wiki/Holdings_data_fields_%289xx%29>
 	      #next RECORD;
 	      #}
 	      $sth->execute( $recordid ) or die "Failed to query items for $recordid";
-	  } elsif ($format eq 'sierra') {
+	  } elsif ($format eq 'sierra' or $format eq 'weelib') {
 	      $sth->execute( $recordid ) or die "Failed to query items for $recordid";
 	  } else {
 	      $sth->execute( $recordid, $catid ) or die "Failed to query items for $recordid";
@@ -568,6 +576,7 @@ L<http://wiki.koha-community.org/wiki/Holdings_data_fields_%289xx%29>
 	  do_sierra_items($mmc, $bibextra, $loc);
       }
 
+
     ITEM: while (my $item = $sth->fetchrow_hashref) {
         say Dumper $item if $opt->debug;
 
@@ -588,6 +597,9 @@ L<http://wiki.koha-community.org/wiki/Holdings_data_fields_%289xx%29>
 	};
 
 	$includedItem++;
+
+	$mmc->reset_items();
+
 	if ($opt->separate_items) {
 	    $mmc->new_item($item->{'IdItem'});
 	}
@@ -656,9 +668,9 @@ To see what is present in the data:
   SELECT Location_Marc, count(*) AS count FROM Items GROUP BY Location_Marc;
 
 =cut
-        # if ( defined($item->{'Location_Marc'}) && length($item->{'Location_Marc'}) > 1) {
-        #     $mmc->set( 'call_number', $item->{'Location_Marc'} );
-        # } else {
+        if ( defined($item->{'Location_Marc'}) && length($item->{'Location_Marc'}) > 1) {
+            $mmc->set( 'call_number', $item->{'Location_Marc'} );
+        }
 
 	my $field081 = $record->field( '081' );
 	my $field084 = $record->field( '084' );
@@ -803,6 +815,12 @@ debug output. Run C<perldoc itemtypes.pl> for more documentation.
 	}
 	unless (defined $itemtype && $itemtype ne '') {
 	    $itemtype = get_itemtype( $record );
+	    if ($itemtype eq 'X') {
+		my $biblioitemtype = $mmc->get('biblioitemtype');
+		if (defined $biblioitemtype) {
+		    $itemtype = $biblioitemtype;
+		}
+	    }
 	}
 	$itemtype = refine_itemtype( $mmc, $record, $item, $itemtype, $media_type );
 
@@ -931,8 +949,9 @@ Just add the itemtype in 942$c.
       if ( !$last_itemtype ) {
 	  my $itemtype = get_itemtype( $record );
 	  $last_itemtype = refine_itemtype( $mmc, $record, undef, $itemtype );
-	  
-	  $mmc->set('biblioitemtype', $last_itemtype);
+	  unless($mmc->get('biblioitemtype')) {
+	      $mmc->set('biblioitemtype', $last_itemtype);
+	  }
       }
 
       for my $rp (@record_procs) {
@@ -976,11 +995,6 @@ Just add the itemtype in 942$c.
       $count++;
       $progress->update( $count );
       last if $limit && $limit == $count;
-
-    } # end foreach record
-    unless ($opt->xml_input) {
-	$batch->close();
-    }
 }
 
 $progress->update( $limit );
@@ -1063,30 +1077,6 @@ sub fix_date {
     return dp($d)->strftime('%F');
 }
 
-
-sub num_records_ {
-    $input_file = shift;
-    my $n = 0;
-    foreach my $f (glob $input_file) {
-	my $batch;
-	if ($opt->xml_input) {
-	    $batch = MARC::Batch->new('XML', $f);
-	} else {
-	    open FH, "<:bytes", $f;
-	    $batch = MARC::File::USMARC->in( \*FH );
-	}
-	eval {
-	    while ($batch->next()) {
-		$n++;
-	    }
-	};
-	
-	unless ($opt->xml_input) {
-	    $batch->close();
-	}
-    }
-    return $n;
-}
 
 sub check_multi_fields {
     my $mmc = shift;
@@ -1359,6 +1349,7 @@ sub do_sierra_items {
     my $loc = shift;
 
     my @sysnumbers = $mmc->get('sierra_sysnumber');
+    $mmc->reset_items();
     if ($opt->separate_items) {
 	map { $mmc->new_item($_) } @sysnumbers;
     }
@@ -1490,45 +1481,6 @@ sub do_sierra_items {
 	$mmc->set('items.itype', $bibextra->{'itype'});
     }
 
-}
-
-sub convert_record {
-    my $record = shift;
-
-    #print STDERR "Converting record\n";
-    my @warnings = ();
-    my $fieldtag;
-    my $subfield;
-    
-    local $SIG{__WARN__} = sub {
-	my $warning = shift;
-	if (! ($warning =~ /^Use of uninitialized value in subroutine entry at/)) {
-	    $warning = $fieldtag . ($subfield eq '' ? '' : '$' . $subfield) . ': ' . $warning;
-	    $warning =~ s/[\x00-\x1f\x80-\xff]//g;
-	    for (my $i = 0 ; $i < length($warning); $i++) {
-		print STDERR (ord(substr($warning, $i, 1)), ",");
-	    }
-	    push @warnings, $warning;
-	}
-    };
-    
-    for my $field ($record->fields()) {
-	$fieldtag = $field->tag();
-	$subfield = '';
-	if (!$field->is_control_field()) {
-	    #print STDERR "Converting field $field->{_tag}\n";
-	    if (defined($field->{_subfields})) {
-		for (my $i = 1; $i < @{$field->{_subfields}}; $i += 2) {
-		    $subfield = $field->{_subfields}->[$i - 1];
-		    $field->{_subfields}->[$i] = NFC(marc8_to_utf8($field->{_subfields}->[$i], 1));
-		}
-	    }
-	}
-    }
-    $record->encoding('UTF-8');
-    for my $warning (@warnings) {
-	$record->add_fields([ 963, " ", " ", a => $warning ]);
-    }
 }
 
 =head1 AUTHOR

@@ -1,0 +1,8 @@
+id	varchar	40
+barcode	varchar	32
+record_id	varchar	40
+reference	bool
+local_shelf	varchar	40
+shelf	varchar	40
+lending_time	varchar	40
+
