@@ -70,6 +70,8 @@ my ($opt, $usage) = describe_options(
     [ 'encoding-hack', 'Set the charset to MARC-8 in the record before processing.' ],
     [ 'record-procs=s', 'Custom record processors.' ],
     [ 'item-procs=s', 'Custom record processors.' ],
+    [ 'has-itemtable', 'Items in separate table.' ],
+    [ 'no-itemtable', 'Items embedded.', { default => 0, implies => { 'has_itemtable' => 0 } }],
     [],
     [ 'verbose|v',  "print extra stuff"            ],
     [ 'debug',      "Enable debug output" ],
@@ -317,29 +319,35 @@ CREATE TABLE IF NOT EXISTS k_items_idmap (
 );
 EOF
 
-unless ($opt->explicit_record_id) {
-    if ($has_ca_catalog) {
-	$sth = $preparer->prepare('items_ca');
+if ($opt->has_itemtable) {
+    unless ($opt->explicit_record_id) {
+	if ($has_ca_catalog) {
+	    $sth = $preparer->prepare('items_ca');
+	} else {
+	    $sth = $dbh->prepare( <<'EOF' );
+	SELECT Items.*, BarCodes.BarCode
+	FROM exportCatMatch, Items, BarCodes
+	WHERE exportCatMatch.ThreeOne = ?
+	AND exportCatMatch.IdCat = Items.IdCat
+	AND Items.IdItem = BarCodes.IdItem
+EOF
+	}
     } else {
 	$sth = $dbh->prepare( <<'EOF' );
-    SELECT Items.*, BarCodes.BarCode
-    FROM exportCatMatch, Items, BarCodes
-    WHERE exportCatMatch.ThreeOne = ?
-      AND exportCatMatch.IdCat = Items.IdCat
-      AND Items.IdItem = BarCodes.IdItem
+	    SELECT Items.*, BarCodes.BarCode
+		FROM Items, BarCodes
+		WHERE Items.IdCat = ?
+		AND Items.IdItem = BarCodes.IdItem
 EOF
     }
-} else {
-    $sth = $dbh->prepare( <<'EOF' );
-    SELECT Items.*, BarCodes.BarCode
-    FROM Items, BarCodes
-    WHERE Items.IdCat = ?
-      AND Items.IdItem = BarCodes.IdItem
-EOF
 }
 
-# Query for setting done = 1 if --flag_done is set
-my $sth_done = $preparer->prepare('mark_done');
+
+my $sth_done;
+if ($opt->flag_done) {
+    # Query for setting done = 1 if --flag_done is set
+    $sth_done = $preparer->prepare('mark_done');
+}
 
 
 # Create a file output object

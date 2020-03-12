@@ -37,6 +37,7 @@ ENCODING_HACK=no
 IGNORE_PERSNUMMER=no
 RECORD_PROCS=
 INCLUDE_PASSWORDS=no
+HAS_ITEMTABLE=yes
 
 SOURCE_FORMAT=bookit
 
@@ -133,6 +134,10 @@ trap 'rm -rf "$TMPDIR"' EXIT INT TERM HUP
 
 set -o errexit
 
+if [[ "$SOURCE_FORMAT" == "marconly" ]]; then
+    HAS_ITEMTABLE=no
+fi
+
 
 ### RECORDS ###
 
@@ -176,6 +181,7 @@ else
 					     --column-delimiter="$COLUMN_DELIMITER" \
 					     --row-delimiter='\n'               \
 					     --row-delimiter='\r\n'             \
+					     --output-row-delimiter='\n'        \
 					     --enclosed-by="$QUOTE_CHAR"        \
 					     --null-literal                     \
 					     "$file" > "$tabledir"/"${name}${TABLEEXT}"
@@ -204,7 +210,7 @@ fi
 if [[ -n "$TABLEEXT" ]]; then
     TABLE_PARAMS[$((${#TABLE_PARAMS[*]} + 1))]=--ext="$TABLEEXT"
 fi
-if [[ -n "$ROW_DELIMITER" ]]; then
+if [[ -n "$ROW_DELIMITER" && "$TRANSFORM_TABLES" != "yes" ]]; then
     TABLE_PARAMS[$((${#TABLE_PARAMS[*]} + 1))]=--rowdelimiter="$ROW_DELIMITER"
 fi
 
@@ -243,7 +249,7 @@ if [[ "$BUILD_MARC_FILE" == "yes" && ( "$FULL" == "yes" || ! -e "$MARC" ) ]]; th
 fi
 
 ## Create tables and load the datafiles
-if [[ "$QUICK"z != "yesz" ]]; then
+if [[ "$QUICK"z != "yesz" && "$HAS_ITEMTABLE"z == "yes" ]]; then
 echo -n "Going to create tables for records and items, and load data into MySQL... "
 . "$SOURCE_FORMAT"/create_item_tables.sh
 fi
@@ -285,8 +291,13 @@ if [[ "$FULL" == "yes" || ! -e "$OUTPUTDIR"/records.marc ]]; then
     if [[ -n "$ORDERED_STATUSES" ]]; then
 	RECORDS_FLAGS+=" --ordered-statuses=$ORDERED_STATUSES"
     fi
-    echo -- records.pl $RECORDS_FLAGS --flag-done --batch "$BATCH" --default-branchcode "$BRANCHCODE" --config $CONFIG --format $SOURCE_FORMAT --infile "$MARC" --outputdir "$OUTPUTDIR" $RECORDS_PARAMS $RECORDS_INPUT_FORMAT
-    records.pl $RECORDS_FLAGS --flag-done --batch "$BATCH" --default-branchcode "$BRANCHCODE" --config $CONFIG --format $SOURCE_FORMAT --infile "$MARC" --outputdir "$OUTPUTDIR" $RECORDS_PARAMS $RECORDS_INPUT_FORMAT
+    if [[ "$HAS_ITEMTABLE" != "yes" ]] ; then
+	RECORDS_FLAGS+=" --no-itemtable"
+    else
+	RECORDS_FLAGS+=" --flag-done"
+    fi
+    echo -- records.pl $RECORDS_FLAGS --batch "$BATCH" --default-branchcode "$BRANCHCODE" --config $CONFIG --format $SOURCE_FORMAT --infile "$MARC" --outputdir "$OUTPUTDIR" $RECORDS_PARAMS $RECORDS_INPUT_FORMAT
+    records.pl $RECORDS_FLAGS --batch "$BATCH" --default-branchcode "$BRANCHCODE" --config $CONFIG --format $SOURCE_FORMAT --infile "$MARC" --outputdir "$OUTPUTDIR" $RECORDS_PARAMS $RECORDS_INPUT_FORMAT
 fi
 echo "done"
 
