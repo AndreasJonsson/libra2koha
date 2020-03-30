@@ -1,6 +1,7 @@
 package CsvLocProcessor;
 
 use Text::CSV;
+use RecordUtils qw(trim);
 
 sub new {
     my ($class, $opt) = @_;
@@ -37,12 +38,6 @@ sub new {
 	locs => \%locs
     };
 
-}
-
-sub trim {
-    my $s = shift;
-    $s =~ s/^\s*(.*?)\s*$/$1/s;
-    return $s;
 }
 
 sub add_col {

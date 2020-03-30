@@ -39,6 +39,9 @@ RECORD_PROCS=
 INCLUDE_PASSWORDS=no
 HAS_ITEMTABLE=yes
 RECORD_SRC=
+ITEMS_FORMAT=
+BIBEXTRA_TABLE=
+SPECDIR_OVERRIDE=
 
 SOURCE_FORMAT=bookit
 
@@ -61,6 +64,16 @@ elif [[ -e "$dir"/config.inc ]]; then
     fi
 fi
 
+CUSTOM_LIBDIR=
+if [[ -d "$(dirname "$DIR"/../lib)" ]]; then
+    CUSTOM_LIBDIR="$(cd "$(dirname "$DIR"/../lib)"; pwd -P)"
+fi
+CUSTOM_SCRIPTDIR=
+if [[ -d "$(dirname "$DIR"/../script)" ]]; then
+    CUSTOM_SCRIPTDIR="$(cd "$(dirname "$DIR"/../script)"; pwd -P)"
+fi
+
+
 if [[ -e "$dir"/overrides.inc ]]; then
     . "$dir"/overrides.inc
 fi
@@ -70,8 +83,6 @@ echo DIR $DIR dirname DIR $(dirname "$DIR")
 EXPORTCAT="$DIR/exportCat.txt"
 OUTPUTDIR="$(dirname "$DIR")/out"
 
-echo OUTPUTDIR $OUTPUTDIR
-
 mkdir -p "$OUTPUTDIR"
 
 OUTPUTDIR="$(cd "$OUTPUTDIR"; pwd -P)"
@@ -80,10 +91,19 @@ MYSQL_CREDENTIALS="-u libra2koha -ppass $DBNAME"
 MYSQL="mysql $MYSQL_CREDENTIALS"
 MYSQL_LOAD="mysql $MYSQL_CREDENTIALS --local-infile=1 --init-command='SET max_heap_table_size=4294967295;'"
 
-echo "Source format: $SOURCE_FORMAT outputdir $OUTPUTDIR"
-
 RECORDS_INPUT_FORMAT=
 
+run_format_script () {
+    script=$1
+
+    if [[ -e "$CUSTOM_SCRIPTDIR"/"$script" ]]; then
+	. "$CUSTOM_SCRIPTDIR"/"$script"
+    elif [[ -e "$SOURCE_FORMAT"/"$script" ]]; then
+	. "$SOURCE_FORMAT"/"$script"
+    else
+	echo "Warning: missing script for format $script" 1>&2
+    fi
+}
 
 if [[ -n "$INPUT_MARC" ]]; then
     MARC="$DIR/$INPUT_MARC"
@@ -101,7 +121,10 @@ else
     fi
 fi
 
-SPECDIR="$dir/${SOURCE_FORMAT}/spec"
+SPECDIR="$dir/${SOURCE_FORMAT}/spec:$DIR"
+if [[ -n "$SPECDIR_OVERRIDE" ]]; then
+    SPECDIR="$SPECDIR_OVERRIDE:$SPECDIR"
+fi
 
 if [[ "$FORCE_XML_INPUT" == yes ]]; then
     RECORDS_INPUT_FORMAT=--xml-input
@@ -119,6 +142,9 @@ else
    export PERL5LIB="$LIBRIOTOOLS_DIR"/lib:"$SCRIPTDIR"/lib
 fi
 export PERL5LIB="/usr/share/koha/lib:$PERL5LIB"
+if [[ -n "$CUSTOM_LIBDIR" ]]; then
+    export PERL5LIB="$CUSTOM_LIBDIR:$PERL5LIB"
+fi
 if [[ -z "$LIBRA2KOHA_NOCONFIRM" ]] ; then
    export LIBRA2KOHA_NOCONFIRM=0
 fi
@@ -143,7 +169,6 @@ if [[ "$SOURCE_FORMAT" == "marconly" ]]; then
     HAS_ITEMTABLE=no
 fi
 
-
 ### RECORDS ###
 
 if [[ "$TRANSFORM_TABLES" != "yes" || "$TABLEENC" == "utf-8" || "$TABLEENC" == "utf8" ]]; then
@@ -165,7 +190,14 @@ else
 	    if [[ ! ( "$file" =~ spec\.txt$ ) ]]; then
 		name="$(basename -s "${TABLEEXT}" "$file")"
 		specName="$name"spec
-		specFile="$SPECDIR/$specName".txt
+		while IFS=':' read -ra specdir ; do
+		    for i in "${specdir[@]}"; do
+			if [[ -e "$i/$specName".txt ]]; then
+			    specFile="$i/$specName".txt
+			    break 2
+			fi
+		    done
+		done <<<"$SPECDIR"
 		if [[ ! -e "$specFile" && "$name" != 'exportCat' && "$name" != 'exportCatMatch' ]]; then
 		    echo "No specification file corresponding to $file!" 1>&2
 		elif [[ ! -e "$tabledir"/"$name""${TABLEEXT}" ]]; then
@@ -221,10 +253,14 @@ if [[ -n "$ROW_DELIMITER" && "$TRANSFORM_TABLES" != "yes" ]]; then
     TABLE_PARAMS[$((${#TABLE_PARAMS[*]} + 1))]=--rowdelimiter="$ROW_DELIMITER"
 fi
 
+
 ### CHECK FOR CONFIG FILES ###
 
 # Force the user to create necessary config files, and provide skeletons
 MISSING_FILE=0
+if [[ -e "$CUSTOM_SCRIPTDIR"/missing_config.inc ]] ; then
+    . "$CUSTOM_SCRIPTDIR"/missing_config.inc
+fi
 . "$SOURCE_FORMAT/missing_config.inc"
 if [ $MISSING_FILE -eq 1 ]; then
     exit
@@ -257,8 +293,39 @@ fi
 
 ## Create tables and load the datafiles
 if [[ "$QUICK"z != "yesz" && "$HAS_ITEMTABLE"z == "yes" ]]; then
-echo -n "Going to create tables for records and items, and load data into MySQL... "
-. "$SOURCE_FORMAT"/create_item_tables.sh
+    echo -n "Going to create tables for records and items, and load data into MySQL... "
+    run_format_script create_item_tables.sh
+    echo "done"
+fi
+
+### BORROWERS ###
+if [[ "$QUICK"z != "yesz" ]]; then
+    ## Create tables and load the datafiles
+    $MYSQL < "$dir"/mysql/valid_person_number.sql
+    echo -n "Going to create tables for borrowers, and load data into MySQL... "
+    run_format_script create_borrower_tables.sh
+    echo "done"
+fi
+
+### ACTIVE ISSUES/LOANS ###
+if [[ "$QUICK"z != "yesz" ]]; then
+   # Create tables and load the datafiles
+   echo -n "Going to create tables for active issues, and load data into MySQL... "
+   run_format_script create_issue_tables.sh
+   echo "done"
+fi
+
+if [[ "$QUICK"z != "yesz" ]]; then
+   run_format_script create_serials_tables.sh
+fi
+
+
+if [[ "$QUICK"z != "yesz" && -n "$BIBEXTRA_TABLE" ]]; then
+    echo BIBEXTRA_TABLE "$BIBEXTRA_TABLE"
+    bib_tables="$(mktemp)"
+    create_tables.pl --format="$SOURCE_FORMAT" "${TABLE_PARAMS[@]}" --table "$BIBEXTRA_TABLE" > "$bib_tables"
+    cat $bib_tables
+    eval $MYSQL_LOAD < "$bib_tables"
 fi
 
 if [[ "$FULL" == "yes" || ! -e "$OUTPUTDIR"/records.marc ]]; then
@@ -306,19 +373,13 @@ if [[ "$FULL" == "yes" || ! -e "$OUTPUTDIR"/records.marc ]]; then
     else
 	RECORDS_FLAGS+=" --flag-done"
     fi
+    if [[ -n "$ITEMS_FORMAT" ]]; then
+	RECORDS_FLAGS+=" --items-format=$ITEMS_FORMAT"
+    fi
     echo -- records.pl $RECORDS_FLAGS --batch "$BATCH" --default-branchcode "$BRANCHCODE" --config $CONFIG --format $SOURCE_FORMAT --infile "$MARC" --outputdir "$OUTPUTDIR" $RECORDS_PARAMS $RECORDS_INPUT_FORMAT
     records.pl $RECORDS_FLAGS --batch "$BATCH" --default-branchcode "$BRANCHCODE" --config $CONFIG --format $SOURCE_FORMAT --infile "$MARC" --outputdir "$OUTPUTDIR" $RECORDS_PARAMS $RECORDS_INPUT_FORMAT
 fi
 echo "done"
-
-### BORROWERS ###
-if [[ "$QUICK"z != "yesz" ]]; then
-## Create tables and load the datafiles
-$MYSQL < mysql/valid_person_number.sql
-echo -n "Going to create tables for borrowers, and load data into MySQL... "
-. "$SOURCE_FORMAT"/create_borrower_tables.sh
-echo "done"
-fi
 
 ## Get the relevant info out of the database and into a .sql file
 BORROWERSSQL="$OUTPUTDIR/borrowers.sql"
@@ -371,14 +432,6 @@ if [[ "$FULL" == "yes" || ! -e $BORROWERSSQL ]]; then
     export PERLIO=$TMPPERLIO
 fi
 
-### ACTIVE ISSUES/LOANS ###
-if [[ "$QUICK"z != "yesz" ]]; then
-# Create tables and load the datafiles
-echo -n "Going to create tables for active issues, and load data into MySQL... "
-. "$SOURCE_FORMAT"/create_issue_tables.sh
-echo "done"
-fi
-
 # Get the relevant info out of the database and into a .sql file
 ISSUESSQL="$OUTPUTDIR/issues.sql"
 if [[ "$FULL" == "yes" || ! -e $ISSUESSQL ]]; then
@@ -398,7 +451,6 @@ if [[ "$FULL" == "yes" || ! -e "$OUTPUTDIR"/old_issues_update.sql ]]; then
 fi
 
 
-. "$SOURCE_FORMAT"/create_serials_tables.sh
 if [[ true || "$FULL" == "yes" || ! -e "$OUTPUTDIR"/serials.sql ]]; then
     echo "Serials"
     serials.pl --batch "$BATCH" --format "$SOURCE_FORMAT" --branchcode "$BRANCHCODE" --outputdir "$OUTPUTDIR" --config "$CONFIG"

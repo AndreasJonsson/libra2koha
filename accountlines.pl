@@ -40,7 +40,7 @@ our $dbh = DBI->connect( $config->{'db_dsn'},
                         { RaiseError => 1, AutoCommit => 1 } );
 
 
-my $preparer = new StatementPreparer(format => $opt->format, dbh => $dbh);
+my $preparer = new StatementPreparer(format => $opt->format, dbh => $dbh, dir => [$opt->config]);
 init_time_utils(sub { return $dbh->quote(shift); });
 
 my $branchcodes;

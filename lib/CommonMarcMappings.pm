@@ -6,12 +6,15 @@ $VERSION     = 1.00;
 @EXPORT      = qw(%common_marc_mappings);
 @EXPORT_OK   = qw();
 
+use utf8;
+
 our %common_marc_mappings = (
     'bibid'                            => { map => '001'},
     'syscode'                          => { map => '003'},
     'isbn'                             => { map => { '020' => 'a' } },
     'issn'                             => { map => { '022' => 'a' } },
     'catid'                            => { map => { '035' => 'a' } },
+    'huvudspråk'                       => { map => '041:1 $a' },
     'klassifikationskod_dewey'         => { map => { '082' => 'a' } },
     'klassifikationskod'               => { map => { '084' => 'a' } },
     'klassifikationsdel_av_uppställningssignum' => { map => { '852' => 'h' } },
@@ -112,6 +115,7 @@ our %common_marc_mappings = (
     'sierra_message'                   => { map => { '945' => 'm' } },
     'sierra_copy_number'               => { map => { '945' => 'g' } },
     'sierra_call_number'               => { map => { '945' => 'a' } },
+    'sierra_call_number_loc'           => { map => { '945' => 'b' } },
     'sierra_volume'                    => { map => { '945' => 'c' } },
     'sierra_location'                  => { map => { '945' => 'l' } },
     'sierra_sysid'                     => { map => { '945' => 'i' } },

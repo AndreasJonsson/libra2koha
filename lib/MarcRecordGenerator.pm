@@ -32,7 +32,7 @@ sub nextfile {
     if ($self->{opt}->xml_input) {
 	$batch = MARC::Batch->new( 'XML', $file );
     } else {
-	open FH, "<:bytes", $file;
+	open FH, "<:bytes", $file or die "Could not open '$file': $!";
 	$batch = MARC::File::USMARC->in( \*FH );
     }
 
@@ -53,13 +53,15 @@ sub next {
 
 	$record = $self->{batch}->next();
 
-	if ($record->encoding() eq 'MARC-8') {
-	    convert_record($record);
+	if (defined $record) {
+	    if ($record->encoding() eq 'MARC-8') {
+		convert_record($record);
+	    }
+
+	    return $record;
+	} else {
+	    $self->close;
 	}
-
-	return $record if defined($record);
-
-	$self->close;
     }
 }
 

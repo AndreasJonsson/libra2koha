@@ -97,7 +97,7 @@ if ( -f $opt->config . '/patroncategories.yaml' ) {
 # Set up the database connection
 my $dbh = DBI->connect( $config->{'db_dsn'}, $config->{'db_user'}, $config->{'db_pass'}, { RaiseError => 1, AutoCommit => 1 } );
 
-my $preparer = new StatementPreparer(format => $opt->format, dbh => $dbh);
+my $preparer = new StatementPreparer(format => $opt->format, dbh => $dbh, dir => [$opt->config]);
 init_time_utils(sub { return $dbh->quote(shift); });
 
 my $limit = $opt->limit;

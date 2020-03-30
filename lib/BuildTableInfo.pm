@@ -13,19 +13,21 @@ use Text::CSV;
 use Getopt::Long::Descriptive;
 
 sub create_file_hash {
-    my $dir = shift;
+    my $dir0 = shift;
     my $pattern = shift;
     my $dh;
-    opendir($dh, $dir)  or die ($dir . ": $!");
     my %hash = ();
-    while (my $file = readdir $dh) {
-	if ($file =~ /$pattern/) {
-	    $hash{$1} = {
-		'filename' => $file
-	    };
+    for my $dir (split ':', $dir0) {
+	opendir($dh, $dir)  or die ($dir . ": $!");
+	while (my $file = readdir $dh) {
+	    if ($file =~ /$pattern/) {
+		$hash{$1} = {
+		    'filename' => $file
+		};
+	    }
 	}
+	close $dh;
     }
-    close $dh;
     return \%hash;
 }
 
@@ -93,7 +95,14 @@ sub build_table_info {
 	$csvfiles->{$base}->{missingspecs} = [];
 	close $fh;
 	if (!$csvfiles->{$_}->{missingspec}) {
-	    my $specfile = $opt->spec . "/" . $specfiles->{$base}->{filename};
+	    my $specfile;
+	    for my $spec (split ':', $opt->spec) {
+		my $f = $spec . '/' . $specfiles->{$base}->{filename};
+		if (-e $f) {
+		    $specfile = $f;
+		    last;
+		}
+	    }
 	    print STDERR ("Opening spec file $specfile encoding: " . $opt->specencoding . "\n") if $opt->verbose;
 	    if ($opt->use_bom) {
 		open $fh, ("<:encoding(" . $opt->specencoding . "):via(File::BOM)"), $specfile;

@@ -4,14 +4,17 @@ DROP TABLE IF EXISTS `[% tablename %]`;
 CREATE TABLE `[% tablename %]` (
 [% FOREACH col IN columns -%]
     `[% col.name %]` [% col.type %][% IF col.size %]([% col.size %])[% END %]
-    [%- IF tablename == 'Items' && col.name == 'IdItem' %] PRIMARY KEY[% END %]
-    [%- IF tablename == 'exportCatMatch' && col.name == 'ThreeOne' %] PRIMARY KEY[% END %]
-    [%- IF tablename == 'Borrowers' && col.name == 'IdBorrower' %] PRIMARY KEY[% END %]
+    [%- IF col.key %][% IF col.unique %] UNIQUE[% END %] KEY[% END %]
     [%- UNLESS loop.last %],[% END %]
 [% END -%]
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8;
+[% FOREACH col IN columns -%]
+  [%- IF col.index %]
+    CREATE [% IF col.unique %]UNIQUE [% END %]INDEX `[% tablename %]_[% col.name %]_idx` ON `[% tablename %]` ([% col.colname %]);
+  [% END -%]
+[% END -%]
 LOAD DATA LOCAL INFILE '[% dirs %]/[% tablename %][% ext %]'
-    INTO TABLE [% tablename %]
+    INTO TABLE `[% tablename %]`
     CHARACTER SET [% enc %]
     FIELDS TERMINATED BY '[% sep %]'
     [% IF quote %] ENCLOSED BY '[% quote %]'[% END %]

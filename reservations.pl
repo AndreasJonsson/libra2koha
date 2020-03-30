@@ -150,7 +150,7 @@ our $dbh = DBI->connect( $config->{'db_dsn'},
  
 init_time_utils(sub { $dbh->quote(shift); });
 
-my $preparer = new StatementPreparer(format => $opt->format, dbh => $dbh);
+my $preparer = new StatementPreparer(format => $opt->format, dbh => $dbh, dir => [$opt->config]);
 my $sth = $preparer->prepare('select_reservation_info');
 
 my $ret = $sth->execute();

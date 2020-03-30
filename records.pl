@@ -32,7 +32,7 @@ use WeelibJSONRecordGenerator;
 
 $YAML::Syck::ImplicitUnicode = 1;
 
-#use utf8;
+use utf8;
 use CommonMarcMappings;
 use RecordUtils;
 
@@ -40,8 +40,6 @@ binmode STDOUT, ":utf8";
 $|=1; # Flush output
 
 $YAML::Syck::ImplicitUnicode = 1;
-
-open IGNORED_BIBLIOS, ">ignored_biblios.txt";
 
 # Get options
 
@@ -68,9 +66,10 @@ my ($opt, $usage) = describe_options(
     [ 'separate-items', 'Write items into separate sql-file.' ],
     [ 'encoding-hack', 'Set the charset to MARC-8 in the record before processing.' ],
     [ 'record-procs=s', 'Custom record processors.' ],
-    [ 'item-procs=s', 'Custom record processors.' ],
+    [ 'item-procs=s', 'Custom item processors.' ],
     [ 'has-itemtable', 'Items in separate table.' ],
     [ 'no-itemtable', 'Items embedded.', { default => 0, implies => { 'has_itemtable' => 0 } }],
+    [ 'items-format=s', 'Format of embedded items.' ],
     [],
     [ 'verbose|v',  "print extra stuff"            ],
     [ 'debug',      "Enable debug output" ],
@@ -132,34 +131,6 @@ sub add_catitem_stat {
     add_stat(\%catid_types, $catid);
 }
 
-my $mmc;
-if ($opt->separate_items) {
-    $mmc = MarcUtil::WrappedMarcMappingCollection::marc_mappings(
-    %common_marc_mappings
-	);
-} else {
-    $mmc = MarcUtil::MarcMappingCollection::marc_mappings(
-    %common_marc_mappings
-	);
-}
-
-my @record_procs = ();
-my @item_procs = ();
-
-if (defined $opt->record_procs) {
-    for my $rpc (split ',', $opt->record_procs) {
-	eval "use $rpc; push \@record_procs, ${rpc}->new(\$opt);";
-	die if ($@);
-    }
-}
-
-for my $ipc ((defined $opt->item_procs ? (split ',', $opt->item_procs) : ()), 'ItemStatProcessor') {
-    say STDERR $ipc;
-    eval "use $ipc; push \@item_procs, ${ipc}->new(\$opt);";
-    die if ($@);
-}
-
-
 =head1 CONFIG FILES
 
 Config files should be kept in one directory and pointed to by the -c or
@@ -181,6 +152,29 @@ if ( -f $config_dir . '/config.yaml' ) {
     $config = LoadFile( $config_dir . '/config.yaml' );
 }
 my $output_file = $output_dir ? "$output_dir/records.marc" : $config->{'output_marc'};
+
+
+my $mmc;
+if ($opt->separate_items) {
+    $mmc = MarcUtil::WrappedMarcMappingCollection::marc_mappings(
+    %common_marc_mappings
+	);
+} else {
+    $mmc = MarcUtil::MarcMappingCollection::marc_mappings(
+    %common_marc_mappings
+	);
+}
+
+# Set up the database connection
+my $dbh = DBI->connect( $config->{'db_dsn'}, $config->{'db_user'}, $config->{'db_pass'}, { RaiseError => 1, AutoCommit => 1 } );
+if ($opt->separate_items) {
+    $mmc->quote(sub { return $dbh->quote(shift); });
+}
+
+my $preparer = new StatementPreparer(format => $format, dbh => $dbh, dir => [$opt->config]);
+ 
+my $bibextra_sth = 0;
+eval { $bibextra_sth = $preparer->prepare("bibextra") };
 
 =head2 branchcodes.yaml
 
@@ -250,6 +244,40 @@ if ( -f $config_dir . '/media_types.yaml' ) {
     $media_types = LoadFile( $config_dir . '/media_types.yaml');
 }
 
+my $itemtypes = {};
+if ( -f $config_dir . '/itemtypes.yaml' ) {
+    print STDERR "Loading itemtypes.yaml\n" if $opt->verbose;
+    $itemtypes = LoadFile( $config_dir . '/itemtypes.yaml');
+}
+
+my $config_tables = {
+    branchcodes => $branchcodes,
+    loc => $loc,
+    ccode => $ccode,
+    damaged => $damaged,
+    lost => $lost,
+    media_types => $media_types,
+    itemtypes => $itemtypes
+};
+
+my @record_procs = ();
+my @item_procs = ();
+
+if (defined $opt->record_procs) {
+    for my $rpc (split ',', $opt->record_procs) {
+	eval "use $rpc; push \@record_procs, ${rpc}->new(\$opt, \$config_tables, \$dbh, \$bibextra_sth);";
+	die if ($@);
+    }
+}
+
+for my $ipc ((defined $opt->item_procs ? (split ',', $opt->item_procs) : ()), 'ItemStatProcessor') {
+    say STDERR $ipc;
+    eval "use $ipc; push \@item_procs, ${ipc}->new(\$opt, \$config_tables, \$dbh);";
+    die if ($@);
+}
+
+
+
 my @input_files = glob $input_file;
 # Check that the input file exists
 if (  scalar(@input_files) < 1 ) {
@@ -274,17 +302,9 @@ print "There are $limit records in $input_file\n";
 
 my $progress = Term::ProgressBar->new( $limit );
 
-# Set up the database connection
-my $dbh = DBI->connect( $config->{'db_dsn'}, $config->{'db_user'}, $config->{'db_pass'}, { RaiseError => 1, AutoCommit => 1 } );
-if ($opt->separate_items) {
-    $mmc->quote(sub { return $dbh->quote(shift); });
-}
-
 # Query for selecting items connected to a given record
 
 my $sth;
-
-my $preparer = new StatementPreparer(format => $format, dbh => $dbh);
 
 my $isbn_issn_sth;
 if ($format eq 'bookit') {
@@ -299,9 +319,6 @@ if ($format eq 'micromarc') {
 my $mediatype_mapping_sth = 0;
 eval { $mediatype_mapping_sth = $preparer->prepare("mediatype_mapping") };
 
-my $bibextra_sth = 0;
-eval { $bibextra_sth = $preparer->prepare("bibextra") };
-
 my $has_ca_catalog = 1;
 
 my $item_context = {
@@ -311,6 +328,7 @@ my $item_context = {
 my $batchno = $opt->batch;
 
 open ITEM_OUTPUT, ">:utf8", "$output_dir/items.sql" or die "Failed to open $output_dir/items.sql: $!";
+open IGNORED_BIBLIOS, ">:utf8", "$output_dir/ignored_biblios.txt" or die "Failed to open $output_dir/ignored_biblios.txt: $!";
 
 my $original_id_type = 'INT';
 if ($opt->string_original_id) {
@@ -428,10 +446,10 @@ Bookit format ISBN is in  350 00 c and ISSN in 350 10 c
 	  $bibextra = {};
       }
 
-      if (!defined($record->field('001'))) {
+      if (!defined($record->field('001')) && $opt->has_itemtable) {
 	  if (scalar($record->fields()) > 0) {
-	      warn "No 001 on record!";
-	      say STDERR MARC::File::XML::record( $record );
+	      #warn "No 001 on record!";
+	      #say STDERR MARC::File::XML::record( $record );
 	  } else {
 	      # warn "Record has no fields!"
 	  }
@@ -492,6 +510,10 @@ L<http://wiki.koha-community.org/wiki/Holdings_data_fields_%289xx%29>
 
 =cut
 
+      my $includedItem = 0;
+      my $ignoredItem = 0;
+
+      if ($opt->has_itemtable) {
       my $items;
       my $recordid;
 
@@ -569,14 +591,6 @@ L<http://wiki.koha-community.org/wiki/Holdings_data_fields_%289xx%29>
 
       }
       
-      my $includedItem = 0;
-      my $ignoredItem = 0;
-
-      if ($opt->format eq 'sierra') {
-	  do_sierra_items($mmc, $bibextra, $loc);
-      }
-
-
     ITEM: while (my $item = $sth->fetchrow_hashref) {
         say Dumper $item if $opt->debug;
 
@@ -939,7 +953,7 @@ FIXME This should be done with a mapping file!
         $count_items++;
 
       } # end foreach items
-
+      } # end if ($opt->has_itemtable)
 =head2 Add 942
 
 Just add the itemtype in 942$c.
@@ -947,8 +961,12 @@ Just add the itemtype in 942$c.
 =cut
 
       if ( !$last_itemtype ) {
-	  my $itemtype = get_itemtype( $record );
-	  $last_itemtype = refine_itemtype( $mmc, $record, undef, $itemtype );
+	  my $itemtype = $mmc->get('items.itype');
+	  $last_itemtype = $itemtype;
+	  if (!defined $itemtype) {
+	      $itemtype = get_itemtype( $record );
+	      $last_itemtype = refine_itemtype( $mmc, $record, undef, $itemtype );
+	  }
 	  unless($mmc->get('biblioitemtype')) {
 	      $mmc->set('biblioitemtype', $last_itemtype);
 	  }
@@ -973,6 +991,17 @@ Just add the itemtype in 942$c.
 	  if ($opt->string_original_id) {
 	      map { $_->{original_id} = $dbh->quote($_->{original_id}) } @itemcontext;
 	  }
+	  my $f001 = defined($record->field( '001' )) ? $record->field( '001' )->data() : '';
+	  $item_context->{marc001} = $dbh->quote($f001);
+	  my $f003;
+	  unless ($record->field( '003' )) {
+	      $f003 = '';
+	      $item_context->{marc003} = 'NULL';
+	  } else {
+	      $f003 = lc $record->field( '003' )->data();
+	      $f003 =~ s/[^a-zæøåöA-ZÆØÅÖ\d]//g;
+	      $item_context->{marc003} = $dbh->quote($f003);
+	  }
 	  $item_context->{items} = \@itemcontext;
 
 	  $tt2->process( 'items.tt', $item_context, \*ITEM_OUTPUT,  {binmode => ':utf8'} ) || die $tt2->error();
@@ -994,7 +1023,7 @@ Just add the itemtype in 942$c.
       
       $count++;
       $progress->update( $count );
-      last if $limit && $limit == $count;
+      last if $limit && $limit <= $count;
 }
 
 $progress->update( $limit );
@@ -1341,146 +1370,6 @@ sub clean_field {
 	    $f->data($1);
 	}
     }
-}
-
-sub do_sierra_items {
-    my $mmc = shift;
-    my $bibextra = shift;
-    my $loc = shift;
-
-    my @sysnumbers = $mmc->get('sierra_sysnumber');
-    $mmc->reset_items();
-    if ($opt->separate_items) {
-	map { $mmc->new_item($_) } @sysnumbers;
-    }
-    my @branches = map { $opt->default_branchcode } @sysnumbers;
-
-    $mmc->set('items.homebranch', @branches);
-    $mmc->set('items.holdingbranch', @branches);
-    
-    copy($mmc, 'sierra_barcode', 'items.barcode');
-    copy($mmc, 'sierra_created', 'items.dateaccessioned');
-    copy($mmc, 'sierra_total_checkouts', 'items.issues');
-    copy($mmc, 'sierra_total_renewals', 'items.renewals');
-    copy($mmc, { m => 'sierra_price', f => sub {
-	if (!defined($_[0])) {
-	    return;
-	}
-	$_[0] =~ /^(\d*)/; return $1; } }, 'items.price');
-    copy($mmc, 'sierra_note', 'items.itemnotes_nonpublic');
-    copy($mmc, 'sierra_message', 'items.itemnotes');
-    copy($mmc, 'sierra_call_number', 'items.itemcallnumber');
-    copy($mmc, 'sierra_volume', 'items.enumchron');
-    copy($mmc, 'sierra_copy_number', 'items.copynumber');
-
-    copy($mmc, { m => 'sierra_restricted', f => sub {
-	if (!defined($_[0])) {
-	    return
-	}
-	my %map = (
-	    'e' => 1,
-	    'l' => 2,
-	    'o' => 3
-	    );
-	return $map{$_[0]};
-	
-		 }
-	 }, 'items.restricted');
-
-    copy($mmc, { m => 'sierra_status', f => sub {
-	if (!defined($_[0])) {
-	    return
-	}
-	my %map = (
-	    'r' => 1
-	    );
-	return $map{$_[0]};
-		 }
-	 }, 'items.damaged');
-
-    copy($mmc, { m => 'sierra_status', f => sub {
-	if (!defined($_[0])) {
-	    return
-	}
-	my %map = (
-	    'm' => 4,
-	    '$' => 3,
-	    'n' => 2,
-	    'k' => 1
-	    );
-	return $map{$_[0]};
-	 }
-    }, 'items.itemlost');
-
-    copy($mmc, { m => 'sierra_status', f => sub {
-	if (!defined($_[0])) {
-	    return
-	}
-	if ($_ eq 'u') { return '2019-05-28'; } else { return undef; } } }, 'items.onloan');
-
-    copy($mmc, { m => 'sierra_itemtype', f => sub {
-	if (!defined($_[0])) {
-	    return
-	}
-	my %map = (
-	    11 => 'BILD',
-	    2 => 'BOK',
-	    7 => 'FILM',
-	    16 => 'FL-MEDIER',
-	    18 => 'SAK',
-	    20 => 'MS',
-	    6 => 'ATLAS',
-	    13 => 'ML-MEDIER',
-	    10 => 'CD',
-	    4 => 'MUS-MS',
-	    3 => 'NOT',
-	    15 => 'PAKET',
-	    9 => 'TAL',
-	    1 => 'TEXT',
-	    14 => 'PER',
-	    0 => 'NONE'
-	    );
-	return $map{$_[0]};
-    } }, 'items.itype');
-
-    copy($mmc, { m =>'sierra_location', f => sub {
-	if (!defined($_[0])) {
-	    return
-	}
-	my %map = (
-	    'a' => 'Arkiv',
-	    'arark' => 'Arkiv',
-	    'arref' => 'Arkiv',
-	    'b' => 'ingen',
-	    'brrar' => 'Rariteter',
-	    'brref' => 'Referens',
-	    'brtid' => 'Per',
-	    'buba' => 'Barn',
-	    'bucd' => 'CD',
-	    'bumag' => 'mag1',
-	    'buny' => 'öppen',
-	    'buork' => 'Orkester',
-	    'bupj' => 'PjäsHem',
-	    'e' => 'EMS',
-	    'errar' => 'EMSRa',
-	    'erref' => 'EMSRe',
-	    'ertid' => 'EMSPe',
-	    'eubib' => 'EMS',
-	    'eucd' => 'EMSCD',
-	    's' => 'SVA',
-	    'srref' => 'SVA'
-	);
-	return $map{$_[0]};
-    } }, 'items.location');
-
-    if (defined $bibextra->{'collection_code'}) {
-	$mmc->set('items.ccode', $bibextra->{'collection_code'});
-    }
-
-    if (defined $bibextra->{'itype'}) {
-	$mmc->set('items.itype', $bibextra->{'itype'});
-    }
-
 }
 
 =head1 AUTHOR

@@ -32,6 +32,7 @@ my %DATE_FORMATS = (
     libra  => '%Y%m%d',
     #micromarc => '%d.%m.%Y'
     micromarc => '%Y-%m-%d',
+    marconly => '%Y-%m-%d',
     sierra => '%Y-%m-%d'
     );
 
@@ -41,6 +42,7 @@ my %DATETIME_FORMATS = (
     #micromarc => '%d.%m.%Y %H.%i.%S'
     micromarc => '%Y-%m-%d %H:%i:%S',
     sierra => '%Y-%m-%d %H:%i:%S',
+    marconly => '%Y-%m-%d %H:%i:%S'
     );
 
 my %TIME_FORMATS = (
@@ -48,7 +50,8 @@ my %TIME_FORMATS = (
     libra  => '%T',
     #micromarc => '%H.%i.%S'
     micromarc => '%H:%i:%S',
-    sierra => '%H:%i:%S'
+    sierra => '%H:%i:%S',
+    marconly => '%H:%i:%S'
     );
 
 my ($opt, $usage) = describe_options(
@@ -147,6 +150,10 @@ foreach my $table (@{$opt->tables}) {
 	    die "No type on $table $c: " . Dumper($specfiles->{$table});
 	    # print Dumper($specfiles);
 	}
+
+	my $key = 0;
+	my $unique = 0;
+	my $index = 0;
 	
 	my $type = $s->{type};
 	if (!defined($type)) {
@@ -156,6 +163,18 @@ foreach my $table (@{$opt->tables}) {
 	}
 	my $size;
 	if (defined($s->{typeextra}) and $s->{typeextra} ne '') {
+	    if ($s->{typeextra} =~ /\bkey\b/i) {
+		$s->{typeextra} =~ s/\bkey\b//i;
+		$key = 1;
+	    }
+	    if ($s->{typeextra} =~ /\bunique\b/i) {
+		$s->{typeextra} =~ s/\bunique\b//i;
+		$unique = 1;
+	    }
+	    if ($s->{typeextra} =~ /\bindex\b/i) {
+		$s->{typeextra} =~ s/\bindex\b//i;
+		$index = 1;
+	    }
 	    $size = $s->{typeextra};
 	    chomp $size;
 	}
@@ -184,7 +203,10 @@ foreach my $table (@{$opt->tables}) {
 	my $coldecl = {
 	    'name' => $c,
 		'type' => $type,
-		'size' => $size
+		'size' => $size,
+		'key' => $key,
+		'unique' => $unique,
+		'index' => $index
 	};
 	if ($type eq 'date') {
 	    $coldecl->{tmpname} = "\@tmp_date_$count";

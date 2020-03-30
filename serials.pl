@@ -83,7 +83,7 @@ my $ttconfig = {
 # create Template object
 my $tt2 = Template->new( $ttconfig ) || die Template->error(), "\n";
 
-my $preparer = new StatementPreparer(format => $opt->format, dbh => $dbh);
+my $preparer = new StatementPreparer(format => $opt->format, dbh => $dbh, dir => [$opt->config]);
 
 my $subscription_sth = $preparer->prepare( 'select_subscriptions' );
 my $serials_sth = $preparer->prepare( 'select_serials' );

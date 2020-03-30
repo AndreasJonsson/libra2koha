@@ -14,7 +14,8 @@ sub new {
 
     return bless {
 	dbh => $args{dbh},
-	format => $args{format}
+	format => $args{format},
+	dir => $args{dir}
     };
 
 }
@@ -23,19 +24,23 @@ sub prepare {
     my $self = shift;
     my $name = shift;
 
-    my $filename = $self->{format} . "/${name}.sql";
+    for my $d (@{$self->{dir}}, $self->{format}) {
+	my $filename = $d . "/${name}.sql";
 
-    open SQL, "<:utf8", $filename  or croak "Failed to open $filename: $!";
+	next unless -e $filename;
 
-    my $sql = join "\n", <SQL>;
+	open SQL, "<:utf8", $filename  or croak "Failed to open $filename: $!";
 
-    utf8::decode($sql);
-    
-    my $stmnt =  $self->{dbh}->prepare($sql);
+	my $sql = join "\n", <SQL>;
 
-    close SQL;
+	utf8::decode($sql);
+	
+	my $stmnt =  $self->{dbh}->prepare($sql);
 
-    return $stmnt;
+	close SQL;
+
+	return $stmnt;
+    }
 }
 
 1;
