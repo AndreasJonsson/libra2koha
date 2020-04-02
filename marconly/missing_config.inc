@@ -12,11 +12,11 @@ if [ ! -f "$CONFIG/branchcodes.yaml" ]; then
     done
 fi
 
-if [ ! -f "$CONFIG/itype.yaml" ]; then
-    echo "Missing $CONFIG/itype.yaml"
+if [ ! -f "$CONFIG/itemtypes.yaml" ]; then
+    echo "Missing $CONFIG/itemtypes.yaml"
     MISSING_FILE=1
     for i in $MARC; do
-        marcdump --field=945 "$i" | egrep '^......._t' | sort | uniq | sed "s/^.........\\(.*\\)/'\\1': '' /"  > "$CONFIG"/itype.yaml
+        marcdump --field=945 "$i" | egrep '^......._t' | sort | uniq | sed "s/^.........\\(.*\\)/'\\1': '' /"  > "$CONFIG"/itemtypes.yaml
     done
 fi
 
