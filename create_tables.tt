@@ -5,6 +5,7 @@ CREATE TABLE `[% tablename %]` (
 [% FOREACH col IN columns -%]
     `[% col.name %]` [% col.type %][% IF col.size %]([% col.size %])[% END %]
     [%- IF col.key %][% IF col.unique %] UNIQUE[% END %] KEY[% END %]
+    [%- IF col.autoincrement %] NOT NULL AUTO_INCREMENT [% END %]
     [%- UNLESS loop.last %],[% END %]
 [% END -%]
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8;
@@ -24,6 +25,7 @@ LOAD DATA LOCAL INFILE '[% dirs %]/[% tablename %][% ext %]'
 (
 [% first_column = 1 -%]
 [% FOREACH col IN columns -%]
+   [% IF !col.autoincrement -%]
    [% IF first_column -%]
       [% first_column = 0 -%]
    [% ELSE %],  [% END -%]
@@ -32,16 +34,19 @@ LOAD DATA LOCAL INFILE '[% dirs %]/[% tablename %][% ext %]'
    [% ELSE -%]
        `[% col.name %]`
    [% END -%]
+   [% END -%]
 [% END -%]
 )
 [% first_column = 1 -%]
 [% FOREACH col IN columns -%]
+   [% IF !col.autoincrement -%]
    [% IF col.conversion -%]
      [% IF first_column -%]
        [% first_column = 0 -%]
 SET 
      [% ELSE %],  [% END -%]
 `[% col.name %]` = [% col.conversion %]
+   [% END -%]
    [% END -%]
 [% END -%]
 ;

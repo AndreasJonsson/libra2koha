@@ -143,8 +143,16 @@ foreach my $table (@{$opt->tables}) {
 
     my $count = 0;
     my @columns = ();
+
+    my @extra_columns = ();
+    for my $c (keys %{$specfiles->{$table}->{columns}}) {
+	my $s = $specfiles->{$table}->{columns}->{$c};
+	if (defined $s->{typeextra} && $s->{typeextra} =~ /\bautoincrement\b/i) {
+	    push @extra_columns, $c;
+	}
+    }
 	
-    for my $c (@{$csvfiles->{$table}->{columnlist}}) {
+    for my $c (@{$csvfiles->{$table}->{columnlist}}, @extra_columns) {
 	my $s = $specfiles->{$table}->{columns}->{$c};
 	if (! defined($s->{type})) {
 	    die "No type on $table $c: " . Dumper($specfiles->{$table});
@@ -154,6 +162,7 @@ foreach my $table (@{$opt->tables}) {
 	my $key = 0;
 	my $unique = 0;
 	my $index = 0;
+	my $autoincrement = 0;
 	
 	my $type = $s->{type};
 	if (!defined($type)) {
@@ -162,7 +171,7 @@ foreach my $table (@{$opt->tables}) {
 	    chomp $type;
 	}
 	my $size;
-	if (defined($s->{typeextra}) and $s->{typeextra} ne '') {
+	if (defined($s->{typeextra}) && $s->{typeextra} ne '') {
 	    if ($s->{typeextra} =~ /\bkey\b/i) {
 		$s->{typeextra} =~ s/\bkey\b//i;
 		$key = 1;
@@ -174,6 +183,10 @@ foreach my $table (@{$opt->tables}) {
 	    if ($s->{typeextra} =~ /\bindex\b/i) {
 		$s->{typeextra} =~ s/\bindex\b//i;
 		$index = 1;
+	    }
+	    if ($s->{typeextra} =~ /\bautoincrement\b/i) {
+		$s->{typeextra} =~ s/\bautoincrement\b//i;
+		$autoincrement = 1;
 	    }
 	    $size = $s->{typeextra};
 	    chomp $size;
@@ -206,7 +219,8 @@ foreach my $table (@{$opt->tables}) {
 		'size' => $size,
 		'key' => $key,
 		'unique' => $unique,
-		'index' => $index
+		'index' => $index,
+		'autoincrement' => $autoincrement
 	};
 	if ($type eq 'date') {
 	    $coldecl->{tmpname} = "\@tmp_date_$count";
