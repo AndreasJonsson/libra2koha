@@ -24,6 +24,7 @@ use Data::Dumper;
 use Email::Valid;
 use StatementPreparer;
 use TimeUtils qw(dp ds ts init_time_utils);
+use RecordUtils;
 
 $YAML::Syck::ImplicitUnicode = 1;
 
@@ -54,6 +55,9 @@ my ($opt, $usage) = describe_options(
     [ 'manager-id=i', 'Set borrowernumber of a manager to set as sender on borrower messages, if none can be determined from source data.', { default => 1} ],
     [ 'string-original-id', 'If datatype of item original id is string.  Default is integer.' ],
     [ 'ignore-persnummer', 'Dont populate persnummer attribute' ],
+    [ 'matchpoint=s', 'Field in source object to use for matchpoint' ],
+    [ 'matchpoint-expression=s', 'SQL query template where the string %matchpoint% will be replaced with the matchpoint value.' ],
+    [ 'matchpoint-string=i', 'The value of the matchpoint is a string', { default => 1 } ],
     [],
     [ 'verbose|v',  "print extra stuff"            ],
     [ 'debug',      "Enable debug output" ],
@@ -69,7 +73,7 @@ my $config_dir = $opt->config;
 my $limit = $opt->limit;
 
 if ($opt->passwords) {
-    use Koha::AuthUtils qw(hash_password);
+#    use Koha::AuthUtils qw(hash_password);
 }
 
 use Data::Dumper;
@@ -278,9 +282,11 @@ RECORD: while ( my $borrower = $sth->fetchrow_hashref() ) {
     $borrower->{'messages'} = \@messages;
     $borrower->{'manager_id'} = $opt->manager_id;
 
+    $count++;
+
     # Do transformations
     # Add a branchcode
-    $borrower->{'branchcode'} = defined($borrower->{'IdBranchCode'}) ? $branchcodes->{ $borrower->{'IdBranchCode'} } : $branchcodes->{ '10000' };
+    $borrower->{'branchcode'} = defined($borrower->{'IdBranchCode'}) ? $branchcodes->{ trim($borrower->{'IdBranchCode'}) } : $branchcodes->{ '_default' };
     next RECORD if (!defined($borrower->{'branchcode'}) || $borrower->{'branchcode'} eq '');
     
     #if (!defined($patroncategories->{ $borrower->{'IdBorrowerCategory'} })) {
@@ -332,9 +338,6 @@ RECORD: while ( my $borrower = $sth->fetchrow_hashref() ) {
     
     $borrower->{'userid_str'} = 'NULL';
 
-    if (defined($borrower->{'BarCode'}) && $borrower->{'BarCode'} ne '') {
-	$borrower->{'userid_str'} = $borrower->{'cardnumber_str'};
-    } 
     if (defined($borrower->{RegId}) && $borrower->{RegId} ne '') {
 	$borrower->{'userid_str'} = $dbh->quote($borrower->{RegId});
     }
@@ -393,13 +396,24 @@ RECORD: while ( my $borrower = $sth->fetchrow_hashref() ) {
 
     $borrower->{borrower_attributes} = \@borrower_attributes;
 
+    if ($opt->matchpoint) {
+	my $mp = $borrower->{$opt->matchpoint};
+	if (defined $mp) {
+	    my $matchpoint = $opt->matchpoint_expression;
+	    if ($opt->matchpoint_string) {
+		$mp = $dbh->quote($mp);
+	    }
+	    $matchpoint =~ s/%matchpoint%/$mp/g;
+	    $borrower->{matchpoint} = $matchpoint;
+	}
+    }
+
     for my $bp (@borr_procs) {
 	$bp->process($borrower, $dbh);
     }
-    
+
     $tt2->process( 'borrowers.tt', $borrower, \*STDOUT,  {binmode => ':utf8'} ) || die $tt2->error();
 
-    $count++;
     #if ( $limit && $limit == $count ) {
     #last;
     #}

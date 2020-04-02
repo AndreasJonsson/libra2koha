@@ -26,7 +26,7 @@ ORDERED_STATUSES=
 HIDDEN_ARE_ORDERED=no
 MANAGER_ID=1
 DEFAULT_CATEGORY=STANDARD
-CONST_BRANCHCODE=
+ISSUES_BRANCHCODE=
 SPECENCODING=iso-8859-1
 STRING_ORIGINAL_ID=no
 SEPARATE_ITEMS=yes
@@ -42,6 +42,7 @@ RECORD_SRC=
 ITEMS_FORMAT=
 BIBEXTRA_TABLE=
 SPECDIR_OVERRIDE=
+TABLEDIR=
 
 SOURCE_FORMAT=bookit
 
@@ -65,12 +66,12 @@ elif [[ -e "$dir"/config.inc ]]; then
 fi
 
 CUSTOM_LIBDIR=
-if [[ -d "$(dirname "$DIR"/../lib)" ]]; then
-    CUSTOM_LIBDIR="$(cd "$(dirname "$DIR"/../lib)"; pwd -P)"
+if [[ -d "$(dirname "$DIR")/lib" ]]; then
+    CUSTOM_LIBDIR="$(cd "$(dirname "$DIR")/lib"; pwd)"
 fi
 CUSTOM_SCRIPTDIR=
-if [[ -d "$(dirname "$DIR"/../script)" ]]; then
-    CUSTOM_SCRIPTDIR="$(cd "$(dirname "$DIR"/../script)"; pwd -P)"
+if [[ -d "$(dirname "$DIR")/scripts" ]]; then
+    CUSTOM_SCRIPTDIR="$(cd "$(dirname "$DIR")/scripts"; pwd)"
 fi
 
 
@@ -109,15 +110,15 @@ if [[ -n "$INPUT_MARC" ]]; then
     MARC="$DIR/$INPUT_MARC"
 else
     if [[ $SOURCE_FORMAT == bookit ]]; then
-       MARC="$DIR/*iso2709*"
+	MARC="$DIR/*iso2709*"
     elif [[ $SOURCE_FORMAT == micromarc ]]; then
-       BUILD_MARC_FILE=yes
-       MARC="$OUTPUTDIR/catalogue.marc"
-       RECORDS_INPUT_FORMAT=--xml-input
+	BUILD_MARC_FILE=yes
+	MARC="$OUTPUTDIR/catalogue.marc"
+	RECORDS_INPUT_FORMAT=--xml-input
     elif [[ $SOURCE_FORMAT == sierra ]]; then
-       MARC="$DIR/Bibliographic.mrc"
+	MARC="$DIR/Bibliographic.mrc"
     else
-       MARC="$DIR/CatalogueExport.dat"
+	MARC="$DIR/CatalogueExport.dat"
     fi
 fi
 
@@ -131,22 +132,22 @@ if [[ "$FORCE_XML_INPUT" == yes ]]; then
 fi
 
 if [[ -z "$SCRIPTDIR" ]]; then
-   SCRIPTDIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd -P)"
+    SCRIPTDIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd -P)"
 fi
 if [[ -z "$LIBRIOTOOLS_DIR" ]]; then
-   export LIBRIOTOOLS_DIR=../LibrioTools
+    export LIBRIOTOOLS_DIR=../LibrioTools
 fi
 if [[ -n "$PERL5LIB" ]]; then
-   export PERL5LIB="$LIBRIOTOOLS_DIR"/lib:"$SCRIPTDIR"/lib:"$PERL5LIB"
+    export PERL5LIB="$LIBRIOTOOLS_DIR"/lib:"$SCRIPTDIR"/lib:"$PERL5LIB"
 else
-   export PERL5LIB="$LIBRIOTOOLS_DIR"/lib:"$SCRIPTDIR"/lib
+    export PERL5LIB="$LIBRIOTOOLS_DIR"/lib:"$SCRIPTDIR"/lib
 fi
 export PERL5LIB="/usr/share/koha/lib:$PERL5LIB"
 if [[ -n "$CUSTOM_LIBDIR" ]]; then
     export PERL5LIB="$CUSTOM_LIBDIR:$PERL5LIB"
 fi
 if [[ -z "$LIBRA2KOHA_NOCONFIRM" ]] ; then
-   export LIBRA2KOHA_NOCONFIRM=0
+    export LIBRA2KOHA_NOCONFIRM=0
 fi
 export PATH="$SCRIPTDIR:$LIBRIOTOOLS_DIR:$PATH"
 
@@ -172,7 +173,12 @@ fi
 ### RECORDS ###
 
 if [[ "$TRANSFORM_TABLES" != "yes" || "$TABLEENC" == "utf-8" || "$TABLEENC" == "utf8" ]]; then
-    tabledir="$DIR"
+    if [[ -n "$TABLEDIR" ]]; then
+	tabledir="$TABLEDIR"
+    else
+	tabledir="$DIR"
+    fi
+    mkdir -p "$tabledir"
 
     # Remove BOM if present
     for file in "$DIR"/*"${TABLEEXT}"; do
@@ -182,7 +188,11 @@ if [[ "$TRANSFORM_TABLES" != "yes" || "$TABLEENC" == "utf-8" || "$TABLEENC" == "
     done
 
 else
-    tabledir="${OUTPUTDIR}"/utf8dir
+    if [[ -n "$TABLEDIR" ]]; then
+	tabledir="$TABLEDIR"
+    else
+	tabledir="${OUTPUTDIR}"/utf8dir
+    fi
     mkdir -p "$tabledir"
 
     for file in "$DIR"/*"${TABLEEXT}"  ; do
@@ -270,7 +280,7 @@ fi
 ## Clean up the database
 if [[ "$QUICK"z != "yesz" ]]; then
     echo "Cleaning database! $MYSQL"
-cat <<'EOF' | $MYSQL;
+    cat <<'EOF' | $MYSQL;
 SET FOREIGN_KEY_CHECKS = 0;
 SET GROUP_CONCAT_MAX_LEN=32768;
 SET @tables = NULL;
@@ -288,7 +298,7 @@ EOF
 fi
 
 if [[ "$BUILD_MARC_FILE" == "yes" && ( "$FULL" == "yes" || ! -e "$MARC" ) ]]; then
-   . "$SOURCE_FORMAT"/create_marc_records.sh
+    . "$SOURCE_FORMAT"/create_marc_records.sh
 fi
 
 ## Create tables and load the datafiles
@@ -309,22 +319,20 @@ fi
 
 ### ACTIVE ISSUES/LOANS ###
 if [[ "$QUICK"z != "yesz" ]]; then
-   # Create tables and load the datafiles
-   echo -n "Going to create tables for active issues, and load data into MySQL... "
-   run_format_script create_issue_tables.sh
-   echo "done"
+    # Create tables and load the datafiles
+    echo -n "Going to create tables for active issues, and load data into MySQL... "
+    run_format_script create_issue_tables.sh
+    echo "done"
 fi
 
 if [[ "$QUICK"z != "yesz" ]]; then
-   run_format_script create_serials_tables.sh
+    run_format_script create_serials_tables.sh
 fi
-
 
 if [[ "$QUICK"z != "yesz" && -n "$BIBEXTRA_TABLE" ]]; then
     echo BIBEXTRA_TABLE "$BIBEXTRA_TABLE"
     bib_tables="$(mktemp)"
     create_tables.pl --format="$SOURCE_FORMAT" "${TABLE_PARAMS[@]}" --table "$BIBEXTRA_TABLE" > "$bib_tables"
-    cat $bib_tables
     eval $MYSQL_LOAD < "$bib_tables"
 fi
 
@@ -425,19 +433,32 @@ if [[ "$FULL" == "yes" || ! -e $BORROWERSSQL ]]; then
     if [[ -n "$ACTIVE_CATEGORIES" ]]; then
 	BORROWERS_FLAGS+=" --active-categories=$ACTIVE_CATEGORIES"
     fi
-	 
-    echo perl borrowers.pl $BORROWERS_FLAGS
-    perl borrowers.pl $BORROWERS_FLAGS > $BORROWERSSQL
+    if [[ -n "$BORROWER_MATCHPOINT" ]]; then
+	BORROWERS_FLAGS+=' '$(printf %q "--matchpoint=$BORROWER_MATCHPOINT")
+    fi
+    if [[ -n "$BORROWER_MATCHPOINT_EXPRESSION" ]]; then
+	BORROWERS_FLAGS+=' '$(printf %q "--matchpoint-expression=$BORROWER_MATCHPOINT_EXPRESSION")
+    fi
+
+    echo perl borrowers.pl "$BORROWERS_FLAGS"
+    eval perl borrowers.pl $BORROWERS_FLAGS > $BORROWERSSQL
     echo "done"
     export PERLIO=$TMPPERLIO
 fi
 
+
 # Get the relevant info out of the database and into a .sql file
 ISSUESSQL="$OUTPUTDIR/issues.sql"
 if [[ "$FULL" == "yes" || ! -e $ISSUESSQL ]]; then
-  echo "Going to transform issues... "
-  issues.pl --batch "$BATCH" --format "$SOURCE_FORMAT" --config $CONFIG > $ISSUESSQL
-  echo "done writing to $ISSUESSQL"
+    echo "Going to transform issues... "
+
+    ISSUES_FLAGS=
+    if [[ -n "$ISSUES_BRANCHCODE" ]]; then
+	ISSUES_FLAGS+=' '$(printf %q "--branchcode=$ISSUES_BRANCHCODE")
+    fi
+
+    eval issues.pl $ISSUES_FLAGS --batch "$BATCH" --format "$SOURCE_FORMAT" --config $CONFIG > $ISSUESSQL
+    echo "done writing to $ISSUESSQL"
 fi
 
 if [[ "$FULL" == "yes" || ! -e "$OUTPUTDIR"/reservations.sql ]]; then

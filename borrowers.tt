@@ -1,9 +1,10 @@
 
 SELECT count(*) > 0 FROM borrowers WHERE cardnumber = [% cardnumber_str %] INTO @CARDNUMBER_COLLISSION;
 SELECT count(*) > 0 FROM borrowers WHERE userid = [% userid_str %] INTO @USERID_COLLISSION;
+[% IF matchpoint %]SELECT count(*) > 0 FROM ([% matchpoint %]) INTO @USER_COLLISSION;[% END %]
 
 INSERT INTO borrowers ( cardnumber, surname, firstname, title, othernames, initials, streetnumber, streettype, address, address2, city, state, zipcode, country, email, phone, mobile, fax, emailpro, phonepro, B_streetnumber, B_streettype, B_address, B_address2, B_city, B_state, B_zipcode, B_country, B_email, B_phone, dateofbirth, branchcode, categorycode, dateenrolled, dateexpiry, gonenoaddress, lost, debarred, debarredcomment, contactname, contactfirstname, contacttitle, guarantorid, borrowernotes, relationship, sex, password, flags, userid, opacnote, contactnote, sort1, sort2, altcontactfirstname, altcontactsurname, altcontactaddress1, altcontactaddress2, altcontactaddress3, altcontactstate, altcontactzipcode, altcontactcountry, altcontactphone, smsalertnumber, sms_provider_id, privacy, privacy_guarantor_checkouts, updated_on, lastseen, lang)
-VALUES (
+SELECT
     IF (@CARDNUMBER_COLLISSION, NULL, [% cardnumber_str %]), -- cardnumber
     [% LastName %], -- surname
     [% FirstName %], -- firstname
@@ -73,8 +74,57 @@ VALUES (
     [% updated_on %], -- updated_on
     [% lastseen %], -- lastseen
     [% lang %] -- lang
-);
-SELECT LAST_INSERT_ID() FROM DUAL INTO @BORROWERNUMBER;
+FROM DUAL[% IF matchpoint %]WHERE NOT @USER_COLLISSION[% END %];
+
+SELECT
+[% IF matchpoint %]
+  IFNULL(([% matchpoint %], LAST_INSERT_ID())
+[% ELSE %]
+  LAST_INSERT_ID()
+[% END %]
+FROM DUAL INTO @BORROWERNUMBER;
+
+[% IF matchpoint %]
+UPDATE borrowers SET
+    cardnumber = IF (@CARDNUMBER_COLLISSION, NULL, [% cardnumber_str %]),
+    surname = [% LastName %],
+    firstname = [% FirstName %],
+    streetnumber = [% streetnumber %],
+    address = [% address %],
+    address2 = [% address2 %],
+    city = [% city %],
+    state = [% state %],
+    zipcode = [% zipcode %],
+    country = [% country %],
+    email = [% email %],
+    phone = [% phone %],
+    mobile = [% mobile %],
+    B_streetnumber = [% B_streetnumber %],
+    B_address = [% B_address %],
+    B_address2 = [% B_address2 %],
+    B_city = [% B_city %],
+    B_state = [% B_state %],
+    B_zipcode = [% B_zipcode %],
+    B_country = [% B_country %],
+    B_email = [% B_email %],
+    B_phone = [% B_phone %],
+    dateofbirth - BirthDate: [% BirthDate %] = [% dateofbirth %],
+    branchcode - IdBranchCode: [% IdBranchCode %] = [% branchcode %],
+    categorycode - IdBorrowerCategory: [% IdBorrowerCategory %] = [% categorycode %],
+    dateenrolled = [% dateenrolled %],
+    dateexpiry = [% dateexpiry %],
+    debarred = [% debarred %],
+    debarredcomment = [% debarredcomment %],
+    sex = [% Sex %],
+    password = [% Password %],
+    userid = IF (@USERID_COLLISSION, NULL,[% userid_str %]),
+    privacy = IF('forever' = (SELECT default_privacy FROM categories WHERE categorycode = [% categorycode %]), 0, 1), 
+    updated_on = [% updated_on %],
+    lastseen = [% lastseen %],
+    lang = [% lang %]
+WHERE borrowernumber IN ([% matchpoint %]);
+[% END %]
+
 [% FOREACH message IN messages -%]
 INSERT INTO messages (borrowernumber,     branchcode,         message_type, message,       message_date,       manager_id)
 VALUES               (@BORROWERNUMBER, [% branchcode %], 'L',  [% message.text %], [% IF message.date %] [% message.date %] [% ELSE %] CURDATE() [% END %], [% manager_id %]);
@@ -84,11 +134,17 @@ INSERT INTO borrower_debarments (borrowernumber,  expiration, type, comment, cre
 VALUES                          (@BORROWERNUMBER, [% d.expiration %], [% d.type %], [% d.comment %], [% d.created %], [% d.updated %]); 
 [% END -%]
 
-INSERT INTO borrower_attributes (borrowernumber, code, attribute)
-SELECT @BORROWERNUMBER, 'USERID', [% userid_str %] FROM DUAL WHERE @USERID_COLLISSION;
+INSERT INTO borrower_attribute_types (code, description)
+SELECT 'C_USERID', 'Conflicting userid.' FROM DUAL WHERE @USERID_COLLISSION AND NOT EXISTS (SELECT * FROM borrower_attribute_types WHERE code='C_USERID');
 
 INSERT INTO borrower_attributes (borrowernumber, code, attribute)
-SELECT @BORROWERNUMBER, 'CARDNUMBER', [% cardnumber_str %] FROM DUAL WHERE @CARDNUMBER_COLLISSION;
+SELECT @BORROWERNUMBER, 'C_USERID', [% userid_str %] FROM DUAL WHERE @USERID_COLLISSION;
+
+INSERT INTO borrower_attribute_types (code, description)
+SELECT 'C_CARDNUMBER', 'Conflicting userid.' FROM DUAL WHERE @USERID_COLLISSION AND NOT EXISTS (SELECT * FROM borrower_attribute_types WHERE code='C_CARDNUMBER');
+
+INSERT INTO borrower_attributes (borrowernumber, code, attribute)
+SELECT @BORROWERNUMBER, 'C_CARDNUMBER', [% cardnumber_str %] FROM DUAL WHERE @CARDNUMBER_COLLISSION;
 
 INSERT INTO k_borrower_idmap (borrowernumber, original_id, batch) VALUES (@BORROWERNUMBER, [% original_id %], [% batch %]);
 
