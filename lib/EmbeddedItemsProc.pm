@@ -8,7 +8,7 @@ use DateTime::Format::Builder;
 sub new {
     my ($class, $opt, $config_tables) = @_;
 
-    my $date_parser = DateTime::Format::Builder->new()->parser( regex => qr/^(\d{2})-(\d\d)-(\d\d)/,
+    my $date_parser = DateTime::Format::Builder->new()->parser( regex => qr/^(\d{2})-?(\d\d)-?(\d\d)/,
 								params => [qw(year month day)] );
     return bless {
 	opt => $opt,
@@ -92,7 +92,8 @@ sub do_sierra_items {
 	}
 	my %map = $self->{config_tables}->{damaged};
 	my $v = $map->{trim($_[0])};
-	return defined $v ? $v : $map->{'_default'};
+	$v = defined $v ? $v : $map->{'_default'};
+	return defined $v && $v ne '' ? $v : undef;
 		 }
 	 }, 'items.damaged');
 
@@ -102,9 +103,22 @@ sub do_sierra_items {
 	}
 	my $map = $self->{config_tables}->{lost};
 	my $v = $map->{trim($_[0])};
-	return defined $v ? $v : $map->{'_default'};
+	$v = defined $v ? $v : $map->{'_default'};
+	return defined $v && $v ne '' ? $v : undef;
 	 }
     }, 'items.itemlost');
+
+    copy($mmc, { m => 'sierra_status', f => sub {
+	if (!defined($_[0])) {
+	    return
+	}
+	my %map = $self->{config_tables}->{notforloan};
+	my $v = $map->{trim($_[0])};
+	$v = defined $v ? $v : $map->{'_default'};
+	return defined $v && $v ne '' ? $v : undef;
+		 }
+	 }, 'items.damaged');
+
 
     copy($mmc, { m => 'sierra_status', f => sub {
 	if (!defined($_[0])) {
@@ -127,7 +141,8 @@ sub do_sierra_items {
 	}
 	my $map = $self->{config_tables}->{loc};
 	my $v = $map->{trim($_[0])};
-	return defined $v ? $v : $map->{'_default'};
+	$v = defined $v ? $v : $map->{'_default'};
+	return defined $v && $v ne '' ? $v : undef;
     } }, 'items.location');
 
     if (defined $bibextra->{'collection_code'}) {

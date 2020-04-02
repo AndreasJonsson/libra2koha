@@ -37,6 +37,7 @@ my ($opt, $usage) = describe_options(
     [ 'batch=i', 'batch number', { required => 1 } ],
     [ 'limit=i', 'Limit processing to this number of items.  0 means process all.', { default => 0 } ],
     [ 'format=s', 'Input database format', { required => 1 }],
+    [ 'branchcode=s', 'Constant branchcode.' ],
     [],
     [ 'verbose|v',  "print extra stuff"            ],
     [ 'debug',      "Enable debug output" ],
@@ -149,7 +150,11 @@ while ( my $issue = $sth->fetchrow_hashref() ) {
     say STDERR Dumper $issue if $opt->debug;
 
     # Massage data
-    $issue->{'branchcode'} = $branchcodes->{ $issue->{'IdBranchCode'} };
+    if (defined $opt->branchcode) {
+	$issue->{'branchcode'} = $opt->branchcode;
+    } else {
+	$issue->{'branchcode'} = $branchcodes->{ $issue->{'IdBranchCode'} };
+    }
     my $bb = $issue->{'BorrowerIdBranchCode'};
     $issue->{'borrower_branchcode'} = $dbh->quote(defined($bb) ? $branchcodes->{ $bb } : 'NULL');
 
