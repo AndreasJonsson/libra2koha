@@ -10,7 +10,7 @@ CREATE TABLE `[% tablename %]` (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8;
 [% FOREACH col IN columns -%]
   [%- IF col.index %]
-    CREATE [% IF col.unique %]UNIQUE [% END %]INDEX `[% tablename %]_[% col.name %]_idx` ON `[% tablename %]` ([% col.colname %]);
+    CREATE [% IF col.unique %]UNIQUE [% END %]INDEX `[% tablename %]_[% col.name %]_idx` ON `[% tablename %]` (`[% col.name %]`);
   [% END -%]
 [% END -%]
 LOAD DATA LOCAL INFILE '[% dirs %]/[% tablename %][% ext %]'
