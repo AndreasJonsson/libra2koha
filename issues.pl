@@ -154,19 +154,17 @@ while ( my $issue = $sth->fetchrow_hashref() ) {
 	$issue->{'branchcode'} = $opt->branchcode;
     } else {
 	$issue->{'branchcode'} = $branchcodes->{ $issue->{'IdBranchCode'} };
+	_quote(\$issue->{'branchcode'});
     }
     my $bb = $issue->{'BorrowerIdBranchCode'};
     $issue->{'borrower_branchcode'} = $dbh->quote(defined($bb) ? $branchcodes->{ $bb } : 'NULL');
 
     $issue->{'issuedate'} = ds( $issue->{'RegDate'} );
 
-    
-
     $issue->{'date_due'} = ds( $issue->{'EstReturnDate'} );
-
-
     
     $issue->{'note'} = $dbh->quote($issue->{'Note'});
+    $issue->{'barcode'} = $dbh->quote($issue->{'BarCode'}) if defined $issue->{'BarCode'};
 
     if (!defined($issue->{'NoOfRenewals'})) {
 	$issue->{'NoOfRenewals'} = 0;
@@ -196,6 +194,28 @@ while ( my $issue = $sth->fetchrow_hashref() ) {
 } # end foreach record
 
 $progress->update( $limit );
+
+
+sub _quote {
+    my $s = shift;
+
+    if (defined($$s)) {
+	$$s = $dbh->quote($$s);
+    } else {
+	$$s = 'NULL';
+    }
+}
+
+sub _quoten {
+    my $s = shift;
+
+    if (defined($$s)) {
+	$$s = $dbh->quote($$s);
+    } else {
+	$$s = "''";
+    }
+}
+
 
 =head1 AUTHOR
 
