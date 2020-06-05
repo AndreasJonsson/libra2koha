@@ -30,6 +30,8 @@ ISSUES_BRANCHCODE=
 SPECENCODING=iso-8859-1
 STRING_ORIGINAL_ID=no
 SEPARATE_ITEMS=yes
+RECORD_MATCH_FIELD=
+DETECT_BARCODE_DUPLICATION=yes
 LIMIT=
 XML_OUTPUT=no
 FORCE_XML_INPUT=no
@@ -355,6 +357,16 @@ if [[ "$FULL" == "yes" || ! -e "$OUTPUTDIR"/records.marc ]]; then
     if [[ "$SEPARATE_ITEMS" == "yes" ]]; then
 	RECORDS_FLAGS+=" --separate-items"
     fi
+    if [[ -n "$RECORD_MATCH_FIELD" ]]; then
+	RECORDS_FLAGS+=" --record-match-field=$RECORD_MATCH_FIELD"
+    fi
+    if [[ "$DETECT_BARCODE_DUPLICATION" == "yes" ]]; then
+	RECORDS_FLAGS+=" --detect-barcode-duplication"
+	if [[ "$SEPARATE_ITEMS" != "yes" ]]; then
+	    echo "DETECT_BARCODE_DUPLICATION requires SEPARATE_ITEMS!" 1>&2
+	    exit 1
+	fi
+    fi
     if [[ -n "$LIMIT" ]]; then
 	RECORDS_FLAGS+=" --limit=$LIMIT"
     fi
@@ -439,6 +451,9 @@ if [[ "$FULL" == "yes" || ! -e $BORROWERSSQL ]]; then
     if [[ -n "$BORROWER_MATCHPOINT_EXPRESSION" ]]; then
 	BORROWERS_FLAGS+=' '$(printf %q "--matchpoint-expression=$BORROWER_MATCHPOINT_EXPRESSION")
     fi
+    if [[ -n "$BORROWER_MATCHPOINT_TYPE" ]]; then
+	BORROWERS_FLAGS+=" --matchpoint-type='$BORROWER_MATCHPOINT_TYPE'"
+    fi
 
     echo perl borrowers.pl "$BORROWERS_FLAGS"
     eval perl borrowers.pl $BORROWERS_FLAGS > $BORROWERSSQL
@@ -456,6 +471,9 @@ if [[ "$FULL" == "yes" || ! -e $ISSUESSQL ]]; then
     if [[ -n "$ISSUES_BRANCHCODE" ]]; then
 	ISSUES_FLAGS+=' '$(printf %q "--branchcode=$ISSUES_BRANCHCODE")
     fi
+    if [[ "$STRING_ORIGINAL_ID" == "yes" ]]; then
+	ISSUES_FLAGS+=" --string-original-id"
+    fi
 
     eval issues.pl $ISSUES_FLAGS --batch "$BATCH" --format "$SOURCE_FORMAT" --config $CONFIG > $ISSUESSQL
     echo "done writing to $ISSUESSQL"
@@ -463,12 +481,32 @@ fi
 
 if [[ "$FULL" == "yes" || ! -e "$OUTPUTDIR"/reservations.sql ]]; then
     echo "Reservations"
-    reservations.pl --batch "$BATCH" --format "$SOURCE_FORMAT" --configdir "$CONFIG" > "$OUTPUTDIR"/reservations.sql
+    RESERVATIONS_FLAGS=
+    if [[ -n "$RECORD_MATCH_FIELD" ]]; then
+	RESERVATIONS_FLAGS+=" --record-match-field=$RECORD_MATCH_FIELD"
+    fi
+    if [[ "$STRING_ORIGINAL_ID" == "yes" ]]; then
+	RESERVATIONS_FLAGS+=" --string-original-id"
+    fi
+
+    reservations.pl $RESERVATIONS_FLAGS --batch "$BATCH" --format "$SOURCE_FORMAT" --configdir "$CONFIG" > "$OUTPUTDIR"/reservations.sql
+fi
+
+if [[ "$FULL" == "yes" || ! -e "$OUTPUTDIR"/orders.sql ]]; then
+  echo "Orders"
+  ORDERS_FLAGS=
+  if [[ -n "$RECORD_MATCH_FIELD" ]]; then
+     ORDERS_FLAGS+=" --record-match-field=$RECORD_MATCH_FIELD"
+  fi
+  if [[ "$STRING_ORIGINAL_ID" == "yes" ]]; then
+     ORDERS_FLAGS+=" --string-original-id"
+  fi
+  orders.pl  $ORDERS_FLAGS --batch "$BATCH" --format "$SOURCE_FORMAT" --configdir "$CONFIG" --branchcode "$BRANCHCODE" > "$OUTPUTDIR"/orders.sql
 fi
 
 if [[ "$FULL" == "yes" || ! -e "$OUTPUTDIR"/old_issues_update.sql ]]; then
   echo "Old issues"
-  old_issues.pl  --batch "$BATCH" --format "$SOURCE_FORMAT" --configdir "$CONFIG" --branchcode "$BRANCHCODE" > "$OUTPUTDIR"/old_issues_update.sql
+  old_issues.pl --batch "$BATCH" --format "$SOURCE_FORMAT" --configdir "$CONFIG" --branchcode "$BRANCHCODE" > "$OUTPUTDIR"/old_issues_update.sql
 fi
 
 

@@ -29,7 +29,7 @@ sub prepare {
 
 	next unless -e $filename;
 
-	open SQL, "<:utf8", $filename  or croak "Failed to open $filename: $!";
+	open SQL, "<:encoding(UTF-8)", $filename  or croak "Failed to open $filename: $!";
 
 	my $sql = join "\n", <SQL>;
 

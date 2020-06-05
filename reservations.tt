@@ -7,24 +7,42 @@ SET @BORROWERNUMBER=NULL;
 
 SELECT biblionumber FROM
 (
- SELECT biblionumber FROM k_biblio_identification
- WHERE titleno = [% titleno %] AND batch = [% batch %]
+ [% IF !record_match_field && titleno && titleno != "''" && titleno != "NULL" || record_match_field && record_match_value && record_match_value != "''" && record_match_value != "NULL" %]
+ SELECT biblionumber FROM k_biblio_identification WHERE
+ [% IF record_match_field %]
+    `[% record_match_field %]` = [% record_match_value %]
+ [% ELSE %]
+    titleno = [% titleno %] AND batch = [% batch %]
+ [% END %]
 UNION
- SELECT biblionumber FROM k_merged_records
- WHERE titleno = [% titleno %] AND batch = [% batch %]
+ SELECT biblionumber FROM k_merged_records WHERE
+ [% IF record_match_field %]
+    `[% record_match_field %]` = [% record_match_value %]
+ [% ELSE %]
+    titleno = [% titleno %] AND batch = [% batch %]
 UNION
  SELECT biblionumber FROM k_biblio_identification
  WHERE marc001 = [% titleno %] AND batch = [% batch %]
 UNION
  SELECT biblionumber FROM k_merged_records
  WHERE marc001 = [% titleno %] AND batch = [% batch %]
+ [% END %]
+ [% ELSIF item_barcode %]
+ SELECT biblionumber FROM items WHERE barcode = [% item_barcode %]
+ [% END %]
 ) AS T LIMIT 1 INTO @BIBLIONUMBER;
 
-SELECT [% IF original_item_id != 'NULL' %] itemnumber FROM k_items_idmap WHERE original_id = [% original_item_id %] AND batch = [% batch %] [% ELSE %] NULL [% END %] INTO @ITEMNUMBER;
+SELECT [% IF original_item_id != 'NULL' %] itemnumber FROM k_items_idmap WHERE original_id = [% original_item_id %] AND batch = [% batch %] [% ELSIF item_barcode && item_barcode != 'NULL' %] itemnumber FROM items WHERE barcode = [% item_barcode %] [% ELSE %] NULL [% END %] INTO @ITEMNUMBER;
 SELECT itemcallnumber FROM items WHERE itemnumber = @ITEMNUMBER INTO @ITEMCALLNUMBER;
 SELECT EXISTS (SELECT * FROM items JOIN hold_fill_targets using(itemnumber) WHERE itemnumber = @ITEMNUMBER) INTO @ALREADYRESERVED;
 
+[% IF IdBorrower %]
 SELECT borrowernumber FROM k_borrower_idmap WHERE original_id = [% IdBorrower %] AND batch = [% batch %] INTO @BORROWERNUMBER;
+[% ELSIF borrower_barcode %]
+SELECT borrowernumber FROM borrowers WHERE cardnumber = [% borrower_barcode %] INTO @BORROWERNUMBER;
+[% ELSE %]
+SELECT NULL FROM DUAL INTO @BORROWERNUMBER;
+[% END %]
 
 SET @INSERT_RESERVE = @BIBLIONUMBER IS NOT NULL AND @BORROWERNUMBER IS NOT NULL;
 

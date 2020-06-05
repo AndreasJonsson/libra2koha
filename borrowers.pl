@@ -57,7 +57,7 @@ my ($opt, $usage) = describe_options(
     [ 'ignore-persnummer', 'Dont populate persnummer attribute' ],
     [ 'matchpoint=s', 'Field in source object to use for matchpoint' ],
     [ 'matchpoint-expression=s', 'SQL query template where the string %matchpoint% will be replaced with the matchpoint value.' ],
-    [ 'matchpoint-string=i', 'The value of the matchpoint is a string', { default => 1 } ],
+    [ 'matchpoint-type=s', 'The type of the matchpoint value', { default => 'string' } ],
     [],
     [ 'verbose|v',  "print extra stuff"            ],
     [ 'debug',      "Enable debug output" ],
@@ -109,7 +109,7 @@ my $config;
 if ( -f $config_dir . '/config.yaml' ) {
     my $fh;
     my $fn = $config_dir . '/config.yaml';
-    open $fh, "<:unix:utf8", $fn or die "Failed to open $fn";
+    open $fh, "<:unix:encoding(UTF-8)", $fn or die "Failed to open $fn";
     $config = LoadFile( $fh );
     close $fh;
 }
@@ -126,7 +126,7 @@ my $branchcodes;
 if ( -f $config_dir . '/branchcodes.yaml' ) {
     my $fn = $config_dir . '/branchcodes.yaml';
     my $fh;
-    open $fh, "<:unix:utf8", $fn or die "Failed to open $fn";
+    open $fh, "<:unix:encoding(UTF-8)", $fn or die "Failed to open $fn";
     $branchcodes = LoadFile( $fh );
 }
 
@@ -142,7 +142,7 @@ my $patroncategories;
 if ( -f $config_dir . '/patroncategories.yaml' ) {
     my $fn = $config_dir . '/patroncategories.yaml';
     my $fh;
-    open $fh, "<:unix:utf8", $fn or die "Failed to open $fn";
+    open $fh, "<:unix:encoding(UTF-8)", $fn or die "Failed to open $fn";
     $patroncategories = LoadFile( $fh );
 }
 
@@ -157,7 +157,13 @@ if (!defined($limit) || $limit == 0) {
     $limit = $count_sth->fetchrow_arrayref()->[0];
 }
 print STDERR "Limit: $limit\n";
-my $progress = Term::ProgressBar->new( $limit );
+my $progress_fh = \*STDOUT;
+
+
+my $progress;
+if (-t $progress_fh) {
+    $progress = Term::ProgressBar->new( {name => "Borrowers", count => $limit, fh => $progress_fh } );
+}
 
 
 # Query for selecting all borrowers, with relevant data
@@ -284,22 +290,38 @@ RECORD: while ( my $borrower = $sth->fetchrow_hashref() ) {
 
     $count++;
 
+
+##  && exists($branchcodes->{ trim($borrower->{'IdBranchCode'}) })
     # Do transformations
     # Add a branchcode
-    $borrower->{'branchcode'} = defined($borrower->{'IdBranchCode'}) ? $branchcodes->{ trim($borrower->{'IdBranchCode'}) } : $branchcodes->{ '_default' };
-    next RECORD if (!defined($borrower->{'branchcode'}) || $borrower->{'branchcode'} eq '');
-    
-    #if (!defined($patroncategories->{ $borrower->{'IdBorrowerCategory'} })) {
-    #print STDERR "IdBorrowerCategory not defined:\n";
-    #print STDERR Dumper( $borrower );
-    #}
-    if (!defined($borrower->{'IdBorrowerCategory'})) {
+    $borrower->{'branchcode'} = defined($borrower->{'IdBranchCode'})
+        ? $branchcodes->{ trim($borrower->{'IdBranchCode'}) }
+        : $branchcodes->{ '_default' };
+
+    #next RECORD unless (!defined($borrower->{'branchcode'}) || $borrower->{'branchcode'} eq '');
+
+
+##     && exists($patroncategories->{ $borrower->{'IdBorrowerCategory'} })
+    if (!defined($borrower->{'IdBorrowerCategory'}) ) {
 	$borrower->{'categorycode'} = $opt->default_category;
     } else {
 	$borrower->{'categorycode'} = $patroncategories->{ $borrower->{'IdBorrowerCategory'} };
     }
-    next if (!defined($borrower->{'categorycode'}) || $borrower->{'categorycode'} eq '');
+    #next if (!defined($borrower->{'categorycode'}) || $borrower->{'categorycode'} eq '');
 
+    my $continue = (!defined($borrower->{'branchcode'}) || $borrower->{'branchcode'} eq '') ||
+	(!defined($borrower->{'categorycode'}) || $borrower->{'categorycode'} eq '');
+    
+    next unless $continue;
+    $borrower->{branchcode} = 'ILL' unless defined $borrower->{branchcode} && $borrower->{branchcode} ne '';
+
+    if (!defined($borrower->{'IdBorrowerCategory'}) ) {
+	$borrower->{'categorycode'} = $opt->default_category;
+    } else {
+	$borrower->{'categorycode'} = $patroncategories->{ trim($borrower->{'IdBorrowerCategory'}) };
+    }
+    $borrower->{categorycode} = 'BIBLIOTEK' unless defined $borrower->{categorycode} && $borrower->{categorycode} ne '';
+    
     $borrower->{'dateofbirth'} = ds($borrower->{'BirthDate'});
     $borrower->{'dateenrolled'} = ds($borrower->{'RegDate'});
     $borrower->{'lastseen'} = ts($borrower->{'lastseen'});
@@ -336,6 +358,7 @@ RECORD: while ( my $borrower = $sth->fetchrow_hashref() ) {
     _quoten(\$borrower->{'branchcode'});
     _quoten(\$borrower->{'categorycode'});
     
+    
     $borrower->{'userid_str'} = 'NULL';
 
     if (defined($borrower->{RegId}) && $borrower->{RegId} ne '') {
@@ -370,7 +393,7 @@ RECORD: while ( my $borrower = $sth->fetchrow_hashref() ) {
     if ($opt->passwords && defined($borrower->{'Password'})) {
 	$borrower->{'Password'} = hash_password($borrower->{'Password'});
     } else {
-	delete($borrower->{'Password'});
+	$borrower->{'Password'} = '!';
     }
     _quote(\$borrower->{'Password'});
 
@@ -398,10 +421,13 @@ RECORD: while ( my $borrower = $sth->fetchrow_hashref() ) {
 
     if ($opt->matchpoint) {
 	my $mp = $borrower->{$opt->matchpoint};
-	if (defined $mp) {
+	if (defined $mp && $mp ne '') {
 	    my $matchpoint = $opt->matchpoint_expression;
-	    if ($opt->matchpoint_string) {
+	    if ($opt->matchpoint_type eq 'string') {
 		$mp = $dbh->quote($mp);
+	    } elsif ($opt->matchpoint_type eq 'nq') {
+	    } else {
+		die "Unsupported matchpoint type: '" . $opt->matchpoint_type . "'";
 	    }
 	    $matchpoint =~ s/%matchpoint%/$mp/g;
 	    $borrower->{matchpoint} = $matchpoint;
@@ -417,9 +443,11 @@ RECORD: while ( my $borrower = $sth->fetchrow_hashref() ) {
     #if ( $limit && $limit == $count ) {
     #last;
     #}
-    $progress->update( $count );
+    $progress->update( $count ) if defined $progress;
 
 } # end foreach record
+
+
 
 #print <<EOF;
 #CREATE TEMPORARY TABLE k_borrower_message_preferences_existing (borrowernumber INT(11) PRIMARY KEY NOT NULL);
@@ -444,7 +472,7 @@ RECORD: while ( my $borrower = $sth->fetchrow_hashref() ) {
 #EOF
 
 
-$progress->update( $limit );
+$progress->update( $limit ) if defined $progress;
 
 =head1 OPTIONS
 
@@ -586,6 +614,7 @@ sub set_address {
     _quote(\$borrower->{"B_zipcode"});
     _quote(\$borrower->{"B_city"});
     _quote(\$borrower->{"B_streetnumber"});
+    _quote(\$borrower->{"borrowernotes"});
 
     $phone_sth->execute( $borrower->{IdBorrower} );
 

@@ -3,20 +3,42 @@ SET @BIBLIONUMBER = NULL;
 SELECT biblionumber FROM
 (
  SELECT biblionumber FROM k_biblio_identification
- WHERE [% IF marc003 == 'NULL' %](marc003 IS NULL OR marc003 = '')[% ELSE %]marc003 = [% marc003 %][% END %] AND marc001 = [% marc001 %] AND batch = [% batch %]
+ WHERE
+ [% IF record_match_field %]
+    `[% record_match_field %]` = [% record_match_value %]
+ [% ELSE %]
+    [% IF marc003 == 'NULL' %](marc003 IS NULL OR marc003 = '')[% ELSE %]marc003 = [% marc003 %][% END %] AND marc001 = [% marc001 %] AND batch = [% batch %]
+ [% END %]
 UNION
  SELECT biblionumber FROM k_merged_records
- WHERE [% IF marc003 == 'NULL' %](marc003 IS NULL OR marc003 = '') [% ELSE %]marc003 = [% marc003 %][% END %] AND marc001 = [% marc001 %] AND batch = [% batch %]
+ WHERE
+ [% IF record_match_field %]
+    `[% record_match_field %]` = [% record_match_value %]
+ [% ELSE %]
+    [% IF marc003 == 'NULL' %](marc003 IS NULL OR marc003 = '') [% ELSE %]marc003 = [% marc003 %][% END %] AND marc001 = [% marc001 %] AND batch = [% batch %]
+ [% END %]
 ) AS T LIMIT 1 INTO @BIBLIONUMBER;
 
 SELECT biblioitemnumber FROM biblioitems WHERE biblionumber=@BIBLIONUMBER INTO @BIBLIOITEMNUMBER;
 
 [% FOREACH item IN items -%]
+SET @ITEMNUMBER = NULL;
+  [% IF detect_barcode_duplication && item.barcode %]
+SET @DUPLICATE_BARCODE=[% IF item.barcode %](SELECT EXISTS (SELECT * FROM items WHERE barcode = [% item.barcode %]))[% ELSE %]0[% END %];
+  [% END %]
 SET @DUPLICATE=(SELECT EXISTS (SELECT * FROM k_items_idmap WHERE original_id = [% item.original_id %] AND batch = [% batch %]));
 INSERT INTO items SET
 biblionumber=@BIBLIONUMBER,
 biblioitemnumber=@BIBLIOITEMNUMBER
-  [% FOREACH col IN item.defined_columns -%],[% col %][% END -%];
+  [% FOREACH col IN item.defined_columns -%],[% col %][% END -%]
+[% IF detect_barcode_duplication %]
+ON DUPLICATE KEY UPDATE barcode=NULL
+[% END %]
+;
+SELECT LAST_INSERT_ID() FROM DUAL INTO @ITEMNUMBER;
+[% IF detect_barcode_duplication && item.barcode %]
+INSERT INTO k_items_duplicated_barcodes (itemnumber, barcode) SELECT @ITEMNUMBER, [% item.barcode %] FROM DUAL WHERE @DUPLICATE_BARCODE;
+[% END %]
 INSERT INTO k_items_idmap
-SELECT [% item.original_id %], (SELECT LAST_INSERT_ID() FROM DUAL), [% batch %] FROM DUAL WHERE NOT @DUPLICATE;
+SELECT [% item.original_id %], @ITEMNUMBER, [% batch %] FROM DUAL WHERE NOT @DUPLICATE;
 [% END -%]

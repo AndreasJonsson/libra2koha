@@ -64,12 +64,14 @@ my ($opt, $usage) = describe_options(
     [ 'hidden-are-ordered', 'Hidden items are ordered items.', { default => 0 }],
     [ 'string-original-id', 'If datatype of item original id is string.  Default is integer.' ],
     [ 'separate-items', 'Write items into separate sql-file.' ],
+    [ 'record-match-field=s', 'Field for record matching when using --separate-items.' ],
     [ 'encoding-hack', 'Set the charset to MARC-8 in the record before processing.' ],
     [ 'record-procs=s', 'Custom record processors.' ],
     [ 'item-procs=s', 'Custom item processors.' ],
     [ 'has-itemtable', 'Items in separate table.' ],
     [ 'no-itemtable', 'Items embedded.', { default => 0, implies => { 'has_itemtable' => 0 } }],
     [ 'items-format=s', 'Format of embedded items.' ],
+    [ 'detect-barcode-duplication', 'Detect barcode duplication.' ],
     [],
     [ 'verbose|v',  "print extra stuff"            ],
     [ 'debug',      "Enable debug output" ],
@@ -81,7 +83,7 @@ if ($opt->help) {
     exit 0;
 }
 
-if ($opt->xml_input || $opt->xml_output) {
+if ($opt->xml_input || $opt->xml_output || $opt->debug) {
     use MARC::File::XML ( RecordFormat => 'USMARC' );
 
     # ugly hack follows -- MARC::File::XML, when used by MARC::Batch,
@@ -299,8 +301,13 @@ if ( $opt->recordsrc eq 'marc' ) {
 $limit = $recordsrc->num_records() if $limit == 0;
 
 print "There are $limit records in $input_file\n";
+my $progress_fh = \*STDOUT;
 
-my $progress = Term::ProgressBar->new( $limit );
+
+my $progress;
+if (-t $progress_fh) {
+    $progress = Term::ProgressBar->new( {name => "Records", count => $limit, fh => $progress_fh } );
+}
 
 # Query for selecting items connected to a given record
 
@@ -346,6 +353,17 @@ CREATE TABLE IF NOT EXISTS k_items_idmap (
     FOREIGN KEY (`itemnumber`) REFERENCES `items`(`itemnumber`) ON DELETE CASCADE ON UPDATE CASCADE
 );
 EOF
+
+    if ($opt->detect_barcode_duplication) {
+	print ITEM_OUTPUT <<EOF;
+CREATE TABLE IF NOT EXISTS k_items_duplicated_barcodes (
+    `itemnumber` INT,
+    `barcode` varchar(32),
+    KEY `k_items_extra_barcodes_barcode` (`barcode`),
+    KEY `k_items_extra_barcodes_itemnumber` (`itemnumber`)
+);    
+EOF
+}
 
 if ($opt->has_itemtable) {
     unless ($opt->explicit_record_id) {
@@ -973,7 +991,11 @@ Just add the itemtype in 942$c.
       }
 
       for my $rp (@record_procs) {
-	  $rp->process($mmc, $record);
+	  my $precord = $rp->process($mmc, $record);
+	  if (!defined $precord) {
+	      print IGNORED_BIBLIOS ($record->field('001')->data() . "\n") if defined $record->field('001');
+	      next RECORD;
+	  }
       }
 
       print IGNORED_BIBLIOS ($record->field('001')->data() . "\n") unless $includedItem || !$ignoredItem;
@@ -991,18 +1013,30 @@ Just add the itemtype in 942$c.
 	  if ($opt->string_original_id) {
 	      map { $_->{original_id} = $dbh->quote($_->{original_id}) } @itemcontext;
 	  }
-	  my $f001 = defined($record->field( '001' )) ? $record->field( '001' )->data() : '';
-	  $item_context->{marc001} = $dbh->quote($f001);
-	  my $f003;
-	  unless ($record->field( '003' )) {
-	      $f003 = '';
-	      $item_context->{marc003} = 'NULL';
+	  if (defined $opt->record_match_field) {
+	      my $fv = $mmc->get($opt->record_match_field);
+	      $item_context->{record_match_field} = $opt->record_match_field;
+	      $item_context->{record_match_value} = $dbh->quote($fv);
 	  } else {
-	      $f003 = lc $record->field( '003' )->data();
-	      $f003 =~ s/[^a-zæøåöA-ZÆØÅÖ\d]//g;
-	      $item_context->{marc003} = $dbh->quote($f003);
+	      my $f001 = defined($record->field( '001' )) ? $record->field( '001' )->data() : '';
+	      $item_context->{marc001} = $dbh->quote($f001);
+	      my $f003;
+	      unless ($record->field( '003' )) {
+		  $f003 = '';
+		  $item_context->{marc003} = 'NULL';
+	      } else {
+		  $f003 = lc $record->field( '003' )->data();
+		  $f003 =~ s/[^a-zæøåöA-ZÆØÅÖ\d]//g;
+		  $item_context->{marc003} = $dbh->quote($f003);
+	      }
 	  }
-	  $item_context->{items} = \@itemcontext;
+
+	  $item_context->{detect_barcode_duplication} = $opt->detect_barcode_duplication;
+	  if ($opt->detect_barcode_duplication) {
+	      map { ($_->{barcode}) = map { /^barcode=(.*)/; $1; } grep { /^barcode=/; } @{$_->{defined_columns}} } @itemcontext;
+	  }
+
+	  $item_context->{items} =  \@itemcontext;
 
 	  $tt2->process( 'items.tt', $item_context, \*ITEM_OUTPUT,  {binmode => ':utf8'} ) || die $tt2->error();
 
@@ -1022,11 +1056,12 @@ Just add the itemtype in 942$c.
       $mmc->reset();
       
       $count++;
-      $progress->update( $count );
+
+      $progress->update( $count ) if defined $progress;
       last if $limit && $limit <= $count;
 }
 
-$progress->update( $limit );
+$progress->update( $limit ) if defined $progress;
 
 say "$count records, $count_items items done";
 say "Did you remember to load data into memory?" if $count_items == 0;

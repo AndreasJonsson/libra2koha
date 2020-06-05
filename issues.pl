@@ -38,6 +38,7 @@ my ($opt, $usage) = describe_options(
     [ 'limit=i', 'Limit processing to this number of items.  0 means process all.', { default => 0 } ],
     [ 'format=s', 'Input database format', { required => 1 }],
     [ 'branchcode=s', 'Constant branchcode.' ],
+    [ 'string-original-id', 'If datatype of item original id is string.  Default is integer.' ],
     [],
     [ 'verbose|v',  "print extra stuff"            ],
     [ 'debug',      "Enable debug output" ],
@@ -107,7 +108,14 @@ if ($opt->limit == 0) {
     $sth_ic->execute() or die "Failed to count issues.";
     $limit = $sth_ic->fetchrow_arrayref()->[0];
 }
-my $progress = Term::ProgressBar->new( $limit );
+
+my $progress_fh = \*STDOUT;
+
+
+my $progress;
+if (-t $progress_fh) {
+    $progress = Term::ProgressBar->new( {name => "Issues", count => $limit, fh => $progress_fh } );
+}
 
 
 # Query for selecting all issues, with relevant data
@@ -153,7 +161,11 @@ while ( my $issue = $sth->fetchrow_hashref() ) {
     if (defined $opt->branchcode) {
 	$issue->{'branchcode'} = $opt->branchcode;
     } else {
-	$issue->{'branchcode'} = $branchcodes->{ $issue->{'IdBranchCode'} };
+	if (defined $issue->{'IdBranchCode'}  && defined $branchcodes->{ $issue->{'IdBranchCode'} }) {
+	    $issue->{'branchcode'} = $branchcodes->{ $issue->{'IdBranchCode'} };
+	} else {
+	    $issue->{'branchcode'} = $branchcodes->{ '_default' };
+	}
 	_quote(\$issue->{'branchcode'});
     }
     my $bb = $issue->{'BorrowerIdBranchCode'};
@@ -172,11 +184,18 @@ while ( my $issue = $sth->fetchrow_hashref() ) {
 
     if (defined($issue->{'IdItem'})) {
 	$issue->{original_item_id} = $issue->{'IdItem'};
+	if ($opt->string_original_id) {
+	    _quote(\$issue->{original_item_id});
+	}
     } else {
 	$issue->{original_item_id} = 'NULL';
     }
     $issue->{original_issue_id} = $issue->{IdTransaction};
     $issue->{batch} = $opt->batch;
+
+    if ($opt->string_original_id) {
+	_quote(\$issue->{IdBorrower});
+    }
 
 
     if ($issue->{'branchcode'} eq '') {
@@ -188,12 +207,12 @@ while ( my $issue = $sth->fetchrow_hashref() ) {
 	if ( $limit && $limit == $count ) {
 	    last;
 	}
-	$progress->update( $count );
+	$progress->update( $count ) if defined $progress;
     }
 
 } # end foreach record
 
-$progress->update( $limit );
+$progress->update( $limit ) if defined $progress;
 
 
 sub _quote {
