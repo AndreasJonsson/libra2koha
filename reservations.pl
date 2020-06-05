@@ -108,14 +108,20 @@ use DateTime::Format::Builder;
 use Template;
 use StatementPreparer;
 use TimeUtils;
+use utf8;
 
 $YAML::Syck::ImplicitUnicode = 1;
+
+binmode STDOUT, ":utf8";
+$|=1; # Flush output
 
 my ($opt, $usage) = describe_options(
     '%c %o <some-arg>',
     [ 'configdir=s',  'config directory' , { required => 1 } ],
     [ 'batch=i', 'batch number', { required => 1 } ],
     [ 'format=s',  'Source format' , { default => 'libra' } ],
+    [ 'string-original-id', 'If datatype of original id is string.  Default is integer.' ],
+    [ 'record-match-field=s', 'Field for record matching when using --separate-items.' ],
 
            [],
            [ 'verbose|v',  "print extra stuff"            ],
@@ -128,7 +134,6 @@ my $config;
 if ( -f ($opt->configdir . '/config.yaml') ) {
     $config = LoadFile( $opt->configdir . '/config.yaml' );
 }
-
 
 my $branchcodes;
 if ( -f $opt->configdir . '/branchcodes.yaml' ) {
@@ -150,7 +155,7 @@ our $dbh = DBI->connect( $config->{'db_dsn'},
  
 init_time_utils(sub { $dbh->quote(shift); });
 
-my $preparer = new StatementPreparer(format => $opt->format, dbh => $dbh, dir => [$opt->config]);
+my $preparer = new StatementPreparer(format => $opt->format, dbh => $dbh, dir => [$opt->configdir]);
 my $sth = $preparer->prepare('select_reservation_info');
 
 my $ret = $sth->execute();
@@ -174,6 +179,7 @@ EOF
 while (my $row = $sth->fetchrow_hashref()) {
 
     my $pickbranch = $branchcodes->{$row->{'FromIdBranchCode'}};
+    $pickbranch = $branchcodes->{_default} unless defined $pickbranch;
     next if (!defined $pickbranch || $pickbranch eq '');
 
     if (!defined($priorities{$row->{IdCat}})) {
@@ -199,7 +205,7 @@ while (my $row = $sth->fetchrow_hashref()) {
 
     $row->{BarCode} = (split ';', $row->{BarCode})[0] if defined($row->{BarCode});
 
-    my @parts = split ' ', $row->{RegDate};
+    my @parts = split ' ', $row->{RegDate}, -1;
     if (scalar(@parts) > 1) {
 	$row->{RegDate} = $parts[0];
 	$row->{RegTime} = $parts[1];
@@ -207,10 +213,13 @@ while (my $row = $sth->fetchrow_hashref()) {
 
     if (!defined($row->{IdBorrower})) {
 	$row->{IdBorrower} = 'NULL';
+    } elsif ($opt->string_original_id) {
+	$row->{IdBorrower} = $dbh->quote($row->{IdBorrower});
     }
 
+
     if (defined($row->{IdItem})) {
-	$row->{original_item_id} = $row->{IdItem};
+	$row->{original_item_id} = $opt->string_original_id ? $dbh->quote($row->{IdItem}) : $row->{IdItem};
     } else {
 	$row->{original_item_id} = 'NULL';
     }
@@ -245,7 +254,11 @@ while (my $row = $sth->fetchrow_hashref()) {
 	original_reservation_id => $row->{IdReservation},
 	batch            => $opt->batch
     };
-
+    
+    if (defined $opt->record_match_field) {
+	$params->{record_match_field} = $opt->record_match_field;
+	$params->{record_match_value} = $dbh->quote($row->{IdCat});
+    }
     
     $tt2->process( 'reservations.tt', $params, \*STDOUT, {binmode => ':utf8'}) || die $tt2->error();
 

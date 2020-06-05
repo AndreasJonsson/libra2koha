@@ -19,7 +19,7 @@ LOAD DATA LOCAL INFILE '[% dirs %]/[% tablename %][% ext %]'
     CHARACTER SET [% enc %]
     FIELDS TERMINATED BY '[% sep %]'
     [% IF quote %] ENCLOSED BY '[% quote %]'[% END %]
-    [% IF escape %] ESCAPED BY '[% escape %]'[% END %]
+    [% IF escape %] ESCAPED BY '[% IF escape == "\\" %]\\[% ELSE %][% escape %][% END %]'[% END %]
     [% IF rowsep %] LINES TERMINATED BY '[% rowsep %]'[% END %]
     IGNORE [% headerrows %] LINES
 (

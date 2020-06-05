@@ -48,22 +48,37 @@ sub do_sierra_items {
     copy($mmc, 'sierra_barcode', 'items.barcode');
     copy($mmc, { m => 'sierra_created', f => sub {
 	if (!defined($_[0])) {
-	    return;
+	    return undef;
 	}
-	my $d = $self->{dp}->parse_datetime($_[0]);
+	my $d;
+	eval { $d = $self->{dp}->parse_datetime($_[0]); };
+	if (!defined $d) {
+	    return undef;
+	}
 	if ($d->year < 100) {
 	    $d = $d->add(years => 2000);
 	}
-	if (!defined $d) {
-	    return;
-	}
 	return $d->strftime('%F');
 		 } }, 'items.dateaccessioned');
+    copy($mmc, { m => 'sierra_last_checkin', f => sub {
+	if (!defined($_[0])) {
+	    return;
+	}
+	my $d;
+	eval { $d = $self->{dp}->parse_datetime($_[0]); };
+	if (!defined $d) {
+	    return undef;
+	}
+	if ($d->year < 100) {
+	    $d = $d->add(years => 2000);
+	}
+	return $d->strftime('%F');
+		 } }, 'items.datelastseen');
     copy($mmc, 'sierra_total_checkouts', 'items.issues');
     copy($mmc, 'sierra_total_renewals', 'items.renewals');
     copy($mmc, { m => 'sierra_price', f => sub {
 	if (!defined($_[0])) {
-	    return;
+	    return undef;
 	}
 	$_[0] =~ /([\d.]+)/; return $1; } }, 'items.price');
     copy($mmc, 'sierra_note', 'items.itemnotes_nonpublic');
@@ -88,7 +103,7 @@ sub do_sierra_items {
 
     copy($mmc, { m => 'sierra_status', f => sub {
 	if (!defined($_[0])) {
-	    return
+	    return undef;
 	}
 	my %map = $self->{config_tables}->{damaged};
 	my $v = $map->{trim($_[0])};
@@ -99,7 +114,7 @@ sub do_sierra_items {
 
     copy($mmc, { m => 'sierra_status', f => sub {
 	if (!defined($_[0])) {
-	    return
+	    return undef;
 	}
 	my $map = $self->{config_tables}->{lost};
 	my $v = $map->{trim($_[0])};
@@ -119,7 +134,6 @@ sub do_sierra_items {
 		 }
 	 }, 'items.damaged');
 
-
     copy($mmc, { m => 'sierra_status', f => sub {
 	if (!defined($_[0])) {
 	    return
@@ -135,6 +149,11 @@ sub do_sierra_items {
 	return defined $v ? $v : $map->{'_default'};
     } }, 'items.itype');
 
+    my @itypes = $mmc->get('items.itype');
+    if (scalar(@itypes) > 0) {
+	$mmc->set("biblioitemtype", $itypes[$#itypes]);
+    }
+    
     copy($mmc, { m =>'sierra_location', f => sub {
 	if (!defined($_[0])) {
 	    return
