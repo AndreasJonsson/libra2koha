@@ -53,13 +53,19 @@ sub process {
 
     $mmc->set('items.cn_source', map {'SAB'} @branchcodes );
 
-    my @callnumbers = map { $self->{bibextra_sth}->execute($_); $self->{bibextra_sth}->fetchrow } $mmc->get('items.barcode');
+    my @callnumbers = map {
+	$self->{bibextra_sth}->execute($_);
+	my ($cn) = $self->{bibextra_sth}->fetchrow_array;
+	defined $cn ? $cn : undef;
+    } $mmc->get('items.barcode');
     $mmc->set('items.itemcallnumber', @callnumbers);
 
     my @itypes = $mmc->get('items.itype');
 
-    my @notforloan = map { $_ eq 'REF' || $_ eq 'COURSEREF' ? 1 : 0 } @itypes;
+    my @notforloan = map { $_ eq 'REFERENS' || $_ eq 'COURSEREF' || $_ eq 'KURSREF' ? 1 : 0 } @itypes;
     $mmc->set('items.notforloan', @notforloan);
+
+    my @bitype_candidates = grep { $_ ne 'REFERENS' && $_ ne 'COURSEREF' && $_ ne 'KURSREF' } @itypes;
 
     my $field = $record->field('998');
     if (defined $field && $field->subfield('d')) {
@@ -68,13 +74,23 @@ sub process {
 	if ($v eq 'j') {
 	    $itype = 'CD';
 	} elsif ($v eq 'z') {
-	    $itype = 'EBOOK';
+	    $itype = 'EBOK';
 	} elsif ($v eq 'f') {
 	    $itype = 'FILM';
 	} elsif ($v eq 's') {
-	    $itype = 'BOOK';
+	    $itype = 'BOK';
 	}
-	$mmc->set("biblioitemtype", $itype);
+	if ($itype ne '') {
+	    $mmc->set("biblioitemtype", $itype);
+	} elsif (scalar (@bitype_candidates) > 0) {
+	    $mmc->set("biblioitemtype", $bitype_candidates[0]);
+	} else {
+	    $mmc->set("biblioitemtype", undef);
+	}
+    } elsif (scalar (@bitype_candidates) > 0) {
+	$mmc->set("biblioitemtype", $bitype_candidates[0]);
+    } else {
+	$mmc->set("biblioitemtype", undef);
     }
     
     $record->delete_fields($record->field('945'));

@@ -16,7 +16,7 @@ delimtabletransform  --encoding=utf8               \
 
 name=Patrons
 delimtabletransform  --encoding=iso-8859-1               \
-		     --column-delimiter=";" \
+		     --column-delimiter="," \
 		     --row-delimiter='\n'               \
 		     --row-delimiter='\r\n'             \
 		     --output-row-delimiter='\n'        \
@@ -25,8 +25,8 @@ delimtabletransform  --encoding=iso-8859-1               \
 		     "$DIR/${name}$TABLEEXT" > "$tabledir"/"${name}${TABLEEXT}"
 
 name=Loans
-delimtabletransform  --encoding=iso-8859-1               \
-		     --column-delimiter=";" \
+delimtabletransform  --encoding=iso-8859-1              \
+		     --column-delimiter="," \
 		     --row-delimiter='\n'               \
 		     --row-delimiter='\r\n'             \
 		     --output-row-delimiter='\n'        \
@@ -52,12 +52,11 @@ echo "kodalarna Loans"
 create_tables.pl  --format="$SOURCE_FORMAT" "${TABLE_PARAMS[@]}" --table "Loans"  | eval $MYSQL_LOAD
 
 echo "kodalarna Orders"
-
 create_tables.pl  --format="$SOURCE_FORMAT" "${TABLE_PARAMS[@]}" --table "Orders"  | eval $MYSQL_LOAD
 
 
-mysql -u libra2koha -ppass kodalarna -s --batch -e 'SELECT id, ADDRESS FROM Patrons' > "$OUTPUTDIR"/address1.txt
-mysql -u libra2koha -ppass kodalarna -s --batch -e 'SELECT id, ADDRESS2 FROM Patrons' > "$OUTPUTDIR"/address2.txt
+mysql -u libra2koha -ppass kodalarna -s --batch -e 'SELECT `RECORD #(PATRON)`, ADDRESS FROM Patrons' > "$OUTPUTDIR"/address1.txt
+mysql -u libra2koha -ppass kodalarna -s --batch -e 'SELECT `RECORD #(PATRON)`, ADDRESS2 FROM Patrons' > "$OUTPUTDIR"/address2.txt
 
 split-address.hs --output "$OUTPUTDIR"/address1.sql --order 1 "$OUTPUTDIR"/address1.txt
 split-address.hs --output "$OUTPUTDIR"/address2.sql --order 1 "$OUTPUTDIR"/address2.txt
@@ -65,7 +64,7 @@ split-address.hs --output "$OUTPUTDIR"/address2.sql --order 1 "$OUTPUTDIR"/addre
 mysql -u libra2koha -ppass kodalarna -s <<EOF
 
 CREATE TABLE BorrowerAddresses
- (IdBorrower int,
+ (IdBorrower varchar(16),
   Batch int, 
   Address1 varchar(256),
   City varchar(32),
@@ -81,3 +80,4 @@ EOF
 
 mysql -u libra2koha -ppass kodalarna -s  < "$OUTPUTDIR"/address1.sql
 mysql -u libra2koha -ppass kodalarna -s  < "$OUTPUTDIR"/address2.sql
+

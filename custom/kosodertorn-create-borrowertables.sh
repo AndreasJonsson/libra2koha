@@ -24,7 +24,7 @@ delimtabletransform  --encoding=utf8               \
 
 name=Loans
 delimtabletransform  --encoding=utf8               \
-		     --column-delimiter=";" \
+		     --column-delimiter="," \
 		     --row-delimiter='\n'               \
 		     --row-delimiter='\r\n'             \
 		     --output-row-delimiter='\n'        \
@@ -59,15 +59,14 @@ echo "kodsodertorn Orders"
 
 create_tables.pl  --format="$SOURCE_FORMAT" "${TABLE_PARAMS[@]}" --table "Orders"  | eval $MYSQL_LOAD
 
-
-mysql -u libra2koha -ppass kosodertorn -s --batch -e 'SELECT id, ADDRESS FROM Borrowers' > "$OUTPUTDIR"/address1.txt
+mysql -u libra2koha -ppass kosodertorn -s --batch -e 'SELECT `RECORD #(Patron)`, ADDRESS FROM Borrowers' > "$OUTPUTDIR"/address1.txt
 
 split-address.hs --output "$OUTPUTDIR"/address1.sql --order 1 "$OUTPUTDIR"/address1.txt
 
-mysql -u libra2koha -ppass kosodertorn -s <<EOF
+mysql -u libra2koha -ppass kosodertorn -s <<'EOF'
 
 CREATE TABLE BorrowerAddresses
- (IdBorrower int,
+ (IdBorrower varchar(16),
   Batch int, 
   Address1 varchar(256),
   City varchar(32),
@@ -78,6 +77,8 @@ CREATE TABLE BorrowerAddresses
 
 CREATE INDEX BorrowerAddresses_id ON BorrowerAddresses(IdBorrower);
 CREATE INDEX BorrowerAddresses_batch ON BorrowerAddresses(Batch);
+
+UPDATE Holds SET `Patron  Info2` = (SELECT `RECORD #(Patron)` FROM Borrowers WHERE SUBSTRING(`RECORD #(Patron)`, 1, LENGTH(`RECORD #(Patron)`) - 1) = `Patron  Info2`);
 EOF
 
 

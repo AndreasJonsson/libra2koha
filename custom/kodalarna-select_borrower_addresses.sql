@@ -7,6 +7,6 @@ Postal AS ZipCode,
 City AS City,
 CO AS CO,
 Country AS Country
-FROM BorrowerAddresses JOIN Patrons ON (IdBorrower = `id`) WHERE `IdBorrower` = ?
+FROM BorrowerAddresses JOIN Patrons ON (IdBorrower = `RECORD #(PATRON)`) WHERE `IdBorrower` = ?
 ORDER BY Batch ASC 
 

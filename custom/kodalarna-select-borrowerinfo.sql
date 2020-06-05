@@ -1,6 +1,6 @@
 SELECT DISTINCT `HOME LIBR` AS IdBranchCode,
-       `id` AS IdBorrower,
-       `UNIQUE ID` AS `BorrowerAttribute:pnr`,
+       `RECORD #(PATRON)` AS IdBorrower,
+       IF(TRIM(`UNIQUE ID`) != '', CONCAT('normalize_personnummer(', QUOTE(`UNIQUE ID`), ')'), NULL) AS `BorrowerAttribute:pnr:nq`,
        `P BARCODE` AS BarCode,
        `P TYPE` AS IdBorrowerCategory,
        TRIM(SUBSTRING(`PATRN NAME`, 1, LOCATE(' ', `PATRN NAME`) - 1)) AS LastName,

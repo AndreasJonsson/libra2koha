@@ -5,7 +5,11 @@ rsync -a ./custom/kosodertorn-select_borrower_info.sql kodalarna-build:data/Koso
 rsync -a ./custom/kosodertorn-select_borrower_addresses.sql kodalarna-build:data/Kosodertorn/Config/select_borrower_addresses.sql
 rsync -a ./custom/kosodertorn-select_borrower_phone.sql kodalarna-build:data/Kosodertorn/Config/select_borrower_phone.sql
 rsync -a ./custom/kosodertorn-select_borrower_count.sql kodalarna-build:data/Kosodertorn/Config/count_borrowers.sql
-rsync -a ./custom/kodalarna-select_borrower_debarments.sql kodalarna-build:data/Kosodertorn/Config/select_borrower_debarments.sql
+rsync -a ./custom/kosodertorn-select_issue_info.sql kodalarna-build:data/Kosodertorn/Config/select_issue_info.sql
+rsync -a ./custom/kosodertorn-select_orders_info.sql kodalarna-build:data/Kosodertorn/Config/select_orders_info.sql
+rsync -a ./custom/kodalarna-select_issue_count.sql kodalarna-build:data/Kosodertorn/Config/select_issue_count.sql
+rsync -a ./custom/kosodertorn-select_borrower_debarments.sql kodalarna-build:data/Kosodertorn/Config/select_borrower_debarments.sql
+rsync -a ./custom/kosodertorn-select_reservation_info.sql kodalarna-build:data/Kosodertorn/Config/select_reservation_info.sql
 
 rsync -a ./custom/kodalarna-create-borrowertables.sh kodalarna-build:data/Kodalarna/scripts/create_borrower_tables.sh
 rsync -a ./custom/kodalarna-select-borrowerinfo.sql kodalarna-build:data/Kodalarna/Config/select_borrower_info.sql
