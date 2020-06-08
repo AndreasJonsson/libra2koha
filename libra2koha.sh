@@ -175,6 +175,7 @@ fi
 ### RECORDS ###
 
 if [[ "$TRANSFORM_TABLES" != "yes" || "$TABLEENC" == "utf-8" || "$TABLEENC" == "utf8" ]]; then
+    transformed_tables=no
     if [[ -n "$TABLEDIR" ]]; then
 	tabledir="$TABLEDIR"
     else
@@ -190,6 +191,7 @@ if [[ "$TRANSFORM_TABLES" != "yes" || "$TABLEENC" == "utf-8" || "$TABLEENC" == "
     done
 
 else
+    transformed_tables=yes
     if [[ -n "$TABLEDIR" ]]; then
 	tabledir="$TABLEDIR"
     else
@@ -261,7 +263,7 @@ fi
 if [[ -n "$TABLEEXT" ]]; then
     TABLE_PARAMS[$((${#TABLE_PARAMS[*]} + 1))]=--ext="$TABLEEXT"
 fi
-if [[ -n "$ROW_DELIMITER" && "$TRANSFORM_TABLES" != "yes" ]]; then
+if [[ -n "$ROW_DELIMITER" && "$transformed_tables" != "yes" ]]; then
     TABLE_PARAMS[$((${#TABLE_PARAMS[*]} + 1))]=--rowdelimiter="$ROW_DELIMITER"
 fi
 
