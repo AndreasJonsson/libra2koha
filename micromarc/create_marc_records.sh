@@ -4,5 +4,5 @@ create_tables.pl --format="$SOURCE_FORMAT" "${TABLE_PARAMS[@]}"  --table 'caMarc
 
 echo done
 
-"$LIBRIOTOOLS_DIR"/line2iso.pl --delimited --format="$SOURCE_FORMAT" "${TABLE_PARAMS[@]}" --table 'caMarcRecords' --xml >"$MARC"
+line2iso.pl --delimited --format="$SOURCE_FORMAT" "${TABLE_PARAMS[@]}" --table 'caMarcRecords' --xml >"$MARC"
 
