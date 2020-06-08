@@ -28,8 +28,6 @@ use utf8;
 use DateTime;
 use DateTime::Format::Strptime;
 
-use ExplicitRecordNrField;
-
 has 'inputh' => (
     is => 'ro',
     isa => 'FileHandle'
@@ -219,8 +217,6 @@ sub next_record {
 	if ($self->{accumulate_records}) {
 	    $self->{records}->{$self->{completed_record}} = $record;
 	}
-
-	$self->attach_record_id( $record );
 
 	$record = $self->process_record( $record );
 
@@ -784,17 +780,6 @@ sub get_records {
     my $self = shift;
     croak "I am not accumulating records!" unless $self->{accumulate_records};
     return $self->{records};
-}
-
-sub attach_record_id {
-    my $self = shift;
-    my $record = shift;
-
-    my $field = MARC::Field->new( $ExplicitRecordNrField::RECORD_NR_FIELD,
-                                  ' ',
-                                  ' ',
-                                  ( $ExplicitRecordNrField::RECORD_NR_SUBFIELD => $self->{completed_record} ));
-    $record->append_fields( $field );
 }
 
 __PACKAGE__->meta->make_immutable;
