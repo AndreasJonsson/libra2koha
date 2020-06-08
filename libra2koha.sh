@@ -184,10 +184,8 @@ if [[ "$TRANSFORM_TABLES" != "yes" || "$TABLEENC" == "utf-8" || "$TABLEENC" == "
     mkdir -p "$tabledir"
 
     # Remove BOM if present
-    for file in "$DIR"/*"${TABLEEXT}"; do
-	if egrep '^\xEF\xBB\xBF' "$file" ; then
-	    LC_ALL=C sed -i '1s/^\xEF\xBB\xBF//' "$file"
-	fi
+    for file in "$tabledir"/*"${TABLEEXT}"; do
+	LC_ALL=C sed -i '1s/^\xEF\xBB\xBF//' "$file"
     done
 
 else

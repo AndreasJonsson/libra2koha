@@ -31,6 +31,4 @@ FROM
   LEFT OUTER JOIN shBorrower ON (shBorrower.Id = ciService.BorrowerId)
   LEFT OUTER JOIN shContact ON (shBorrower.Id = shContact.Id)
   LEFT OUTER JOIN caItem ON (caItem.Id = ciService.ItemId)
-  LEFT OUTER JOIN ciServiceCode ON (ciServiceCode.Code = ciService.ServiceCode)
-  LEFT OUTER JOIN shString ON (shString.Id = ciServiceCode.DescriptionId)
 WHERE OnLoan;
