@@ -6,7 +6,7 @@ fi
 if [ ! -f "$CONFIG/branchcodes.yaml" ]; then
     echo "Missing $CONFIG/branchcodes.yaml"
     MISSING_FILE=1
-    table2config.pl "${TABLE_PARAMS[@]}" --name='shLocalUnit' --key=0 --comment=0 > "$CONFIG/branchcodes.yaml"
+    table2config.pl "${TABLE_PARAMS[@]}" --name='shLocalUnit' --key=0 --comment=5 > "$CONFIG/branchcodes.yaml"
 fi
 if [ ! -f "$CONFIG/loc.yaml" ]; then
     echo "Missing $CONFIG/loc.yaml"
