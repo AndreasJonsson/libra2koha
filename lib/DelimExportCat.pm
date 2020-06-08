@@ -25,8 +25,6 @@ use Modern::Perl;
 use Text::CSV;
 use DBI;
 use utf8;
-use DateTime;
-use DateTime::Format::Strptime;
 
 has 'inputh' => (
     is => 'ro',
@@ -85,23 +83,6 @@ sub BUILD {
     $self->{record_count} = 0;
 
     $self->{process} = sub { return $_[1]; };
-
-    $self->{dateparser} = DateTime::Format::Strptime->new(
-               pattern   => '%Y%m%d'
-	);
-
-    my @item_procs = ();
-    if (defined $self->opt->item_procs) {
-	for my $rpc (split ',', $self->opt->item_procs) {
-	    my $opt = $self->opt;
-	    eval "use $rpc; push \@item_procs, ${rpc}->new(\$opt);";
-	    die if ($@);
-	}
-    }
-
-    $self->{item_procs} = \@item_procs;
-
-    $self->{unmapped_callnumbers} = {};
 
     my $params = {
 	sep_char => $self->opt->columndelimiter
@@ -262,12 +243,6 @@ sub aleph_analyze {
 	    print $s0->[0], ": ", $s0->[1], "\n";
 	}
     }
-
-    print "-------------------- Unmapped callnumbers -----------------------\n";
-
-    for my $cn (sort keys %{$self->{unmapped_callnumbers}}) {
-	print "$cn\n";
-    }
 }
 
 sub add_to_comment {
@@ -422,9 +397,7 @@ NVVST: 21917
 	my @Ls = $field->subfield('L');
 	my $f = MARC::Field->new(952, ' ', ' ',
 				 'a' => 'NATURVARD',
-				 'b' => 'NATURVARD',
-				 'r' => '',
-				 'w' => ''
+				 'b' => 'NATURVARD'
 	    );
 	if (defined $field->subfield('m')) {
 	    $f->add_subfields('3', $field->subfield('m'));
@@ -432,16 +405,14 @@ NVVST: 21917
 	if (defined $field->subfield('5')) {
 	    $f->add_subfields('p', $field->subfield('5'));
 	}
-	if (defined $field->subfield('2')) {
-	    $f->add_subfields('8', $field->subfield('2'));
+	if (defined $field->subfield('5')) {
+	    $f->add_subfields('a', $field->subfield('5'));
+	}
+	if (defined $field->subfield('B')) {
+	    $f->add_subfields('o', $field->subfield('B'));
 	}
 	if (defined $field->subfield('8')) {
-	    my $d = $self->{dateparser}->parse_datetime($field->subfield('8'));
-	    $f->add_subfields('d', $d->strftime('%F'));
-	}
-	if (defined $field->subfield('M')) {
-	    my $n = int($field->subfield('M'));
-	    $f->add_subfields('l', $n);
+	    $f->add_subfields('d', $field->subfield('8'));
 	}
 
 	if (defined $field->subfield('F')) {
@@ -452,9 +423,9 @@ NVVST: 21917
 	    } elsif ($itype_src eq 'Referenslån') {
 		$itype = 'REFERENS';
 	    } elsif ($itype_src eq 'Personallån') {
-		$itype = 'NORMAL';
+		$itype = 'PERSONAL';
 	    } elsif ($itype_src eq 'Tidskriftslån') {
-		$itype = 'NORMAL';
+		$itype = 'TIDSKRIFT';
 	    } else {
 		die "Unknown itype: $itype_src";
 	    }
@@ -479,14 +450,11 @@ NVVST: 21917
 	    }
 	}
 	if (defined $field->subfield('3')) {
-	    $self->add_callnumber($f, $field->subfield('3'));
+	    $f->add_subfields('8', $field->subfield('3'));
 	} elsif (defined $field->subfield('9')) {
-	    $self->add_callnumber($f, $field->subfield('9'));
+	    $f->add_subfields('8', $field->subfield('9'));
 	}
 
-	for my $ip (@{$self->{item_procs}}) {
-	    $ip->process($record, $f);
-	}
 
 	push @items, $f;
     }
@@ -494,90 +462,6 @@ NVVST: 21917
     $record->add_fields(@items);
 
     return $record;
-}
-
-
-sub add_callnumber {
-    my $self = shift;
-    my $f = shift;
-    my $callnumber = shift;
-
-    $f->add_subfields('o', $callnumber);
-
-    my $l1 = 0;
-    my $l2 = 0;
-    my $l;
-    my $loc;
-    if (grep {my $p = qr|$_|i; $l = length($_); $callnumber =~ /^$p.*/i } (
-	    '20.2 Svensk rätt',
-	    '020.3 EU-rätt',
-	    '021 Konventioner och internationell rätt',
-	    '025 Samhällsvetenskap',
-	    '025.2 Ekonomi',
-	    '026 Administration och personalvård',
-	    '12 Geovetenskaper',
-	    '34 Viltvård och jakt',
-	    '071-SNV:? Rapport:?',
-            '071 SNV-rapport',
-	    '071-SNV Handbok',
-	    '071-SNV Monitor',
-	    'SNV-mon',
-	    '071-SNV Skötsel av naturtyper'
-	)) {
-	$loc = 'Lounge';
-	$l1 = $l;
-    }
-    if (grep {my $p = qr|${_}|i; $l = length($_); $callnumber =~ /^$p.*/i } (
-		 '071-SNV Allmänna råd',
-		 '071-SNV Branschfakta',
-		 '071-SNV Fakta om miljövårdsforskning',
-		 '071-SNV Faktablad',
-		 '071-SNV Industry Fact Sheet',
-		 '071-SNV Meddelande',
-		 '071-SNV Miljöbeslut',
-		 '071-SNV Miljödomar',
-		 '071-SNV Miljömatrikel',
-		 '071-SNV Naturvårdsverket informerar',
-		 '071-SNV SEPA Informs',
-		 '071-SNV Publikationer',
-		 '071-SNV:? Rapporter:?',
-	         '071-SNV Råd och riktlinjer',
-	         '071- ?SNV  ?PM',
-		 '071-SNV Tema miljömål',
-		 '071-SNV 9097',
-		 '071-SNV Information från Statens naturvårdsverk. L',
-		 '071-SNV Meddelande från Statens naturvårdsverk. N',
-		 '071-SNV Meddelande från Statens naturvårdsverk. V',
-		 '071-SNV Information från Statens naturvårdsverk. V',
-		 '071-SNV Internrapport / Program för övervakning av miljökvalitet PMK',
-		 '071-SNV Meddelanden från Naturvårdsverkets limnologiska undersökning',
-		 '071-SNV Tillståndet i världen',
-		 '071-SNV Åtgärdsprogram',
-		 '071-SNV RR-undersökningen',
-		 '071-SNV BIN',
-		 '071-SNV NBL',
-		 '071-SNV Dioxin Survey report',
-		 '071-SNV NLU information',
-		 '071-SNV NLU rapport',
-		 '071-SNV PUX rapport',
-		 '071-SNV Rapport / Naturvårdsverkets specialanalytiska laboratorium')) {
-	$loc = 'Lilla matsalen';
-	$l2 = $l;
-	
-    } else {
-	$self->{unmapped_callnumbers}->{$callnumber} = 1;
-    }
-    if ($l1 != 0 && $l2 != 0) {
-	if ($l1 > $l2) {
-	    $loc = 'Lounge';
-	} else {
-	    $loc = 'Lilla matsalen';
-	}
-    }
-
-    if (defined $loc) {
-	$f->add_subfields('c', $loc);
-    }
 }
 
 sub _getline_aleph {
@@ -782,11 +666,10 @@ sub get_records {
     return $self->{records};
 }
 
+
 __PACKAGE__->meta->make_immutable;
 
 no Moose;
 
 1;
-
-
 
