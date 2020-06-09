@@ -1,6 +1,8 @@
 bib_tables="$(mktemp)"
-create_tables.pl --format="$SOURCE_FORMAT" "${TABLE_PARAMS[@]}"  --table 'caItem' --table 'caItemStatusCode' --table 'caMaterialType' --table 'shLibrary' --table 'shLibraryType' --table 'caCategory' --table 'caCategoryCheckedIn' --table 'caMarcRecord' --table 'caMarcRecords' --table 'ciILL' --table 'ciILLStatus' --table 'ciILLStatusHistory' --table 'aqOrderLine' --table 'aqOrder' --table 'aqOrderStatus' --table 'ciLoanType' --table 'caDocumentGroup' --table=shString > "$bib_tables"
+create_tables.pl --format="$SOURCE_FORMAT" "${TABLE_PARAMS[@]}"  --table 'caItem' --table 'caItemStatusCode' --table 'caMaterialType' --table 'shLocalUnit' --table 'shLibrary' --table 'shLibraryType' --table 'caCategory' --table 'caCategoryCheckedIn' --table 'caMarcRecord' --table 'caMarcRecords' --table 'ciILL' --table 'ciILLStatus' --table 'ciILLStatusHistory' --table 'aqOrderLine' --table 'aqOrder' --table 'aqOrderStatus' --table 'ciLoanType' --table 'caDocumentGroup' --table=shString > "$bib_tables"
+
 eval $MYSQL_LOAD < "$bib_tables"
+
 eval $MYSQL_LOAD <<'EOF'
 CREATE INDEX caItem_id ON caItem(Id);
 CREATE INDEX caItem_MarcRecordId ON caItem(MarcRecordId);

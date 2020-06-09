@@ -266,19 +266,6 @@ if [[ -n "$ROW_DELIMITER" && "$TRANSFORM_TABLES" != "yes" ]]; then
 fi
 
 
-### CHECK FOR CONFIG FILES ###
-
-# Force the user to create necessary config files, and provide skeletons
-MISSING_FILE=0
-if [[ -e "$CUSTOM_SCRIPTDIR"/missing_config.inc ]] ; then
-    . "$CUSTOM_SCRIPTDIR"/missing_config.inc
-fi
-. "$SOURCE_FORMAT/missing_config.inc"
-if [ $MISSING_FILE -eq 1 ]; then
-    exit
-fi
-
-
 ## Clean up the database
 if [[ "$QUICK"z != "yesz" ]]; then
     echo "Cleaning database! $MYSQL"
@@ -299,19 +286,15 @@ SET FOREIGN_KEY_CHECKS = 1;
 EOF
 fi
 
-if [[ "$BUILD_MARC_FILE" == "yes" && ( "$FULL" == "yes" || ! -e "$MARC" ) ]]; then
-    . "$SOURCE_FORMAT"/create_marc_records.sh
-fi
-
 ## Create tables and load the datafiles
-if [[ "$QUICK"z != "yesz" && "$HAS_ITEMTABLE"z == "yes" ]]; then
+if [[ "$QUICK" != "yes" && "$HAS_ITEMTABLE" == "yes" ]]; then
     echo -n "Going to create tables for records and items, and load data into MySQL... "
     run_format_script create_item_tables.sh
     echo "done"
 fi
 
 ### BORROWERS ###
-if [[ "$QUICK"z != "yesz" ]]; then
+if [[ "$QUICK" != "yes" ]]; then
     ## Create tables and load the datafiles
     $MYSQL < "$dir"/mysql/valid_person_number.sql
     echo -n "Going to create tables for borrowers, and load data into MySQL... "
@@ -336,6 +319,22 @@ if [[ "$QUICK"z != "yesz" && -n "$BIBEXTRA_TABLE" ]]; then
     bib_tables="$(mktemp)"
     create_tables.pl --format="$SOURCE_FORMAT" "${TABLE_PARAMS[@]}" --table "$BIBEXTRA_TABLE" > "$bib_tables"
     eval $MYSQL_LOAD < "$bib_tables"
+fi
+
+### CHECK FOR CONFIG FILES ###
+
+# Force the user to create necessary config files, and provide skeletons
+MISSING_FILE=0
+if [[ -e "$CUSTOM_SCRIPTDIR"/missing_config.inc ]] ; then
+    . "$CUSTOM_SCRIPTDIR"/missing_config.inc
+fi
+. "$SOURCE_FORMAT/missing_config.inc"
+if [ $MISSING_FILE -eq 1 ]; then
+    exit
+fi
+
+if [[ "$BUILD_MARC_FILE" == "yes" && ( "$FULL" == "yes" || ! -e "$MARC" ) ]]; then
+    . "$SOURCE_FORMAT"/create_marc_records.sh
 fi
 
 if [[ "$FULL" == "yes" || ! -e "$OUTPUTDIR"/records.marc ]]; then

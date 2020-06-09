@@ -63,12 +63,15 @@ use Text::CSV;
 use Getopt::Long::Descriptive;
 use Data::Dumper;
 use TupleColumn;
-use YAML::Syck qw( Dump );
+use YAML::Syck qw( Dump LoadFile );
+use DBI;
 
 my ($opt, $usage) = describe_options(
     '%c %o <some-arg>',
     [ 'dir=s', "table directory", { required => 1  } ],
-    [ 'name=s', 'table name', { required => 1 } ],
+    [ 'config=s', 'config directory', { required => 1 } ],
+    [ 'name=s', 'table name' ],
+    [ 'query=s', 'sql query' ],
     [ 'format=s', 'output format (yaml or csv)', { default => 'yaml' } ],
     [ 'columndelimiter=s', 'column delimiter',  { default => ',' } ],
     [ 'rowdelimiter=s',  'row delimiter'      ],
@@ -95,6 +98,20 @@ if ($opt->help || !valid($opt)) {
     exit 0;
 }
 
+my $config;
+if ( -f $opt->config . '/config.yaml' ) {
+    print STDERR "Loading config.yaml\n" if $opt->verbose;
+    $config = LoadFile( $opt->config . '/config.yaml' );
+}
+
+if (!defined $opt->name && !defined $opt->query) {
+    die "Either --name or --query must be specified.";
+}
+
+if (defined $opt->name && defined $opt->query) {
+    die "Exactly one of --name or --query must be specified.";
+}
+
 sub valid {
     my $opt = shift;
 
@@ -105,15 +122,6 @@ sub valid {
     return 1;
 }
 
-my $filename = $opt->dir . '/' . $opt->name . $opt->ext;
-my $fh;
-
-my $found_file = 0;
-if (open ($fh, "<:encoding(" . $opt->encoding . ")", $filename)) {
-    $found_file = 1;
-}
-die ("Didn't find any table file for " . $opt->name) unless ($found_file);
-
 my $dt;
 if ($opt->timezone) {
     $dt = DateTime->now( time_zone => $opt->timezone );
@@ -121,29 +129,10 @@ if ($opt->timezone) {
     $dt = DateTime->now();
 }
 
-say "---";
-say "# Generated from $filename";
-say "# " . $dt->ymd . ' ' . $dt->hms;
-say ''  ;
-
 my $rowdelim = $opt->rowdelimiter;
 #$rowdelim =~ s/\n/\\n/g;
 #$rowdelim =~ s/\r/\\r/g;
 
-my $csv = Text::CSV->new({
-    binary => 1,
-    quote_char => $opt->quote,
-    sep_char => $opt->columndelimiter,
-    eol => $rowdelim,
-    escape_char => $opt->escape
- });
-
-say STDERR $csv->error_diag if $csv->error_diag;
-
-for (my $i = 0; $i < $opt->headerrows; $i++) {
-    die "Filehandle is closed! $i" unless defined(fileno($fh));
-    my $row = $csv->getline( $fh );
-}
 
 sub intkey {
     return sub {
@@ -185,7 +174,57 @@ $YAML::Syck::Headless = 1;
 $YAML::Syck::SingleQuote = 1;
 $YAML::Syck::ImplicitUnicode = 1;
 
-while (my $row = $csv->getline( $fh ) ) {
+my $get_row;
+
+if  (defined $opt->query) {
+    my $dbh = DBI->connect( $config->{'db_dsn'}, $config->{'db_user'}, $config->{'db_pass'}, { RaiseError => 1, AutoCommit => 1 } );
+    my $sth = $dbh->prepare( $opt->query );
+    $sth->execute() or die "Failed to execute query.";
+    say "---";
+    say "# Generated from query " . $opt->query;
+    say "# " . $dt->ymd . ' ' . $dt->hms;
+    say ''  ;
+
+    $get_row = sub {
+	$sth->fetchrow_arrayref;
+    }
+} else {
+    my $filename = $opt->dir . '/' . $opt->name . $opt->ext;
+    my $fh;
+
+    my $found_file = 0;
+    if (open ($fh, "<:encoding(" . $opt->encoding . ")", $filename)) {
+	$found_file = 1;
+    }
+    die ("Didn't find any table file for " . $opt->name) unless ($found_file);
+
+    my $csv = Text::CSV->new({
+	binary => 1,
+	quote_char => $opt->quote,
+	sep_char => $opt->columndelimiter,
+	eol => $rowdelim,
+	escape_char => $opt->escape
+    });
+
+    say STDERR $csv->error_diag if $csv->error_diag;
+
+    say "---";
+    say "# Generated from $filename";
+    say "# " . $dt->ymd . ' ' . $dt->hms;
+    say ''  ;
+
+    for (my $i = 0; $i < $opt->headerrows; $i++) {
+	die "Filehandle is closed! $i" unless defined(fileno($fh));
+	my $row = $csv->getline( $fh );
+    }
+
+    $get_row = sub {
+	return $csv->getline( $fh ) 
+    }
+
+}
+
+while (my $row = $get_row->()) {
 
     my $key     = $keyextract->($row);
 
@@ -215,4 +254,3 @@ while (my $row = $csv->getline( $fh ) ) {
     say $line, " # $comment";
 }
 
-close $fh;
