@@ -66,6 +66,9 @@ use TupleColumn;
 use YAML::Syck qw( Dump LoadFile );
 use DBI;
 
+binmode STDOUT, ":utf8";
+$YAML::Syck::ImplicitUnicode = 1;
+
 my ($opt, $usage) = describe_options(
     '%c %o <some-arg>',
     [ 'dir=s', "table directory", { required => 1  } ],
