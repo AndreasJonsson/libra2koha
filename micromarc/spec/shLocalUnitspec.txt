@@ -24,3 +24,5 @@ RemoteDeliveryWebserviceURL	nvarchar
 HolidayInfoFromDate	date
 HolidayInfoToDate	date
 DisplayHolidayInfo	bit
+FloatingCollectionUnitGroupId	int
+ReturnItemsToParentUnit	bit

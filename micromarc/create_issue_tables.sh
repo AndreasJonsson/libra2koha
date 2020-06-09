@@ -1,5 +1,4 @@
-#create_tables.pl --spec "$SPECDIR" --format="$SOURCE_FORMAT" "${TABLE_PARAMS[@]}"  --table=ciServiceCode 
-create_tables.pl --spec "$SPECDIR" --format="$SOURCE_FORMAT" "${TABLE_PARAMS[@]}"  --table=ciService --table=ciServiceCode --table=ciServiceSource --table=ciServiceHistory | eval $MYSQL_LOAD
+create_tables.pl --spec "$SPECDIR" --format="$SOURCE_FORMAT" "${TABLE_PARAMS[@]}"  --table=ciService --table=ciServiceSource --table=ciServiceHistory | eval $MYSQL_LOAD
 $MYSQL <<EOF
 CREATE INDEX ciService_Id ON ciService(Id);
 CREATE INDEX ciService_ServiceCode ON ciService(ServiceCode);

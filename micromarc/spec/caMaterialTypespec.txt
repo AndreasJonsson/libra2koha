@@ -1,10 +1,10 @@
 Id	int
-Name	nvarchar
 ImageIndex	int
 F000	char
 F006	char
 F007	char
 f007p3	char
+f007p6	char
 f007p10	char
 f008p20	char
 IsCatchAll	bit
