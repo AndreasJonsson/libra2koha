@@ -298,30 +298,20 @@ RECORD: while ( my $borrower = $sth->fetchrow_hashref() ) {
         ? $branchcodes->{ trim($borrower->{'IdBranchCode'}) }
         : $branchcodes->{ '_default' };
 
-    #next RECORD unless (!defined($borrower->{'branchcode'}) || $borrower->{'branchcode'} eq '');
+    next RECORD if (!defined($borrower->{'branchcode'}) || $borrower->{'branchcode'} eq '');
 
 
-##     && exists($patroncategories->{ $borrower->{'IdBorrowerCategory'} })
-    if (!defined($borrower->{'IdBorrowerCategory'}) ) {
-	$borrower->{'categorycode'} = $opt->default_category;
+    if (!defined($borrower->{'IdBorrowerCategory'}) && exists($patroncategories->{ $borrower->{'IdBorrowerCategory'} })) {
+	$borrower->{'categorycode'} = $patroncategories->{ '_default' };
     } else {
 	$borrower->{'categorycode'} = $patroncategories->{ $borrower->{'IdBorrowerCategory'} };
     }
-    #next if (!defined($borrower->{'categorycode'}) || $borrower->{'categorycode'} eq '');
-
-    my $continue = (!defined($borrower->{'branchcode'}) || $borrower->{'branchcode'} eq '') ||
-	(!defined($borrower->{'categorycode'}) || $borrower->{'categorycode'} eq '');
-    
-    next unless $continue;
-    $borrower->{branchcode} = 'ILL' unless defined $borrower->{branchcode} && $borrower->{branchcode} ne '';
-
-    if (!defined($borrower->{'IdBorrowerCategory'}) ) {
+    if (!defined $borrower->{'categorycode'} || $borrower->{'categorycode'} eq '') {
 	$borrower->{'categorycode'} = $opt->default_category;
-    } else {
-	$borrower->{'categorycode'} = $patroncategories->{ trim($borrower->{'IdBorrowerCategory'}) };
     }
-    $borrower->{categorycode} = 'BIBLIOTEK' unless defined $borrower->{categorycode} && $borrower->{categorycode} ne '';
-    
+
+    next if (!defined($borrower->{'categorycode'}) || $borrower->{'categorycode'} eq '');
+
     $borrower->{'dateofbirth'} = ds($borrower->{'BirthDate'});
     $borrower->{'dateenrolled'} = ds($borrower->{'RegDate'});
     $borrower->{'lastseen'} = ts($borrower->{'lastseen'});
