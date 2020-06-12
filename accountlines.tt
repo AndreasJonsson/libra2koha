@@ -16,7 +16,7 @@ SELECT itemnumber FROM k_items_idmap WHERE original_id = [% original_item_id %] 
 [% END -%]
 
 INSERT INTO accountlines
-(borrowernumber, accountno, itemnumber, date, amount, description, accounttype, amountoutstanding, lastincrement, timestamp)
-SELECT @BORROWERNUMBER, [% accountno %], @ITEMNUMBER, [% date %], [% amount %], [% description %], [% accounttype %], [% amountoutstanding %], [% lastincrement %], [% timestamp %] FROM DUAL WHERE @BORROWERNUMBER IS NOT NULL AND NOT EXISTS (SELECT * FROM accountlines WHERE borrowernumber = @BORROWERNUMBER AND accountno = [% accountno %]);
+(borrowernumber,  itemnumber, date, amount, description, debit_type_code, credit_type_code, amountoutstanding, timestamp, interface)
+SELECT @BORROWERNUMBER, @ITEMNUMBER, [% date %], [% amount %], [% description %], [% debit_type %], [% credit_type %], [% amountoutstanding %], [% timestamp %], 'intranet' FROM DUAL WHERE @BORROWERNUMBER IS NOT NULL AND NOT EXISTS (SELECT * FROM accountlines WHERE borrowernumber = @BORROWERNUMBER);
 
 

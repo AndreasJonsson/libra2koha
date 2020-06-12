@@ -12,6 +12,9 @@ use TimeUtils;
 
 $YAML::Syck::ImplicitUnicode = 1;
 
+binmode STDOUT, ":utf8";
+$|=1; # Flush output
+
 sub fix_charcode {
     my $s = shift;
     #utf8::decode($s);
@@ -22,6 +25,7 @@ my ($opt, $usage) = describe_options(
     '%c %o <some-arg>',
     [ 'configdir=s',  'config directory' , { required => 1 } ],
     [ 'format=s',  'Source format' , { default => 'libra' } ],
+    [ 'string-original-id', 'If datatype of original id is string.  Default is integer.' ],
     
            [],
            [ 'verbose|v',  "print extra stuff"            ],
@@ -40,7 +44,7 @@ our $dbh = DBI->connect( $config->{'db_dsn'},
                         { RaiseError => 1, AutoCommit => 1 } );
 
 
-my $preparer = new StatementPreparer(format => $opt->format, dbh => $dbh, dir => [$opt->config]);
+my $preparer = new StatementPreparer(format => $opt->format, dbh => $dbh, dir => [$opt->configdir]);
 init_time_utils(sub { return $dbh->quote(shift); });
 
 my $branchcodes;
@@ -73,7 +77,11 @@ sub next_borrower_row {
 	$end = !defined($current_line);
     }
 
-    if (!$end && (!defined($current_IdBorrower) || $current_line->{IdBorrower} == $current_IdBorrower) ) {
+    my $same_borrower = !defined($current_IdBorrower) || ($opt->string_original_id ?
+	$current_line->{IdBorrower} eq $current_IdBorrower :
+	$current_line->{IdBorrower} == $current_IdBorrower);
+
+    if (!$end && ($same_borrower) ) {
 	my $ret = $current_line;
 	undef($current_line);
 	$current_IdBorrower = $ret->{IdBorrower};
@@ -98,48 +106,65 @@ sub account_idstring {
            '-' . (defined($row->{ItemBarCode}) ? $row->{ItemBarCode}  : '|') . '-' . $row->{has_transaction} . '-' . $row->{Name}
 }
 
-sub account_type {
+sub set_type {
     my $row = shift;
+    my $account = shift;
     my $n  = $row->{Name};
-    
-    if ($n eq 'MSG_FEE') {
-	return 'F';
-    } elsif ($n eq 'DELAY_FEE_COPY') {
-	return 'M';
-    } elsif ($n eq 'ILL_BOOKING_FEE') {
-	return 'M';
-    } elsif ($n eq 'OTHER_FEE') {
-	return 'M';
-    } elsif ($n eq 'Övertidsavgift') {
-	return 'O';
-    } elsif ($n eq 'Påminnelseavgift') {
-	return 'F';
-    } elsif ($n eq 'Reservationsavgift') {
-	return 'M';
-    } elsif ($n eq 'Räkningsavgift') {
-	return 'F';
-    } elsif ($n eq 'Förstörda/förkomna') {
-	return 'L';
-    } elsif ($n eq 'Diverse') {
-	return 'M';
-    } elsif ($n eq 'Fjärrlån') {
-	return 'M';
-    } elsif ($n eq 'Fjärrlån kopia') {
-	return 'M';
-    } elsif ($n eq 'Betalning') {
-	return 'Pay';
-    } elsif ($n eq 'Return transfer fee') {
-	return 'M';
-    }  elsif ($n eq 'Låneavgift') {
-	return 'M';
-    }  elsif ($n eq 'BILL_FEE') {
-	return 'F';
-    }  elsif ($n eq 'ILL_LOAN_FEE') {
-	return 'M';
-    } else {
-	die "Unknown fee type: '$n'";
+
+    my ($d, $c);
+    if (defined $n) {
+	if ($n eq 'MSG_FEE') {
+	    $d = 'OVERDUE';
+	} elsif ($n eq 'DELAY_FEE_COPY') {
+	    $d = 'OVERDUE';
+	} elsif ($n eq 'ILL_BOOKING_FEE') {
+	    $d = 'RESERVE';
+	} elsif ($n eq 'OTHER_FEE') {
+	    $d = 'MANUAL';
+	} elsif ($n eq 'Övertidsavgift') {
+	    $d = 'OVERDUE';
+	} elsif ($n eq 'Påminnelseavgift') {
+	    $d = 'OVERDUE';
+	} elsif ($n eq 'Reservationsavgift') {
+	    $d = 'RESERVE';
+	} elsif ($n eq 'Räkningsavgift') {
+	    $d = 'MANUAL';
+	} elsif ($n eq 'Förstörda/förkomna') {
+	    $d = 'LOST';
+	} elsif ($n eq 'Diverse') {
+	    $d = 'MANUAL';
+	} elsif ($n eq 'Fjärrlån') {
+	    $d = 'RESERVE';
+	} elsif ($n eq 'Fjärrlån kopia') {
+	    $d = 'RESERVE';
+	} elsif ($n eq 'Betalning') {
+	    $c = 'PAYMENT';
+	} elsif ($n eq 'Return transfer fee') {
+	    $d = 'MANUAL';
+	}  elsif ($n eq 'Låneavgift') {
+	    $d = 'MANUAL';
+	}  elsif ($n eq 'BILL_FEE') {
+	    $d = 'MANUAL';
+	}  elsif ($n eq 'ILL_LOAN_FEE') {
+	    $d = 'MANUAL';
+	} else {
+	    die "Unknown fee type: '$n'";
+	}
     }
     
+    if (defined $row->{credit_type}) {
+	$account->{credit_type} = uc($row->{credit_type});
+    } else {
+	$account->{credit_type} = $c;
+    }
+    _quote(\$account->{credit_type});
+
+    if (defined $row->{debit_type}) {
+	$account->{debit_type} = uc($row->{debit_type});
+    } else {
+	$account->{debit_type} = $d;
+    }
+    _quote(\$account->{debit_type});
 }
 
 sub id {
@@ -155,7 +180,6 @@ sub eq0 {
 while (next_borrower()) {
 
     my %borrower;
-    my $accountno = 0;
     my %accounts = ();
 
     while (my $row = next_borrower_row()) {
@@ -181,11 +205,16 @@ while (next_borrower()) {
 
 	$row->{Amount} = defined($row->{Amount}) ? $row->{Amount} : 0;
 
+	if ($opt->string_original_id) {
+	    $row->{IdBorrower} = $dbh->quote($row->{IdBorrower});
+	}
+	my $branchcode = defined($row->{'IdBranchCode'}) && exists($branchcodes->{ trim($row->{'IdBranchCode'}) })
+	    ? $branchcodes->{ trim($row->{'IdBranchCode'}) }
+            : $branchcodes->{ '_default' };
 	if (!defined($accounts{$accountid})) {
 	    $account = {
 		original_borrower_id => $row->{IdBorrower},
 		original_item_id => $row->{IdItem},
-		accounttype => account_type($row),
 		amount => $row->{Amount},
 		amountoutstanding => $row->{Amount},
 		lastincrement => $row->{Amount},
@@ -200,9 +229,10 @@ while (next_borrower()) {
 		description => fix_charcode($row->{Text}),
 		note => 'note',
 		dispute => 'dispute',
-		branchcode => $branchcodes->{ $row->{'IdBranchCode'} },
+		branchcode => $branchcode,
 		DebtName => $row->{Name}
 	    };
+	    set_type($row, $account);
 	    $accounts{$accountid} = $account;
 	} else {
 	    $account = $accounts{$accountid};
@@ -210,8 +240,6 @@ while (next_borrower()) {
 	    $account->{lastincrement} = $row->{Amount};
 
 
-	    die "accounttype mismatch: '" . $account->{accounttype} . "' ne '" . account_type($row) . "'" unless eq0($account->{accounttype}, account_type($row));
-	    die "barcode mismatch: '" . $account->{barcode} . "' ne '" . $barcode . "'" unless eq0($account->{barcode}, $barcode);
 	    die "cardnumber mismatch: '" . $account->{cardnumber} . "' ne '" . $row->{BarCode} . "'" unless eq0($account->{cardnumber}, $row->{BarCode});
 	    die "surname mismatch: '" . $account->{surname} . "' ne '" . $row->{LastName} . "'"  unless eq0($account->{surname}, $row->{LastName});
 	    die "firstname mismatch: '" . $account->{firstname} . "' ne '" . $row->{FirstName} . "'"  unless eq0($account->{firstname}, $row->{FirstName});
@@ -234,8 +262,6 @@ while (next_borrower()) {
 	_quote(\$account->{dispute});
 	_quote(\$account->{branchcode});
 
-	$account->{accountno} = $accountno;
-	$accountno++;
 	$tt2->process( 'accountlines.tt', $account, \*STDOUT, {binmode => ':utf8'} ) || die $tt2->error();	
     }
 }

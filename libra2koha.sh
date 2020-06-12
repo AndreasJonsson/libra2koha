@@ -503,6 +503,15 @@ if [[ "$FULL" == "yes" || ! -e "$OUTPUTDIR"/orders.sql ]]; then
   orders.pl  $ORDERS_FLAGS --batch "$BATCH" --format "$SOURCE_FORMAT" --configdir "$CONFIG" --branchcode "$BRANCHCODE" > "$OUTPUTDIR"/orders.sql
 fi
 
+if [[ "$FULL" == "yes" || ! -e "$OUTPUTDIR"/accountlines.sql ]]; then
+    echo "Accountlines"
+    ACCOUNTLINES_FLAGS=
+    if [[ "$STRING_ORIGINAL_ID" == "yes" ]]; then
+	ACCOUNTLINES_FLAGS+=" --string-original-id"
+    fi
+    accountlines.pl $ACCOUNTLINES_FLAGS --format "$SOURCE_FORMAT" --configdir "$CONFIG" > "$OUTPUTDIR"/accountlines.sql
+fi
+
 if [[ "$FULL" == "yes" || ! -e "$OUTPUTDIR"/old_issues_update.sql ]]; then
   echo "Old issues"
   old_issues.pl --batch "$BATCH" --format "$SOURCE_FORMAT" --configdir "$CONFIG" --branchcode "$BRANCHCODE" > "$OUTPUTDIR"/old_issues_update.sql
@@ -514,9 +523,4 @@ if [[ true || "$FULL" == "yes" || ! -e "$OUTPUTDIR"/serials.sql ]]; then
     serials.pl --batch "$BATCH" --format "$SOURCE_FORMAT" --branchcode "$BRANCHCODE" --outputdir "$OUTPUTDIR" --config "$CONFIG"
 fi
 
-
-if [[ "$FULL" == "yes" || ! -e "$OUTPUTDIR"/accountlines.sql ]]; then
-    echo "Accountlines"
-    accountlines.pl  --format "$SOURCE_FORMAT" --configdir "$CONFIG" > "$OUTPUTDIR"/accountlines.sql
-fi
 
