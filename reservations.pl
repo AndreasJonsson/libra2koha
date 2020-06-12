@@ -1,4 +1,4 @@
-#!/usr/bin/perl -w
+#!/usr/bin/perl -wd
 
 # reserves
 # +------------------+-------------+------+-----+-------------------+-----------------------------+
@@ -161,8 +161,6 @@ my $sth = $preparer->prepare('select_reservation_info');
 my $ret = $sth->execute();
 die "Failed to execute sql query." unless $ret;
 
-my %priorities = ();
-
 print <<EOF;
 CREATE TABLE IF NOT EXISTS k_reservations_idmap (
     `original_id` INT NOT NULL,
@@ -182,22 +180,27 @@ while (my $row = $sth->fetchrow_hashref()) {
     $pickbranch = $branchcodes->{_default} unless defined $pickbranch;
     next if (!defined $pickbranch || $pickbranch eq '');
 
-    if (!defined($priorities{$row->{IdCat}})) {
-	$priorities{$row->{IdCat}} = 1;
-    } else {
-	$priorities{$row->{IdCat}}++;
-    }
-
-    my $priority = $priorities{$row->{IdCat}};
-    
     my $status_str;
+    my $item_level_hold = 0;
+    my $waitingdate = 'NULL';
+    my $expirationdate = 'NULL';
     if ($row->{Status} eq 'A') {
 	$status_str = "'W'";
-    } elsif ($row->{Status} eq 'R') {
-	if (!defined($row->{IdItem}) || $row->{IdItem} == 0) {
-	    $status_str = 'NULL';
+	if (defined $row->{SendDate}) {
+	    $waitingdate = ds($row->{SendDate});
 	} else {
-	    $status_str = "'W'";
+	    $waitingdate = 'NOW()';
+	}
+	if (defined $row->{StopDate}) {
+	    $expirationdate = ds($row->{StopDate});
+	} else {
+	    $expirationdate =  'ADDDATE(' . $waitingdate . ', INTERVAL 5 DAY)';
+	}
+    } elsif ($row->{Status} eq 'R') {
+	$status_str = 'NULL';
+	if ((!defined($row->{IdItem}) || $row->{IdItem} == 0) && (!defined($row->{ItemBarCode}) || $row->{ItemBarCode} eq '')) {
+	} else {
+	    $item_level_hold=1;
 	}
     } elsif ($row->{Status} eq 'S') {
 	$status_str = "'T'";
@@ -236,12 +239,10 @@ while (my $row = $sth->fetchrow_hashref()) {
 	reminderdate     => ds($row->{NotificationDate}),
 	cancellationdate => 'NULL',
 	reservenotes     => $dbh->quote($row->{Info}),
-	priority         => $priority,
 	found            => $status_str,
 	timestamp        => ts($row->{RegDate}, $row->{RegTime}),
-	waitingdate      => ds($row->{SendDate}),
-	expirationdate   => ds($row->{StopDate}),
-	lowestPriority   => 1,
+	waitingdate      => $waitingdate,
+	expirationdate   => $expirationdate,
 	suspend          => 0,
 	suspend_until    => 'NULL',
 	itemtype         => 'NULL',
@@ -252,7 +253,8 @@ while (my $row = $sth->fetchrow_hashref()) {
 	IdBorrower       => $row->{IdBorrower},
 	original_item_id => $row->{original_item_id},
 	original_reservation_id => $row->{IdReservation},
-	batch            => $opt->batch
+	batch            => $opt->batch,
+	item_level_hold  => $item_level_hold,
     };
     
     if (defined $opt->record_match_field) {

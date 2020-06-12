@@ -46,8 +46,21 @@ SELECT NULL FROM DUAL INTO @BORROWERNUMBER;
 
 SET @INSERT_RESERVE = @BIBLIONUMBER IS NOT NULL AND @BORROWERNUMBER IS NOT NULL;
 
-INSERT INTO reserves (borrowernumber, reservedate, biblionumber, branchcode,  reservenotes, priority, found, timestamp, itemnumber, expirationdate)
-   SELECT @BORROWERNUMBER, [% reservedate %], @BIBLIONUMBER, [% pickbranch %], [% reservenotes %], [% priority %], (@FOUND := IF(@ITEMNUMBER IS NULL, NULL, [% found %])), [% timestamp %], @ITEMNUMBER, [% expirationdate %]
+INSERT INTO reserves (borrowernumber, reservedate, biblionumber, branchcode,  reservenotes, priority, found, timestamp, itemnumber, expirationdate, item_level_hold, waitingdate)
+   SELECT @BORROWERNUMBER,
+         [% reservedate %],
+	 @BIBLIONUMBER,
+	 [% pickbranch %],
+	 [% reservenotes %],
+	 IF(EXISTS (SELECT * FROM reserves WHERE biblionumber = @BIBLIONUMBER AND priority IS NOT NULL),
+	    (SELECT max(priority) + 1 FROM reserves WHERE biblionumber=@BIBLIONUMBER),
+         0),
+	 (@FOUND := IF(@ITEMNUMBER IS NULL, NULL, IF(EXISTS (SELECT * FROM reserves WHERE itemnumber=@ITEMNUMBER), NULL, [% found %]))),
+	 [% timestamp %],
+	 @ITEMNUMBER,
+	 [% expirationdate %],
+	 [% item_level_hold %],
+	 [% waitingdate %]
    FROM DUAL WHERE @INSERT_RESERVE;
 
 SELECT 'NOT INSERTING titleno: ', [% titleno %], ' biblionumber: ', @BIBLIONUMBER, ' borrowernumber: ', @BORROWERNUMBER, ' found: ', @FOUND, ' ITEMNUMBER: ', @ITEMNUMBER FROM DUAL WHERE NOT @INSERT_RESERVE;
