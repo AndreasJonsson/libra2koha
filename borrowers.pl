@@ -290,16 +290,13 @@ RECORD: while ( my $borrower = $sth->fetchrow_hashref() ) {
 
     $count++;
 
-
-##  && exists($branchcodes->{ trim($borrower->{'IdBranchCode'}) })
     # Do transformations
     # Add a branchcode
-    $borrower->{'branchcode'} = defined($borrower->{'IdBranchCode'})
+    $borrower->{'branchcode'} = defined($borrower->{'IdBranchCode'}) && exists($branchcodes->{ trim($borrower->{'IdBranchCode'}) })
         ? $branchcodes->{ trim($borrower->{'IdBranchCode'}) }
         : $branchcodes->{ '_default' };
 
     next RECORD if (!defined($borrower->{'branchcode'}) || $borrower->{'branchcode'} eq '');
-
 
     if (!defined($borrower->{'IdBorrowerCategory'}) && exists($patroncategories->{ $borrower->{'IdBorrowerCategory'} })) {
 	$borrower->{'categorycode'} = $patroncategories->{ '_default' };
