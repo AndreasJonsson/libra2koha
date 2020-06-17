@@ -201,6 +201,10 @@ sub next_record {
 
 	$record = $self->process_record( $record );
 
+	if ($record->encoding ne 'UTF-8') {
+	    $record->encoding('UTF-8');
+	}
+
 	return $record;
     }
 

@@ -298,7 +298,7 @@ RECORD: while ( my $borrower = $sth->fetchrow_hashref() ) {
 
     next RECORD if (!defined($borrower->{'branchcode'}) || $borrower->{'branchcode'} eq '');
 
-    if (!defined($borrower->{'IdBorrowerCategory'}) && exists($patroncategories->{ $borrower->{'IdBorrowerCategory'} })) {
+    if (!(defined($borrower->{'IdBorrowerCategory'}) && exists($patroncategories->{ $borrower->{'IdBorrowerCategory'} }))) {
 	$borrower->{'categorycode'} = $patroncategories->{ '_default' };
     } else {
 	$borrower->{'categorycode'} = $patroncategories->{ $borrower->{'IdBorrowerCategory'} };

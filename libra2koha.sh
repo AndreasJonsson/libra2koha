@@ -491,16 +491,15 @@ if [[ "$FULL" == "yes" || ! -e "$OUTPUTDIR"/reservations.sql ]]; then
     reservations.pl $RESERVATIONS_FLAGS --batch "$BATCH" --format "$SOURCE_FORMAT" --configdir "$CONFIG" > "$OUTPUTDIR"/reservations.sql
 fi
 
-if [[ "$FULL" == "yes" || ! -e "$OUTPUTDIR"/orders.sql ]]; then
-  echo "Orders"
-  ORDERS_FLAGS=
-  if [[ -n "$RECORD_MATCH_FIELD" ]]; then
-     ORDERS_FLAGS+=" --record-match-field=$RECORD_MATCH_FIELD"
-  fi
-  if [[ "$STRING_ORIGINAL_ID" == "yes" ]]; then
-     ORDERS_FLAGS+=" --string-original-id"
-  fi
-  orders.pl  $ORDERS_FLAGS --batch "$BATCH" --format "$SOURCE_FORMAT" --configdir "$CONFIG" --branchcode "$BRANCHCODE" > "$OUTPUTDIR"/orders.sql
+if [[ "$FULL" == "yes" || ! -e "$OUTPUTDIR"/old_issues.sql ]]; then
+  echo "Old issues"
+  old_issues.pl --batch "$BATCH" --format "$SOURCE_FORMAT" --configdir "$CONFIG" --branchcode "$BRANCHCODE" > "$OUTPUTDIR"/old_issues.sql
+fi
+
+
+if [[ true || "$FULL" == "yes" || ! -e "$OUTPUTDIR"/serials.sql ]]; then
+    echo "Serials"
+    serials.pl --batch "$BATCH" --format "$SOURCE_FORMAT" --branchcode "$BRANCHCODE" --outputdir "$OUTPUTDIR" --config "$CONFIG"
 fi
 
 if [[ "$FULL" == "yes" || ! -e "$OUTPUTDIR"/accountlines.sql ]]; then
@@ -512,15 +511,16 @@ if [[ "$FULL" == "yes" || ! -e "$OUTPUTDIR"/accountlines.sql ]]; then
     accountlines.pl $ACCOUNTLINES_FLAGS --format "$SOURCE_FORMAT" --configdir "$CONFIG" > "$OUTPUTDIR"/accountlines.sql
 fi
 
-if [[ "$FULL" == "yes" || ! -e "$OUTPUTDIR"/old_issues_update.sql ]]; then
-  echo "Old issues"
-  old_issues.pl --batch "$BATCH" --format "$SOURCE_FORMAT" --configdir "$CONFIG" --branchcode "$BRANCHCODE" > "$OUTPUTDIR"/old_issues_update.sql
+
+if [[ "$FULL" == "yes" || ! -e "$OUTPUTDIR"/orders.sql ]]; then
+  echo "Orders"
+  ORDERS_FLAGS=
+  if [[ -n "$RECORD_MATCH_FIELD" ]]; then
+     ORDERS_FLAGS+=" --record-match-field=$RECORD_MATCH_FIELD"
+  fi
+  if [[ "$STRING_ORIGINAL_ID" == "yes" ]]; then
+     ORDERS_FLAGS+=" --string-original-id"
+  fi
+  orders.pl  $ORDERS_FLAGS --batch "$BATCH" --format "$SOURCE_FORMAT" --configdir "$CONFIG" --branchcode "$BRANCHCODE" > "$OUTPUTDIR"/orders.sql
 fi
-
-
-if [[ true || "$FULL" == "yes" || ! -e "$OUTPUTDIR"/serials.sql ]]; then
-    echo "Serials"
-    serials.pl --batch "$BATCH" --format "$SOURCE_FORMAT" --branchcode "$BRANCHCODE" --outputdir "$OUTPUTDIR" --config "$CONFIG"
-fi
-
 

@@ -28,6 +28,8 @@ SELECT
   caItem.RenewalCount AS NoOfRenewals
 FROM
   ciService
+  JOIN ciServiceCode ON (ServiceCode = ciServiceCode.Code)
+  JOIN shString ON (ciServiceCode.DescriptionId = shString.Id)
   LEFT OUTER JOIN shBorrower ON (shBorrower.Id = ciService.BorrowerId)
   LEFT OUTER JOIN shContact ON (shBorrower.Id = shContact.Id)
   LEFT OUTER JOIN caItem ON (caItem.Id = ciService.ItemId)
