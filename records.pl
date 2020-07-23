@@ -66,6 +66,7 @@ my ($opt, $usage) = describe_options(
     [ 'separate-items', 'Write items into separate sql-file.' ],
     [ 'record-match-field=s', 'Field for record matching when using --separate-items.' ],
     [ 'encoding-hack', 'Set the charset to MARC-8 in the record before processing.' ],
+    [ 'switch-location-callnumber', 'Use location for callnumber anc vice versa.' ],
     [ 'record-procs=s', 'Custom record processors.' ],
     [ 'item-procs=s', 'Custom item processors.' ],
     [ 'has-itemtable', 'Items in separate table.', { default => 1 } ],
@@ -104,6 +105,8 @@ my $limit = $opt->limit;
 my $output_dir = $opt->outputdir;
 my $input_file = $opt->infile;
 my $format = $opt->format;
+my $callnumber_field = $opt->switch_location_callnumber ? 'items.location' : 'items.itemcallnumber';
+my $location_field =  $opt->switch_location_callnumber ?  'items.itemcallnumber' : 'items.location';
 
 sub add_stat {
     my ($stat, $item, $extra) = @_;
@@ -659,11 +662,11 @@ which values are actually in use:
 	my $localshelf;
 	if (defined($item->{'LocalShelf'})) {
 	    $localshelf = $item->{'LocalShelf'};
-	    $mmc->set('localshelf', $localshelf);
+	    $mmc->set($location_field, $localshelf);
 	} elsif (defined($item->{'IdLocalShelf'})) {
 	    # $field952->add_subfields( 'c', $item->{'IdDepartment'} ) if $item->{'IdDepartment'};
 	    $localshelf = $loc->{ $item->{'IdLocalShelf'} };
-	    $mmc->set('localshelf', $localshelf);
+	    $mmc->set($location_field, $localshelf);
 	}
 
 =head3 952$d Date acquired
@@ -701,7 +704,7 @@ To see what is present in the data:
 
 =cut
         if ( defined($item->{'Location_Marc'}) && length($item->{'Location_Marc'}) > 1) {
-            $mmc->set( 'call_number', $item->{'Location_Marc'} );
+            $mmc->set( $callnumber_field, $item->{'Location_Marc'} );
         }
 
 	my $field081 = $record->field( '081' );
@@ -709,19 +712,19 @@ To see what is present in the data:
 	my $field852 = $record->field( '852' );
 
 	if (defined $field852) {
-	    $mmc->set('call_number', scalar($mmc->get('klassifikationsdel_av_uppställningssignum')));
+	    $mmc->set($callnumber_field , scalar($mmc->get('klassifikationsdel_av_uppställningssignum')));
 	} else {
 	    
 	    if (defined $bibextra->{'call_number'}) {
-		$mmc->set('call_number', $bibextra->{'call_number'});
+		$mmc->set($callnumber_field, $bibextra->{'call_number'});
 	    } elsif (defined $field081 && $field081->subfield('h')) {
-		$mmc->set('call_number', $field081->subfield('h'));
+		$mmc->set($callnumber_field, $field081->subfield('h'));
 	    } elsif (defined $field084) {
-		$mmc->set('call_number', scalar($mmc->get('klassifikationskod')));
+		$mmc->set($callnumber_field, scalar($mmc->get('klassifikationskod')));
 	    } elsif (defined $field852) {
-		$mmc->set('call_number', scalar($mmc->get('klassifikationsdel_av_uppställningssignum')));
+		$mmc->set($callnumber_field, scalar($mmc->get('klassifikationsdel_av_uppställningssignum')));
 	    } else {
-		$mmc->set('call_number', scalar($mmc->get('beståndsuppgift')));
+		$mmc->set($callnumber_field, scalar($mmc->get('beståndsuppgift')));
 	    }
 
         }

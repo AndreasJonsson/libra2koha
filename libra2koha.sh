@@ -32,6 +32,7 @@ STRING_ORIGINAL_ID=no
 SEPARATE_ITEMS=yes
 RECORD_MATCH_FIELD=
 DETECT_BARCODE_DUPLICATION=yes
+SWITCH_LOCATION_CALLNUMBER=no
 LIMIT=
 XML_OUTPUT=no
 FORCE_XML_INPUT=no
@@ -383,6 +384,9 @@ if [[ "$FULL" == "yes" || ! -e "$OUTPUTDIR"/records.marc ]]; then
     fi
     if [[ -n "$ITEM_PROCS" ]]; then
 	RECORDS_FLAGS+=" --item-procs=$ITEM_PROCS"
+    fi
+    if [[ "$SWITCH_LOCATION_CALLNUMBER" == "yes" ]]; then
+	RECORDS_FLAGS+=" --switch-location-callnumber"
     fi
     if [[ -n "$ORDERED_STATUSES" ]]; then
 	RECORDS_FLAGS+=" --ordered-statuses=$ORDERED_STATUSES"
