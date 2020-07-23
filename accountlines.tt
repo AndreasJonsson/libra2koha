@@ -1,22 +1,30 @@
 
+START TRANSACTION;
+
 SET @BORROWERNUMBER = NULL;
 SET @ITEMNUMBER = NULL;
 SET @ISSUE_ID = NULL;
 
 SELECT borrowernumber FROM k_borrower_idmap WHERE original_id = [% original_borrower_id %] INTO @BORROWERNUMBER;
 
-SELECT issue_id FROM
- (SELECT issue_id FROM items LEFT OUTER JOIN issues USING (itemnumber) WHERE borrowernumber=@BORROWERNUMBER AND barcode = [% barcode %] AND issuedate = [% issuedate %]
-  UNION
-  SELECT issue_id FROM items LEFT OUTER JOIN old_issues USING (itemnumber) WHERE borrowernumber=@BORROWERNUMBER AND barcode = [% barcode %] AND issuedate = [% issuedate %]) AS T LIMIT 1
-INTO @ISSUE_ID;
-
 [% IF original_item_id -%]
 SELECT itemnumber FROM k_items_idmap WHERE original_id = [% original_item_id %] INTO @ITEMNUMBER;
+[% ELSIF barcode && barcode != "''" %]
+SELECT itemnumber FROM items WHERE barcode = [% barcode %] INTO @ITEMNUMBER;
+[% ELSE %]
+SELECT NULL FROM DUAL INTO @ITEMNUMBER;
 [% END -%]
+
+SELECT issue_id FROM
+ (SELECT issue_id FROM items LEFT OUTER JOIN issues USING (itemnumber) WHERE borrowernumber=@BORROWERNUMBER AND itemnumber = @ITEMNUMBER AND issuedate = [% issuedate %]
+  UNION
+  SELECT issue_id FROM items LEFT OUTER JOIN old_issues USING (itemnumber) WHERE borrowernumber=@BORROWERNUMBER AND itemnumber = @ITEMNUMBER AND issuedate = [% issuedate %]) AS T LIMIT 1
+INTO @ISSUE_ID;
+
 
 INSERT INTO accountlines
 (borrowernumber,  itemnumber, date, amount, description, debit_type_code, credit_type_code, amountoutstanding, timestamp, interface)
 SELECT @BORROWERNUMBER, @ITEMNUMBER, [% date %], [% amount %], [% description %], [% debit_type %], [% credit_type %], [% amountoutstanding %], [% timestamp %], 'intranet' FROM DUAL WHERE @BORROWERNUMBER IS NOT NULL AND NOT EXISTS (SELECT * FROM accountlines WHERE borrowernumber = @BORROWERNUMBER);
 
 
+COMMIT;
