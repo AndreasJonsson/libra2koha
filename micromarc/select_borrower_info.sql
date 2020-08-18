@@ -15,7 +15,8 @@ SELECT shBorrower.HomeUnit AS IdBranchCode,
        shContact.PinCode AS Password,
        shBorrower.Expires AS Expires,
        MAX(SSN.Barcode) AS `BorrowerAttribute:PERSNUMMER`,
-       GROUP_CONCAT(Barcode.Barcode ORDER BY LENGTH(Barcode.Barcode) DESC SEPARATOR ';') AS BarCode
+       GROUP_CONCAT(Barcode.Barcode ORDER BY LENGTH(Barcode.Barcode) DESC SEPARATOR ';') AS BarCode,
+       Sex
 FROM shBorrower
   LEFT OUTER JOIN shBorrowerBarcode AS Barcode ON (Barcode.BorrowerId = shBorrower.Id AND NOT Barcode.IsSSN)
   LEFT OUTER JOIN shBorrowerBarcode AS SSN ON (SSN.BorrowerId = shBorrower.Id AND SSN.IsSSN)

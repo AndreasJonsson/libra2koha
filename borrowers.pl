@@ -612,11 +612,14 @@ sub set_address {
         next unless defined($phone->{PhoneNumber}) and $phone->{PhoneNumber} ne '';
       RETRY: while (1) {
 	  my $extra = 0;
+	  my $field;
 	  if ($phone->{Type} eq 'E') {
 	      if ($n_email == 0) {
-		  $pre = '';
+		  $field = 'email';
 	      } elsif ($n_email == 1) {
-		  $pre = 'B_';
+		  $field = 'emailpro';
+	      } elsif ($n_email == 2) {
+		  $field = 'B_email';
 	      } else {
 		  $extra = 1;
 	      }
@@ -629,7 +632,7 @@ sub set_address {
 		      'attribute' => $dbh->quote(clean_control($phone->{PhoneNumber}))
 		  };
 	      } else {
-		  $borrower->{"${pre}email"} = clean_control($phone->{PhoneNumber});
+		  $borrower->{"${field}"} = clean_control($phone->{PhoneNumber});
 	      }
 	  } elsif ($phone->{Type} eq 'T') {
 	      if (Email::Valid->address($phone->{PhoneNumber})) {
@@ -637,9 +640,11 @@ sub set_address {
 		  next RETRY;
 	      }
 	      if ($n_phone == 0) {
-		  $pre = '';
+		  $field = 'phone';
 	      } elsif ($n_phone == 1) {
-		  $pre = 'B_';
+		  $field = 'phonepro';
+	      } elsif ($n_phone == 2) {
+		  $field = 'B_phone';
 	      } else {
 		  $extra = 1;
 	      }
@@ -652,7 +657,7 @@ sub set_address {
 		      'attribute' => $dbh->quote(clean_control($phone->{PhoneNumber}))
 		  };
 	      } else {
-		  $borrower->{"${pre}phone"} = clean_control($phone->{PhoneNumber});
+		  $borrower->{"${field}"} = clean_control($phone->{PhoneNumber});
 	      }
 	  } elsif ($phone->{Type} eq 'M') {
 	      if (Email::Valid->address($phone->{PhoneNumber})) {
