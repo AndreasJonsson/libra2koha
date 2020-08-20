@@ -2,10 +2,11 @@ package RecordUtils;
 
 $VERSION     = 1.00;
 @ISA         = qw(Exporter);
-@EXPORT      = qw(copy copy_merge copy_merge_with_fallback cmp_records cmp_field trim);
+@EXPORT      = qw(copy copy_merge copy_merge_with_fallback cmp_records cmp_field trim load_yaml);
 @EXPORT_OK   = qw();
 
 use Modern::Perl;
+use YAML::Syck qw( LoadFile );
 
 sub trim {
     my $s = shift;
@@ -225,5 +226,14 @@ sub cmp_fields {
     }
     return @diffs;
 }
+
+sub load_yaml {
+    my $filename = shift;
+    my $fh;
+
+    open $fh, "<:encoding(UTF-8)", $filename or die "Failed to load '$filename': $!";
+    return LoadFile($fh);
+}
+
 
 1;

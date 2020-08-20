@@ -16,7 +16,8 @@ SELECT caItem.Id AS IdItem,
        caItem.Barcode AS BarCode,
        NOT ISNULL(ciILL.IsLII) OR ciILL.IsLII AS IsRemote,
        caMaterialType.F500a AS MaterialType,
-       caDocumentGroup.Id AS IdDepartment
+       caDocumentGroup.Id AS IdDepartment,
+       PermitLoan AS PermitLoan
 FROM caItem
    LEFT OUTER JOIN aqOrderLine ON (caItem.Id = aqOrderLine.ItemId)
    LEFT OUTER JOIN caItemStatusCode ON (caItem.ItemStatus = caItemStatusCode.Code)

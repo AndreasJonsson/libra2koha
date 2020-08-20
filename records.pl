@@ -15,7 +15,6 @@ records.pl - Read MARCXML records from a file and add items from the database.
 
 use DBI;
 use Getopt::Long::Descriptive;
-use YAML::Syck qw( LoadFile );
 use Term::ProgressBar;
 use Data::Dumper;
 use Template;
@@ -30,16 +29,12 @@ use TimeUtils;
 use MarcRecordGenerator;
 use WeelibJSONRecordGenerator;
 
-$YAML::Syck::ImplicitUnicode = 1;
-
 use utf8;
 use CommonMarcMappings;
 use RecordUtils;
 
 binmode STDOUT, ":utf8";
 $|=1; # Flush output
-
-$YAML::Syck::ImplicitUnicode = 1;
 
 # Get options
 
@@ -154,7 +149,7 @@ See config-sample.yaml for an example.
 my $config;
 if ( -f $config_dir . '/config.yaml' ) {
     print STDERR "Loading config.yaml\n" if $opt->verbose;
-    $config = LoadFile( $config_dir . '/config.yaml' );
+    $config = load_yaml( $config_dir . '/config.yaml' );
 }
 my $output_file = $output_dir ? "$output_dir/records.marc" : $config->{'output_marc'};
 
@@ -192,7 +187,7 @@ mapping.
 my $branchcodes;
 if ( -f $config_dir . '/branchcodes.yaml' ) {
     print STDERR "Loading branchcodes.yaml\n" if $opt->verbose;
-    $branchcodes = LoadFile( $config_dir . '/branchcodes.yaml' );
+    $branchcodes = load_yaml( $config_dir . '/branchcodes.yaml' );
 }
 
 =head2 loc.yaml
@@ -206,7 +201,7 @@ should go into this mapping.
 my $loc;
 if ( -f $config_dir . '/loc.yaml' ) {
     print STDERR "Loading loc.yaml\n" if $opt->verbose;
-    $loc = LoadFile( $config_dir . '/loc.yaml' );
+    $loc = load_yaml( $config_dir . '/loc.yaml' );
 }
 
 =head2 ccode.yaml
@@ -222,37 +217,43 @@ To generate a skeleton for this file:
 my $ccode;
 if ( -f $config_dir . '/ccode.yaml' ) {
     print STDERR "Loading ccode.yaml\n" if $opt->verbose;
-    $ccode = LoadFile( $config_dir . '/ccode.yaml' );
+    $ccode = load_yaml( $config_dir . '/ccode.yaml' );
 }
 
 my $notforloan = {};
 if ( -f $config_dir . '/notforloan.yaml' ) {
     print STDERR "Loading notforloan.yaml\n" if $opt->verbose;
-    $notforloan = LoadFile( $config_dir . '/notforloan.yaml');
+    $notforloan = load_yaml( $config_dir . '/notforloan.yaml');
 }
 
 my $damaged = {};
 if ( -f $config_dir . '/damaged.yaml' ) {
     print STDERR "Loading damaged.yaml\n" if $opt->verbose;
-    $damaged = LoadFile( $config_dir . '/damaged.yaml');
+    $damaged = load_yaml( $config_dir . '/damaged.yaml');
 }
 
 my $lost = {};
 if ( -f $config_dir . '/lost.yaml' ) {
     print STDERR "Loading lost.yaml\n" if $opt->verbose;
-    $lost = LoadFile( $config_dir . '/lost.yaml');
+    $lost = load_yaml( $config_dir . '/lost.yaml');
 }
 
 my $media_types = {};
 if ( -f $config_dir . '/media_types.yaml' ) {
     print STDERR "Loading media_types.yaml\n" if $opt->verbose;
-    $media_types = LoadFile( $config_dir . '/media_types.yaml');
+    $media_types = load_yaml( $config_dir . '/media_types.yaml');
 }
 
 my $itemtypes = {};
 if ( -f $config_dir . '/itemtypes.yaml' ) {
     print STDERR "Loading itemtypes.yaml\n" if $opt->verbose;
-    $itemtypes = LoadFile( $config_dir . '/itemtypes.yaml');
+    $itemtypes = load_yaml( $config_dir . '/itemtypes.yaml');
+}
+
+my $loanperiods = {};
+if ( -f $config_dir . '/loanperiods.yaml' ) {
+    print STERR "Loading loanperiods.yaml\n" if $opt->verbose;
+    $loanperiods = load_yaml($config_dir . '/loanperiods.yaml');
 }
 
 my $config_tables = {
@@ -907,8 +908,6 @@ FIXME This should be done with a mapping file!
 	    }
 	}
 
-
-
 =head3 952$7 Not for loan
 
 
@@ -919,47 +918,15 @@ FIXME This should be done with a mapping file!
 	    #warn "Hidden item: " . $item->{IdItem};
 	}
 
-	my %loanperiods = (
-	    'Normallån' => [],
-	    '3-dagars' => [],
-	    '7-dagars' => [],
-	    '14-dagars' => [],
-	    'Sommarlån' => [],
-	    'Fjärrlån' => [],
-	    'Referens' => ['itemtype' => 'REF'],
-	    'Kortlån 7-dagar' => ['itemtype' => 'SNABBLAN'],
-	    'Förskolelån' => [],
-	    'Kortlån 14-dagar' => [],
-	    'Bokkassar' => ['itemtype' => 'TEMAVUXEN'],
-
-	    #'DVD' => ['itemtype' => 'FILM'],
-	    #'tillfälligt korttidslån' => ['itemtype' => 'KORTLON'],
-	    #'Fjärrlån. Går att låna hem' => ['not_for_loan' => 3, 'itemtype' => 'FJARRLAN'],
-	    #'Fjärrlån.  Ej för hemlån.' => ['not_for_loan' => 3, 'itemtype' => 'FJARRLAN'],
-	    #'Korttidslån' => ['itemtype' => 'KORTLAN'],
-	    #'Ej hemlån' => ['not_for_loan' => 1],
-	    #'Tidskrifter' => ['not_for_loan' => 2, 'itemtype' => 'TIDSKRIFT'],
-	    #'Talböcker deponerade' => ['itemtype' => 'DAISY'],
-	    #'Stavgång' => ['itemtype' => 'STAVGANG'],
-	    #'CD-ROM' => ['itemtype' => 'ELEKRESURS'],
-	    #'Film' => ['itemtype' => 'FILM'],
-	    #'Långlån' => [],
-	    #'Flygelnyckel' => ['itemtype' => 'FLYGELNYCK'],
-	    #'Fjärr-kopia' => [],
-	    #'depositioner på Språkhyllan' => [],
-	    #'Barn tidskrifter' => ['itemtype' => 'BARN TIDSK', 'not_for_loan' => 2],
-	    #'Språkdepositioner' => [],
-	    #'Korttidslån ny litteratur' => ['itemtype' => 'KORTLAN'],
-	    #'Fjärrlån => öppen lånetid', ['not_for_loan' => 3, 'itemtype' => 'FJARRLAN'],
-	    #'Daisyspelare' => [],
-	    #'Bilaga' => [],
-	    #'E-media' => ['itemtype' => 'ELEKRESURS']);
-	    );
-	if (defined($item->{'LoanPeriodName'}) && exists($loanperiods{$item->{'LoanPeriodName'}})) {
-	    my @lp = @{$loanperiods{$item->{'LoanPeriodName'}}};
+	if (defined($item->{'LoanPeriodName'}) && exists($loanperiods->{$item->{'LoanPeriodName'}})) {
+	    my @lp = @{$loanperiods->{$item->{'LoanPeriodName'}}};
 	    for (my $i = 0; $i < scalar(@lp); $i+=2) {
 		$mmc->set($lp[$i], $lp[$i + 1]);
 	    }
+	}
+
+	if (defined $item->{'PermitLoan'} && !$item->{'PermitLoan'} && !$mmc->get('not_for_loan')) {
+	    $mmc->set('not_for_loan', 1);
 	}
 
         # Mark the item as done, if we are told to do so
