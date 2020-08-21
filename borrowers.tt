@@ -55,7 +55,7 @@ SELECT
     NULL, -- flags
     IF (@USERID_COLLISSION, NULL,[% userid_str %]), -- userid
     NULL, -- opacnote
-    NULL, -- contactnote
+    [% contactnote %], -- contactnote
     NULL, -- sort1
     NULL, -- sort2
     NULL, -- altcontactfirstname

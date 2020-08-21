@@ -435,6 +435,12 @@ RECORD: while ( my $borrower = $sth->fetchrow_hashref() ) {
 } # end foreach record
 
 
+for my $bp (@borr_procs) {
+    eval {
+	$bp->report($dbh);
+    };
+}
+
 
 #print <<EOF;
 #CREATE TEMPORARY TABLE k_borrower_message_preferences_existing (borrowernumber INT(11) PRIMARY KEY NOT NULL);
@@ -695,6 +701,7 @@ sub set_address {
     _quote(\$borrower->{email});
     _quote(\$borrower->{B_email});
     _quote(\$borrower->{mobile});
+    _quote(\$borrower->{contactnote});
 
 }
 
