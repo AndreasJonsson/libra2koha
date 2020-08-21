@@ -17,6 +17,7 @@ our %common_marc_mappings = (
     'huvudspråk'                       => { map => '041:1 $a' },
     'klassifikationskod_dewey'         => { map => { '082' => 'a' } },
     'klassifikationskod'               => { map => { '084' => 'a' } },
+    'avdelning_samling_hyllsignum_el_dyl' => { map => { '852' => 'c' } },
     'klassifikationsdel_av_uppställningssignum' => { map => { '852' => 'h' } },
     'uppställningsord'                 => { map => { '852' => 'l' } },
     'titel'                            => { map => { '245' => 'a' } },
