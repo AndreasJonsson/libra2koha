@@ -35,6 +35,6 @@ INSERT INTO issues ( borrowernumber, itemnumber, date_due, branchcode, renewals,
 INSERT INTO k_issues_idmap (original_id, issue_id, batch)
   SELECT [% original_issue_id %], LAST_INSERT_ID(), [% batch %] FROM DUAL WHERE @ITEMNUMBER IS NOT NULL AND NOT @ITEM_BORROWED;
   
-UPDATE items SET onloan = [% issuedate %] WHERE @ITEMNUMBER=itemnumber AND NOT @ITEM_BORROWED;
+UPDATE items SET onloan = [% date_due %] WHERE @ITEMNUMBER=itemnumber AND NOT @ITEM_BORROWED;
 
 COMMIT;
