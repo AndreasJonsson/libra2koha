@@ -68,6 +68,7 @@ my ($opt, $usage) = describe_options(
     [ 'no-itemtable', 'Items embedded.', { default => 0, implies => { 'has_itemtable' => 0 } }],
     [ 'items-format=s', 'Format of embedded items.' ],
     [ 'detect-barcode-duplication', 'Detect barcode duplication.' ],
+    [ 'set-encoding', 'Set record encoding to UTF-8.' ],
     [],
     [ 'verbose|v',  "print extra stuff"            ],
     [ 'debug',      "Enable debug output" ],
@@ -252,7 +253,7 @@ if ( -f $config_dir . '/itemtypes.yaml' ) {
 
 my $loanperiods = {};
 if ( -f $config_dir . '/loanperiods.yaml' ) {
-    print STERR "Loading loanperiods.yaml\n" if $opt->verbose;
+    print STDERR "Loading loanperiods.yaml\n" if $opt->verbose;
     $loanperiods = load_yaml($config_dir . '/loanperiods.yaml');
 }
 
@@ -477,6 +478,11 @@ Bookit format ISBN is in  350 00 c and ISSN in 350 10 c
 	  }
 	  next RECORD;
       }
+
+      if ($opt->set_encoding) {
+	  $record->encoding('UTF-8');
+      }
+
       if ($format eq 'bookit') {
 	  my @isbn;
 	  my @issn;
@@ -860,7 +866,6 @@ debug output. Run C<perldoc itemtypes.pl> for more documentation.
 	}
 	$itemtype = refine_itemtype( $mmc, $record, $item, $itemtype, $media_type );
 
-	add_itemtype_stat($itemtype, $item->{'CA_CATALOG_LINK_TYPE_ID'});
 	$mmc->set('itemtype', $itemtype);
 	$item->{itemtype} = $itemtype;
         $last_itemtype = $itemtype;
@@ -919,9 +924,13 @@ FIXME This should be done with a mapping file!
 	}
 
 	if (defined($item->{'LoanPeriodName'}) && exists($loanperiods->{$item->{'LoanPeriodName'}})) {
-	    my @lp = @{$loanperiods->{$item->{'LoanPeriodName'}}};
-	    for (my $i = 0; $i < scalar(@lp); $i+=2) {
-		$mmc->set($lp[$i], $lp[$i + 1]);
+	    my %lp = %{$loanperiods->{$item->{'LoanPeriodName'}}};
+	    for my $key (keys %lp) {
+		$mmc->set($key, $lp{$key});
+                if ($key eq 'itemtype') {
+                    $itemtype = $lp{$key};
+                    $last_itemtype = $itemtype;
+                }
 	    }
 	}
 
@@ -939,6 +948,8 @@ FIXME This should be done with a mapping file!
 	}
 
         $count_items++;
+        add_itemtype_stat($itemtype);
+
 
       } # end foreach items
       } # end if ($opt->has_itemtable)
@@ -947,7 +958,6 @@ FIXME This should be done with a mapping file!
 Just add the itemtype in 942$c.
 
 =cut
-
       if ( !$last_itemtype ) {
 	  my $itemtype = $mmc->get('items.itype');
 	  $last_itemtype = $itemtype;

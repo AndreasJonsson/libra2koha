@@ -615,7 +615,7 @@ sub set_address {
 
     while (my $phone = $phone_sth->fetchrow_hashref()) {
 
-        next unless defined($phone->{PhoneNumber}) and $phone->{PhoneNumber} ne '';
+        #next unless defined($phone->{PhoneNumber}) and $phone->{PhoneNumber} ne '';
       RETRY: while (1) {
 	  my $extra = 0;
 	  my $field;
@@ -702,6 +702,8 @@ sub set_address {
     _quote(\$borrower->{B_email});
     _quote(\$borrower->{mobile});
     _quote(\$borrower->{contactnote});
+    _quote(\$borrower->{"emailpro"});
+    _quote(\$borrower->{"phonepro"});
 
 }
 

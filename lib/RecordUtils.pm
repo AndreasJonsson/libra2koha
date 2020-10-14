@@ -6,7 +6,9 @@ $VERSION     = 1.00;
 @EXPORT_OK   = qw();
 
 use Modern::Perl;
-use YAML::Syck qw( LoadFile );
+use YAML::Syck qw( Load );
+use Scalar::Util qw( reftype looks_like_number );
+use utf8;
 
 sub trim {
     my $s = shift;
@@ -229,10 +231,51 @@ sub cmp_fields {
 
 sub load_yaml {
     my $filename = shift;
-    my $fh;
 
-    open $fh, "<:encoding(UTF-8)", $filename or die "Failed to load '$filename': $!";
-    return LoadFile($fh);
+    return load_yaml_file($filename);
+}
+
+sub load_yaml_file {
+    my $filename = shift;
+
+    if ( -f $filename) {
+	my $ret = open(my $fh, "<:raw", $filename);
+	if (!$ret) {
+	    die "Failed to open $filename: $!";
+	}
+	do {
+	    local $/ = undef;
+	    my $c = <$fh>;
+	    my $data = Load( $c );
+	    return postproc_yaml_data($data);
+	}
+    }
+}
+
+sub postproc_yaml_data {
+    my $data = shift;
+
+    if (!defined $data) {
+	return undef;
+    } elsif (!reftype $data) {
+	if (!looks_like_number($data)) {
+	    utf8::decode($data);
+	}
+	return $data;
+    } elsif (reftype $data eq 'ARRAY') {
+	my @data = map { postproc_yaml_data($_) } @$data;
+	return \@data;
+    } elsif (reftype $data eq 'HASH') {
+	my $d = {};
+	while (my ($k0, $v0) = each %$data) {
+	    my $k = postproc_yaml_data($k0);
+	    my $v = postproc_yaml_data($v0);
+	    $d->{$k} = $v;
+	}
+	return $d;
+    } else {
+	die "Unexpected reftype: " . reftype $data;
+    }
 }
 
 

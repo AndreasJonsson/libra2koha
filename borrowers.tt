@@ -24,8 +24,8 @@ SELECT
     [% phone %], -- phone
     [% mobile %], -- mobile
     NULL, -- fax
-    NULL, -- emailpro
-    NULL, -- phonepro
+    [% emailpro %], -- emailpro
+    [% phonepro %], -- phonepro
     [% B_streetnumber %], -- B_streetnumber
     NULL, -- B_streettype
     [% B_address %], -- B_address
