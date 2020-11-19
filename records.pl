@@ -864,7 +864,7 @@ debug output. Run C<perldoc itemtypes.pl> for more documentation.
 		}
 	    }
 	}
-	$itemtype = refine_itemtype( $mmc, $record, $item, $itemtype, $media_type );
+	# $itemtype = refine_itemtype( $mmc, $record, $item, $itemtype, $media_type );
 
 	$mmc->set('itemtype', $itemtype);
 	$item->{itemtype} = $itemtype;

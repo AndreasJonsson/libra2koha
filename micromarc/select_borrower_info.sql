@@ -7,6 +7,7 @@ SELECT shBorrower.HomeUnit AS IdBranchCode,
 	     AND shContact.SecondNotes != '', '\n', NULL),
 	  IFNULL(shContact.SecondNotes, '')
 	) AS Comment,
+       shBorrower.MessageToBorrower AS Message,
        shBorrower.BirthDate AS BirthDate,
        shBorrower.RegDate AS RegDate,
        shBorrower.BorrowerGroupId AS IdBorrowerCategory,
