@@ -54,7 +54,7 @@ INSERT INTO reserves (borrowernumber, reservedate, biblionumber, branchcode,  re
 	 [% reservenotes %],
 	 IF(EXISTS (SELECT * FROM reserves WHERE biblionumber = @BIBLIONUMBER AND priority IS NOT NULL),
 	    (SELECT max(priority) + 1 FROM reserves WHERE biblionumber=@BIBLIONUMBER),
-         0),
+         1),
 	 (@FOUND := IF(@ITEMNUMBER IS NULL, NULL, IF(EXISTS (SELECT * FROM reserves WHERE itemnumber=@ITEMNUMBER), NULL, [% found %]))),
 	 [% timestamp %],
 	 @ITEMNUMBER,
