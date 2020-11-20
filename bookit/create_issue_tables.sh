@@ -1,4 +1,4 @@
-create_tables.pl --format="$SOURCE_FORMAT" --yearoffsethack=50  "${TABLE_PARAMS[@]}" --table "CI_LOAN" --table "CA_BOOKING" --table CI_LOAN_RETURN_LOG  --table "CI_REM" --table "CI_REM_MSG" --table "CI_REM_MSG_STATUS" --table SY_DEBT_TYPE --table SY_PAYMENT_TYPE --table CI_RENEWAL | eval $MYSQL_LOAD
+create_tables.pl "${TABLE_PARAMS[@]}" --dir "$tabledir" --table "CI_LOAN" --table "CA_BOOKING" --table CI_LOAN_RETURN_LOG  --table "CI_REM" --table "CI_REM_MSG" --table "CI_REM_MSG_STATUS" --table SY_DEBT_TYPE --table SY_PAYMENT_TYPE --table CI_RENEWAL | eval $MYSQL_LOAD
 
 # Now copy the BarCodes table so we can have one for items and one for borrowers
 $MYSQL <<EOF

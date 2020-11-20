@@ -19,3 +19,4 @@ CA_COPY_ID	int
 LOAN_DATETIME	datetime
 DUE_DATETIME	datetime
 RETURN_DATETIME	datetime
+INVOICE_NO	varchar	256

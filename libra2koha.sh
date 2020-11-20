@@ -235,6 +235,7 @@ else
 					     --row-delimiter='\n'               \
 					     --row-delimiter='\r\n'             \
 					     --output-row-delimiter='\n'        \
+					     --output-column-delimiter=','       \
 					     --enclosed-by="$QUOTE_CHAR"        \
 					     --null-literal                     \
 					     "$file" > "$tabledir"/"${name}${TABLEEXT}"
@@ -247,7 +248,7 @@ else
 
 fi
 
-declare -a TABLE_PARAMS=(--headerrows="$HEADER_ROWS" --spec="$SPECDIR" --specencoding="$SPECENCODING" --columndelimiter="$COLUMN_DELIMITER" --dir="$tabledir")
+declare -a TABLE_PARAMS=(--format="$SOURCE_FORMAT" --headerrows="$HEADER_ROWS" --spec="$SPECDIR" --specencoding="$SPECENCODING" --dir="$tabledir")
 
 if [[ "$TRANSFORM_TABLES" == "yes" ]]; then
     TABLE_PARAMS[$((${#TABLE_PARAMS[*]} + 1))]=--encoding=utf-8
@@ -262,6 +263,11 @@ if [[ -n "$ESCAPE_CHAR" ]]; then
 fi
 if [[ -n "$TABLEEXT" ]]; then
     TABLE_PARAMS[$((${#TABLE_PARAMS[*]} + 1))]=--ext="$TABLEEXT"
+fi
+if [[ -n "$COLUMN_DELIMITER" && "$transformed_tables" != "yes" ]]; then
+    TABLE_PARAMS[$((${#TABLE_PARAMS[*]} + 1))]=--columndelimiter="$COLUMN_DELIMITER"
+else
+    TABLE_PARAMS[$((${#TABLE_PARAMS[*]} + 1))]=--columndelimiter=","
 fi
 if [[ -n "$ROW_DELIMITER" && "$transformed_tables" != "yes" ]]; then
     TABLE_PARAMS[$((${#TABLE_PARAMS[*]} + 1))]=--rowdelimiter="$ROW_DELIMITER"
