@@ -231,12 +231,17 @@ while (my $row = $get_row->()) {
 
     my $key     = $keyextract->($row);
 
+    utf8::upgrade($key);
+
     next unless $keyuniq->($key);
 
     my $value   = '';
     if (defined($opt->value)) {
 	$value = $row->[$opt->value];
     }
+
+    utf8::upgrade($value);
+
     if (defined($opt->filterval) && defined($opt->filtercol)) {
 	my $filterval = $row->[$opt->filtercol];
 	my $filtercol = $opt->filtercol;
@@ -250,8 +255,6 @@ while (my $row = $get_row->()) {
 	$key =~ s/["\\]/\\$&/g;
 	$key = '"' . $key . '"';
     }
-    #utf8::decode($key);
-    #utf8::decode($value);
     my $line = Dump({ $key => $value });
     chomp $line;
     say $line, " # $comment";

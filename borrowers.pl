@@ -73,7 +73,7 @@ my $config_dir = $opt->config;
 my $limit = $opt->limit;
 
 if ($opt->passwords) {
-#    use Koha::AuthUtils qw(hash_password);
+    use Koha::AuthUtils qw(hash_password);
 }
 
 use Data::Dumper;

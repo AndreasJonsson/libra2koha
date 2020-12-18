@@ -51,7 +51,16 @@ sub next {
 	    }
 	}
 
-	$record = $self->{batch}->next();
+        while (1) {
+            eval {
+                $record = $self->{batch}->next();
+            };
+            if ($@) {
+                warn "Broken record: $@";
+                next;
+            }
+            last;
+        }
 
 	if (defined $record) {
 	    if ($record->encoding() eq 'MARC-8') {

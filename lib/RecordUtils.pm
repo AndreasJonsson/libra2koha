@@ -2,7 +2,7 @@ package RecordUtils;
 
 $VERSION     = 1.00;
 @ISA         = qw(Exporter);
-@EXPORT      = qw(copy copy_merge copy_merge_with_fallback cmp_records cmp_field trim load_yaml);
+@EXPORT      = qw(copy copy_merge copy_merge_with_fallback cmp_records cmp_field trim load_yaml match_field match_fied_re);
 @EXPORT_OK   = qw();
 
 use Modern::Perl;
@@ -277,6 +277,46 @@ sub postproc_yaml_data {
 	die "Unexpected reftype: " . reftype $data;
     }
 }
+
+sub match_field {
+    my ($record, $value, $tag, $subtag, $ind1, $ind2) = @_;
+
+    for my $field ($record->field($tag)) {
+        if (defined $ind1) {
+            next if ($field->indicator(1) ne $ind1);
+        }
+        if (defined $ind2) {
+            next if ($field->indicator(2) ne $ind2);
+        }
+        for my $sf ($field->subfield($subtag)) {
+            if (lc($sf) eq lc($value)) {
+                return 1;
+            }
+        }
+    }
+    return 0;
+}
+
+sub match_field_re {
+    my ($record, $re, $tag, $subtag, $ind1, $ind2) = @_;
+    
+    for my $field ($record->field($tag)) {
+        if (defined $ind1) {
+            next if ($field->indicator(1) ne $ind1);
+        }
+        if (defined $ind2) {
+            next if ($field->indicator(2) ne $ind2);
+        }
+        for my $sf ($field->subfield($subtag)) {
+            $sf = lc($sf);
+            if ($sf =~ /$re/) {
+                return 1;
+            }
+        }
+    }
+    return 0;
+}
+
 
 
 1;

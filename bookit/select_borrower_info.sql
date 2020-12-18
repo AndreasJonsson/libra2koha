@@ -1,4 +1,4 @@
-SELECT DISTINCT CI_ACCOUNT.GE_ORG_ID AS IdBranchCode,
+SELECT DISTINCT IFNULL(CI_ACCOUNT.DEF_PICKUP_PLACE, CI_BORR.CI_UNIT_ID) AS IdBranchCode,
        CI_BORR.CI_BORR_ID AS IdBorrower,
        barcodes.barcodes AS BarCode,
        CI_BORR.NOTE AS Comment,

@@ -1,4 +1,4 @@
-#!/usr/bin/perl
+#!/usr/bin/perl -d
 
 # Copyright 2015 Magnus Enger Libriotech
 # Copyright 2017 Andreas Jonsson, andreas.jonsson@kreablo.se
@@ -257,6 +257,12 @@ if ( -f $config_dir . '/loanperiods.yaml' ) {
     $loanperiods = load_yaml($config_dir . '/loanperiods.yaml');
 }
 
+my $itemtype_map;
+if ( -f $config_dir . '/itemtype-map.yaml' ) {
+    print STDERR "Loading itemtype-map.yaml" if $opt->verbose;
+    $itemtype_map = load_yaml($config_dir . '/itemtype-map.yaml')
+}
+
 my $config_tables = {
     branchcodes => $branchcodes,
     loc => $loc,
@@ -428,8 +434,16 @@ Record level actions
 my $count = 0;
 my $count_items = 0;
 say "Starting record iteration" if $opt->verbose;
- RECORD: while (my $record = $recordsrc->next()) {
+ RECORD: while (1) {
+     my $record;
+     eval {
+         $record = $recordsrc->next();
+     };
+     warn "Broken record: $@" and next RECORD if ($@);
 
+     last unless $record;
+
+     
       # Only do every x record
       if ( $opt->every && ( $count % $opt->every != 0 ) ) {
 	  $count++;
@@ -581,7 +595,7 @@ L<http://wiki.koha-community.org/wiki/Holdings_data_fields_%289xx%29>
 	  say "catid: $catid" if $opt->verbose;
 	  # add_catitem_stat($catid);
 	  # Look up items by recordid in the DB and add them to our record
-	  if ($recordid eq 'b5daf82f-a5cd-45b4-9730-d9ecde6165b') {
+	  if ($recordid eq '7106169' or $recordid eq '0000123708') {
 	      say "Interesting record";
 	  }
 
@@ -667,12 +681,11 @@ which values are actually in use:
 
 =cut
 	my $localshelf;
-	if (defined($item->{'LocalShelf'})) {
-	    $localshelf = $item->{'LocalShelf'};
-	    $mmc->set($location_field, $localshelf);
-	} elsif (defined($item->{'IdLocalShelf'})) {
-	    # $field952->add_subfields( 'c', $item->{'IdDepartment'} ) if $item->{'IdDepartment'};
+        if (defined($item->{'IdLocalShelf'}) && exists $loc->{ $item->{'IdLocalShelf'}}) {
 	    $localshelf = $loc->{ $item->{'IdLocalShelf'} };
+	    $mmc->set($location_field, $localshelf);
+        } elsif (defined($item->{'LocalShelf'})) {
+	    $localshelf = $item->{'LocalShelf'};
 	    $mmc->set($location_field, $localshelf);
 	}
 
@@ -856,7 +869,7 @@ debug output. Run C<perldoc itemtypes.pl> for more documentation.
 	    $itemtype = $media_types->{$media_type} if defined $media_type;
 	}
 	unless (defined $itemtype && $itemtype ne '') {
-	    $itemtype = get_itemtype( $record );
+	    $itemtype = resolve_itemtype( $record );
 	    if ($itemtype eq 'X') {
 		my $biblioitemtype = $mmc->get('biblioitemtype');
 		if (defined $biblioitemtype) {
@@ -864,9 +877,9 @@ debug output. Run C<perldoc itemtypes.pl> for more documentation.
 		}
 	    }
 	}
-	# $itemtype = refine_itemtype( $mmc, $record, $item, $itemtype, $media_type );
 
 	$mmc->set('itemtype', $itemtype);
+        add_itemtype_stat($itemtype);
 	$item->{itemtype} = $itemtype;
         $last_itemtype = $itemtype;
 
@@ -962,8 +975,8 @@ Just add the itemtype in 942$c.
 	  my $itemtype = $mmc->get('items.itype');
 	  $last_itemtype = $itemtype;
 	  if (!defined $itemtype) {
-	      $itemtype = get_itemtype( $record );
-	      $last_itemtype = refine_itemtype( $mmc, $record, undef, $itemtype );
+	      $itemtype = resolve_itemtype( $record );
+	      $last_itemtype = $itemtype;
 	  }
 	  unless($mmc->get('biblioitemtype')) {
 	      $mmc->set('biblioitemtype', $last_itemtype);
@@ -1385,6 +1398,19 @@ sub clean_field {
 	    $f->data($1);
 	}
     }
+}
+
+sub resolve_itemtype {
+    my ($record) = @_;
+
+
+    my $itemtype = get_itemtype($record);
+
+    if (defined $itemtype_map && defined $itemtype_map->{$itemtype}) {
+        return $itemtype_map->{$itemtype};
+    }
+
+    return $itemtype;
 }
 
 =head1 AUTHOR
