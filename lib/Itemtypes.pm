@@ -35,7 +35,7 @@ sub match_score {
         my $ca = substr($a, $i, 1);
         my $cb = substr($b, $i, 1);
 
-        if ($ca ne '*' && $cb ne '*') {
+        if ($ca ne '*') {
             if ($ca eq $cb) {
                 $score += $match_score[$i];
             } else {

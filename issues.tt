@@ -24,11 +24,7 @@ INSERT INTO issues ( borrowernumber, itemnumber, date_due, branchcode, renewals,
     [% NoOfRenewals %], -- renewals
     [% issuedate %], -- issuedate
     [% note %],
-    (SELECT IFNULL((SELECT auto_renew FROM issuingrules AS r
-             WHERE 0 AND (r.categorycode IN (@CATEGORYCODE, '*'))
-	             AND (r.itemtype IN (@ITYPE, '*'))
-		     AND (r.branchcode IN ([% branchcode %], '*'))
-                 ORDER BY r.branchcode DESC, r.categorycode DESC, r.itemtype DESC LIMIT 1), 0))
+    0
 
   FROM DUAL WHERE @ITEMNUMBER IS NOT NULL AND NOT @ITEM_BORROWED;
 

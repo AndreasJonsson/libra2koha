@@ -245,6 +245,7 @@ RECORD: while ( my $borrower = $sth->fetchrow_hashref() ) {
 	$borrower->{updated_on} = "'" . DateTime->now->strftime( '%F' ) .  "'";
     }
 
+    if (0) {
     for my $key (keys %$borrower) {
 	if ($key =~ /^BorrowerAttribute:([^:]+)(?:[:](.*))?$/) {
 	    my $val = $borrower->{$key};
@@ -261,6 +262,7 @@ RECORD: while ( my $borrower = $sth->fetchrow_hashref() ) {
 		push @borrower_attributes, $attr;
 	    }
 	}
+    }
     }
 
     set_address( $borrower, \@borrower_attributes );
@@ -397,11 +399,13 @@ RECORD: while ( my $borrower = $sth->fetchrow_hashref() ) {
 	    'attribute' => $dbh->quote($borrower->{RegId})
 	};
     }
+    if (0) {
     while (scalar(@barcodes) > 0) {
 	push @borrower_attributes, {
 	    'code' => $dbh->quote('EXTRA_CARD'),
 	    'attribute' => $dbh->quote(shift @barcodes)
 	};
+    }
     }
 
     $borrower->{borrower_attributes} = \@borrower_attributes;
@@ -425,7 +429,7 @@ RECORD: while ( my $borrower = $sth->fetchrow_hashref() ) {
 	$bp->process($borrower, $dbh);
     }
 
-    $tt2->process( 'borrowers.tt', $borrower, \*STDOUT,  {binmode => ':utf8'} ) || die $tt2->error();
+    $tt2->process( 'borrowers_repair.tt', $borrower, \*STDOUT,  {binmode => ':utf8'} ) || die $tt2->error();
 
     #if ( $limit && $limit == $count ) {
     #last;

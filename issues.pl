@@ -10,6 +10,15 @@ issues.pl - Extract information about active issues (loans) and format for impor
 
  perl issues.pl -v --config /home/my/library/
 
+=head2 TODO fix autorenew
+
+    (SELECT IFNULL((SELECT auto_renew FROM issuingrules AS r
+             WHERE 0 AND (r.categorycode IN (@CATEGORYCODE, '*'))
+	             AND (r.itemtype IN (@ITYPE, '*'))
+		     AND (r.branchcode IN ([% branchcode %], '*'))
+                 ORDER BY r.branchcode DESC, r.categorycode DESC, r.itemtype DESC LIMIT 1), 0))
+
+
 =cut
 
 use DBI;

@@ -9,6 +9,7 @@ use Template;
 use utf8;
 use StatementPreparer;
 use TimeUtils;
+use RecordUtils;
 
 $YAML::Syck::ImplicitUnicode = 1;
 
@@ -120,6 +121,8 @@ sub set_type {
 	} elsif ($n eq 'ILL_BOOKING_FEE') {
 	    $d = 'RESERVE';
 	} elsif ($n eq 'OTHER_FEE') {
+	    $d = 'MANUAL';
+	} elsif ($n eq 'BOOKING_FEE_NO_PICKUP') {
 	    $d = 'MANUAL';
 	} elsif ($n eq 'Övertidsavgift') {
 	    $d = 'OVERDUE';

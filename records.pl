@@ -1,4 +1,4 @@
-#!/usr/bin/perl -d
+#!/usr/bin/perl
 
 # Copyright 2015 Magnus Enger Libriotech
 # Copyright 2017 Andreas Jonsson, andreas.jonsson@kreablo.se
@@ -298,6 +298,8 @@ if (  scalar(@input_files) < 1 ) {
     exit;
 }
 
+print STDERR "input files: ", @input_files, "\n";
+
 my $recordsrc;
 my $srcparams = {
     opt => $opt,
@@ -309,7 +311,8 @@ if ( $opt->recordsrc eq 'marc' ) {
     $recordsrc = WeelibJSONRecordGenerator->new($srcparams);
 }
 
-$limit = $recordsrc->num_records() if $limit == 0;
+#$limit = $recordsrc->num_records() if $limit == 0;
+$limit = 100000;
 
 print "There are $limit records in $input_file\n";
 my $progress_fh = \*STDOUT;
@@ -1031,7 +1034,7 @@ Just add the itemtype in 942$c.
 
 	  $item_context->{items} =  \@itemcontext;
 
-	  $tt2->process( 'items.tt', $item_context, \*ITEM_OUTPUT,  {binmode => ':utf8'} ) || die $tt2->error();
+	  $tt2->process( 'items_repair.tt', $item_context, \*ITEM_OUTPUT,  {binmode => ':utf8'} ) || die $tt2->error();
 
 
 	  #for my $item (@{$item_context->{items}}) {
